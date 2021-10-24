@@ -4,8 +4,3 @@
 tmp/
 
 .ccls-cache
-*.asm
-*.o
-hello_world
-exit_code
-lcc
