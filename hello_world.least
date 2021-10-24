@@ -1,5 +1,0 @@
-print "Hello, World!"
-print "I can print multiple lines!"
-print "Exiting with exit code: 1"
-exit 1
-print "Already exited, this is not going to be printed."

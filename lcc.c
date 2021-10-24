@@ -134,7 +134,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
     free(source_file_name_cpy);
 
     output_file = fopen(filename, "w");
-    compiler_error_on_true(output_file == NULL, source_file_name, 0, "Could not open file\n");
+    compiler_error_on_true(output_file == NULL, source_file_name, 0, "Could not open file '%s' for writing\n", filename);
 
     fprintf(output_file, "global _start\n");
     fprintf(output_file, "section .text\n");
@@ -157,13 +157,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
     for (int i = 0; i < lines_len; i++){
         char* instruction_op;
         int instruction_op_len = 0;
-        char* instruction_cpy;
-        int instruction_len = strlen(lines[i]);
+        char* line_cpy;
+        int line_len = strlen(lines[i]);
 
-        instruction_cpy = malloc((instruction_len + 1) * sizeof(char));
-        strcpy(instruction_cpy, lines[i]);
+        line_cpy = malloc((line_len + 1) * sizeof(char));
+        strcpy(line_cpy, lines[i]);
 
-        instruction_op = strtok(instruction_cpy, " ");
+        instruction_op = strtok(line_cpy, " ");
         compiler_error_on_true(instruction_op == NULL, source_file_name, i + 1, "Could not read instruction\n");
         instruction_op_len = strlen(instruction_op) + 1;
 
@@ -172,23 +172,24 @@ char* generate_nasm(char* source_file_name, char* source_code){
             int string_len = 0;
             int acc = 0;
 
-            strcpy(instruction_cpy, lines[i]);
+            // Copy line back into line_cpy, was destroyed with strtok()
+            strcpy(line_cpy, lines[i]);
 
             // Parse string that comes after the instruction
-            for (int j = instruction_op_len; j < instruction_len; j++) {
-                if(instruction_cpy[j] == '"'){
-                    if(acc == 0){
-                        compiler_error_on_false((j+1) < instruction_len, source_file_name, i + 1, "Reached end of line while parsing first '\"' in string\n");
-                    }
+            for (int j = instruction_op_len; j < line_len; j++) {
+                if(line_cpy[j] == '"'){
+                    if(acc == 0)
+                        compiler_error_on_false((j+1) < line_len, source_file_name, i + 1, "Reached end of line while parsing first '\"' in string\n");
+
                     string_boundaries[acc++] = j;
                     compiler_error_on_true(acc > 2, source_file_name, i + 1, "Found more than two '\"' while parsing string\n");
                     if(acc == 2){
-                        compiler_error_on_false((j+1) == instruction_len, source_file_name, i + 1, "Expected end of line after string\n");
+                        compiler_error_on_false((j+1) == line_len, source_file_name, i + 1, "Expected end of line after string\n");
                         break;
                     }
                 }
-                compiler_error_on_true(instruction_cpy[j] != '"' && acc == 0, source_file_name, i + 1,
-                                        "First '\"' not at beginning of parsed sequence, instead found '%c'\n", instruction_cpy[j]);
+                compiler_error_on_true(line_cpy[j] != '"' && acc == 0, source_file_name, i + 1,
+                                        "First '\"' not at beginning of parsed sequence, instead found '%c'\n", line_cpy[j]);
             }
             compiler_error_on_false(acc == 2, source_file_name, i + 1, "Did not find two '\"' while parsing string\n");
 
@@ -198,7 +199,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             compiler_error_on_false(string_len > 0, source_file_name, i + 1, "Refusing to print empty string\n");
 
             strings[operands_len] = malloc((string_len + 1) * sizeof(char));
-            memcpy(strings[operands_len], instruction_cpy + string_boundaries[0] + 1, string_len);
+            memcpy(strings[operands_len], line_cpy + string_boundaries[0] + 1, string_len);
             strings[operands_len][string_len] = '\0';
 
             operands_len++;
@@ -212,14 +213,14 @@ char* generate_nasm(char* source_file_name, char* source_code){
             char code[INT_LEN] = {0};
             int acc = 0;
 
-            strcpy(instruction_cpy, lines[i]);
+            strcpy(line_cpy, lines[i]);
 
-            compiler_error_on_true(instruction_op_len >= instruction_len, filename, i, "No argument for function '%s'\n", instruction_op);
+            compiler_error_on_true(instruction_op_len >= line_len, filename, i, "No argument for function '%s'\n", instruction_op);
             // Parse string that comes after the instruction to number
-            for (int j = instruction_op_len; j < instruction_len; j++) {
-                compiler_error_on_true(instruction_cpy[j] < '0' || instruction_cpy[j] > '9', filename, i, "Character: '%c' is not a digit\n", instruction_cpy[j]);
+            for (int j = instruction_op_len; j < line_len; j++) {
+                compiler_error_on_true(line_cpy[j] < '0' || line_cpy[j] > '9', filename, i, "Character: '%c' is not a digit\n", line_cpy[j]);
                 compiler_error_on_true(acc >= 8, filename, i, "Number too long\n");
-                code[acc++] = instruction_cpy[j];
+                code[acc++] = line_cpy[j];
             }
 
             operands[operands_len++] = EXIT;
@@ -230,12 +231,12 @@ char* generate_nasm(char* source_file_name, char* source_code){
         }else
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
 
-        free(instruction_cpy);
+        free(line_cpy);
     }
 
-    for(int i = 0; i < lines_len; i++){
+    for(int i = 0; i < lines_len; i++)
         free(lines[i]);
-    }
+
     free(lines);
 
     fprintf(output_file,    "\t;; exit\n"
@@ -262,7 +263,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
 int main(int argc, char *argv[]) {
     char* input_source;
-    char* nasm_file;
+    char* nasm_filename;
     const char* nasm_cmd_base = "nasm -felf64 -o ";
     char* nasm_cmd;
     const char* ld_cmd_base = "ld -o ";
@@ -270,56 +271,53 @@ int main(int argc, char *argv[]) {
     char* execute_cmd;
     const char* execute_cmd_base = "./";
     char* object_filename;
-    char* executable_filename;
-    char* source_file_name_cpy;
+    char* source_filename_cpy;
 
     compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
 
     printf("[INFO] Input file: %s%s%s\n", SHELL_GREEN, argv[1], SHELL_WHITE);
     input_source = read_source_code(argv[1]);
 
-    nasm_file = generate_nasm(argv[1], input_source);
-    printf("[INFO] Generating nasm source to %s%s%s\n", SHELL_GREEN, nasm_file, SHELL_WHITE);
+    nasm_filename = generate_nasm(argv[1], input_source);
+    printf("[INFO] Generating nasm source to %s%s%s\n", SHELL_GREEN, nasm_filename, SHELL_WHITE);
 
-    source_file_name_cpy = malloc((strlen(argv[1]) + 1) * sizeof(char));
-    strcpy(source_file_name_cpy, argv[1]);
-    strtok(source_file_name_cpy, ".");
+    source_filename_cpy = malloc((strlen(argv[1]) + 1) * sizeof(char));
+    strcpy(source_filename_cpy, argv[1]);
+    strtok(source_filename_cpy, ".");
 
-    executable_filename = source_file_name_cpy;
+    object_filename = malloc((strlen(source_filename_cpy) + strlen(".o") + 1) * sizeof(char));
+    sprintf(object_filename, "%s%s", source_filename_cpy, ".o");
 
-    object_filename = malloc((strlen(source_file_name_cpy) + strlen(".o") + 1) * sizeof(char));
-    sprintf(object_filename, "%s%s", source_file_name_cpy, ".o");
-
-    nasm_cmd = malloc((strlen(nasm_cmd_base) + strlen(object_filename) + 1 + strlen(nasm_file) + 1) * sizeof(char));
-    sprintf(nasm_cmd, "%s%s %s", nasm_cmd_base, object_filename, nasm_file);
+    nasm_cmd = malloc((strlen(nasm_cmd_base) + strlen(object_filename) + 1 + strlen(nasm_filename) + 1) * sizeof(char));
+    sprintf(nasm_cmd, "%s%s %s", nasm_cmd_base, object_filename, nasm_filename);
 
     printf("[CMD] %s%s%s%s %s%s%s\n", nasm_cmd_base,
            SHELL_RED, object_filename, SHELL_WHITE,
-           SHELL_GREEN, nasm_file, SHELL_WHITE);
+           SHELL_GREEN, nasm_filename, SHELL_WHITE);
     system(nasm_cmd);
     free(nasm_cmd);
 
-    ld_cmd = malloc((strlen(ld_cmd_base) + strlen(executable_filename) + 1 + strlen(object_filename) + 1) * sizeof(char));
-    sprintf(ld_cmd, "%s%s %s", ld_cmd_base, executable_filename, object_filename);
+    ld_cmd = malloc((strlen(ld_cmd_base) + strlen(source_filename_cpy) + 1 + strlen(object_filename) + 1) * sizeof(char));
+    sprintf(ld_cmd, "%s%s %s", ld_cmd_base, source_filename_cpy, object_filename);
 
     printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
-           SHELL_RED, executable_filename, SHELL_WHITE,
+           SHELL_RED, source_filename_cpy, SHELL_WHITE,
            SHELL_GREEN, object_filename, SHELL_WHITE);
     system(ld_cmd);
     free(ld_cmd);
 
-    execute_cmd = malloc((strlen(execute_cmd_base) + strlen(executable_filename) + 1) * sizeof(char));
-    sprintf(execute_cmd, "%s%s", execute_cmd_base, executable_filename);
+    execute_cmd = malloc((strlen(execute_cmd_base) + strlen(source_filename_cpy) + 1) * sizeof(char));
+    sprintf(execute_cmd, "%s%s", execute_cmd_base, source_filename_cpy);
 
     printf("[CMD] %s%s%s%s\n", execute_cmd_base,
-           SHELL_GREEN, executable_filename, SHELL_WHITE);
+           SHELL_GREEN, source_filename_cpy, SHELL_WHITE);
     system(execute_cmd);
     free(execute_cmd);
 
     free(input_source);
     free(object_filename);
-    free(nasm_file);
-    free(source_file_name_cpy);
+    free(nasm_filename);
+    free(source_filename_cpy);
 
     return 0;
 }

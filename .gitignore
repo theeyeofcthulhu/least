@@ -7,4 +7,5 @@ tmp/
 *.asm
 *.o
 hello_world
+exit_code
 lcc
