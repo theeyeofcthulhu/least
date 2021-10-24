@@ -2,12 +2,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 
 #define OP_CAPACITY 1000
 #define STR_CAPACITY 1000
+
+#define INT_LEN 8
 
 #define SHELL_GREEN "\033[0;32m"
 #define SHELL_RED   "\033[0;31m"
@@ -33,7 +34,10 @@ void compiler_error_on_false(bool eval, char* source_file, int line, char* forma
     va_list format_params;
 
     printf("%sCompiler Error!\n", SHELL_RED);
-    printf("%s:%d ", source_file, line);
+    if(line == 0)
+        printf("%s: ", source_file);
+    else
+        printf("%s:%d ", source_file, line);
 
     va_start(format_params, format);
     vprintf(format, format_params);
@@ -51,7 +55,10 @@ void compiler_error_on_true(bool eval, char* source_file, int line, char* format
     va_list format_params;
 
     printf("%sCompiler Error!\n", SHELL_RED);
-    printf("%s:%d ", source_file, line);
+    if(line == 0)
+        printf("%s: ", source_file);
+    else
+        printf("%s:%d ", source_file, line);
 
     va_start(format_params, format);
     vprintf(format, format_params);
@@ -66,7 +73,10 @@ void compiler_error(char* source_file, int line, char* format, ...){
     va_list format_params;
 
     printf("%sCompiler Error!\n", SHELL_RED);
-    printf("%s:%d ", source_file, line);
+    if(line == 0)
+        printf("%s: ", source_file);
+    else
+        printf("%s:%d ", source_file, line);
 
     va_start(format_params, format);
     vprintf(format, format_params);
@@ -84,8 +94,7 @@ char* read_source_code(char* filename){
     char* result;
 
     input_file = fopen(filename, "r");
-
-    assert(input_file != NULL);
+    compiler_error_on_true(input_file == NULL, filename, 0, "Could not open file '%s'\n", filename);
 
     fseek(input_file, 0, SEEK_END);
     input_size = ftell(input_file);
@@ -125,7 +134,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
     free(source_file_name_cpy);
 
     output_file = fopen(filename, "w");
-    assert(output_file != NULL);
+    compiler_error_on_true(output_file == NULL, source_file_name, 0, "Could not open file\n");
 
     fprintf(output_file, "global _start\n");
     fprintf(output_file, "section .text\n");
@@ -135,6 +144,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         if(source_code[i] == '\n')
             lines_len++;
 
+    // Split file by '\n' chars and load into lines
     lines = malloc(lines_len * sizeof(char*));
     char* tmp_ptr = source_code, *line_ptr;
     for(int i = 0; (line_ptr = strtok(tmp_ptr, "\n")) != NULL; tmp_ptr = NULL, i++){
@@ -142,6 +152,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
         strcpy(lines[i], line_ptr);
     }
 
+    // Parse operations
+    // Things like print parse strings here and add them to 'strings'
     for (int i = 0; i < lines_len; i++){
         char* instruction_op;
         int instruction_op_len = 0;
@@ -152,29 +164,25 @@ char* generate_nasm(char* source_file_name, char* source_code){
         strcpy(instruction_cpy, lines[i]);
 
         instruction_op = strtok(instruction_cpy, " ");
-        assert(instruction_op != NULL);
+        compiler_error_on_true(instruction_op == NULL, source_file_name, i + 1, "Could not read instruction\n");
         instruction_op_len = strlen(instruction_op) + 1;
-
-        printf("OP: %s\n", instruction_op);
 
         if(strcmp(instruction_op, "print") == 0){
             int string_boundaries[2] = {0};
             int string_len = 0;
+            int acc = 0;
 
             strcpy(instruction_cpy, lines[i]);
 
-            int acc = 0;
+            // Parse string that comes after the instruction
             for (int j = instruction_op_len; j < instruction_len; j++) {
                 if(instruction_cpy[j] == '"'){
-                    // On first quotes: assert that the string goes on longer
                     if(acc == 0){
                         compiler_error_on_false((j+1) < instruction_len, source_file_name, i + 1, "Reached end of line while parsing first '\"' in string\n");
                     }
                     string_boundaries[acc++] = j;
-                    // Assert that quotes are only two
                     compiler_error_on_true(acc > 2, source_file_name, i + 1, "Found more than two '\"' while parsing string\n");
                     if(acc == 2){
-                        // On second quotes: assert that line has ended
                         compiler_error_on_false((j+1) == instruction_len, source_file_name, i + 1, "Expected end of line after string\n");
                         break;
                     }
@@ -182,19 +190,43 @@ char* generate_nasm(char* source_file_name, char* source_code){
                 compiler_error_on_true(instruction_cpy[j] != '"' && acc == 0, source_file_name, i + 1,
                                         "First '\"' not at beginning of parsed sequence, instead found '%c'\n", instruction_cpy[j]);
             }
-            // Assert that two quotes were found
             compiler_error_on_false(acc == 2, source_file_name, i + 1, "Did not find two '\"' while parsing string\n");
 
             operands[operands_len] = PRINT;
 
             string_len = string_boundaries[1] - string_boundaries[0] - 1;
             compiler_error_on_false(string_len > 0, source_file_name, i + 1, "Refusing to print empty string\n");
+
             strings[operands_len] = malloc((string_len + 1) * sizeof(char));
             memcpy(strings[operands_len], instruction_cpy + string_boundaries[0] + 1, string_len);
             strings[operands_len][string_len] = '\0';
+
             operands_len++;
+            fprintf(output_file,    "\t;; print\n"
+                                    "\tmov rax, 1\n"
+                                    "\tmov rdi, 1\n"
+                                    "\tmov rsi, str%d\n"
+                                    "\tmov rdx, str%dLen\n"
+                                    "\tsyscall\n", i, i);
         }else if(strcmp(instruction_op, "exit") == 0){
+            char code[INT_LEN] = {0};
+            int acc = 0;
+
+            strcpy(instruction_cpy, lines[i]);
+
+            compiler_error_on_true(instruction_op_len >= instruction_len, filename, i, "No argument for function '%s'\n", instruction_op);
+            // Parse string that comes after the instruction to number
+            for (int j = instruction_op_len; j < instruction_len; j++) {
+                compiler_error_on_true(instruction_cpy[j] < '0' || instruction_cpy[j] > '9', filename, i, "Character: '%c' is not a digit\n", instruction_cpy[j]);
+                compiler_error_on_true(acc >= 8, filename, i, "Number too long\n");
+                code[acc++] = instruction_cpy[j];
+            }
+
             operands[operands_len++] = EXIT;
+            fprintf(output_file,    "\t;; exit\n"
+                                    "\tmov rax, 60\n"
+                                    "\tmov rdi, %s\n"
+                                    "\tsyscall\n", code);
         }else
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
 
@@ -206,22 +238,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
     }
     free(lines);
 
-    for (int i = 0; i < operands_len; i++){
-        if(operands[i] == PRINT){
-            fprintf(output_file,    "\t;; print\n"
-                                    "\tmov rax, 1\n"
-                                    "\tmov rdi, 1\n"
-                                    "\tmov rsi, str%d\n"
-                                    "\tmov rdx, str%dLen\n"
-                                    "\tsyscall\n", i, i);
-        }else if(operands[i] == EXIT){
-            fprintf(output_file,    "\t;; exit\n"
-                                    "\tmov rax, 60\n"
-                                    "\tmov rdi, 0\n"
-                                    "\tsyscall\n");
-        }
-    }
-
     fprintf(output_file,    "\t;; exit\n"
                             "\tmov rax, 60\n"
                             "\tmov rdi, 0\n"
@@ -229,6 +245,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     fprintf(output_file,    "section .rodata\n");
 
+    // Parse strings into nasm strings in data section
     for(int i = 0; i < operands_len; i++){
         if(!strings[i])
             continue;
@@ -256,7 +273,7 @@ int main(int argc, char *argv[]) {
     char* executable_filename;
     char* source_file_name_cpy;
 
-    assert(argc >= 2);
+    compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
 
     printf("[INFO] Input file: %s%s%s\n", SHELL_GREEN, argv[1], SHELL_WHITE);
     input_source = read_source_code(argv[1]);
