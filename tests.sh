@@ -15,7 +15,7 @@ make
 
 echo -e "\nCompiling tests\n"
 
-FILES=(tests/hello_world.least tests/exit_code.least tests/if.least)
+FILES=(tests/hello_world.least tests/exit_code.least tests/if.least tests/ops.least)
 
 for file in "${FILES[@]}" ; do
     echo "Compiling $file"
@@ -50,10 +50,13 @@ else
     FAIL=1
 fi
 
+if [[ $(tests/ops) = $'3 is less than 4\n4 is greater than 3\n4 is not 3' ]]; then
+    echo "tests/ops printed expected results"
+else
+    echo "tests/ops did not print expected results"
+    FAIL=1
+fi
+
 if (( $FAIL == 0 )); then
     echo -e "\nAll test succeeded"
 fi
-
-echo -e "\nRunning git clean\n"
-
-git clean

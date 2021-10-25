@@ -1,0 +1,20 @@
+if 3 < 4
+   print "3 is less than 4"
+end
+if 3 < 2
+   print "unreachable"
+end
+
+if 4 > 3
+   print "4 is greater than 3"
+end
+if 2 > 2
+   print "unreachable"
+end
+
+if 4 != 3
+   print "4 is not 3"
+end
+if 3 != 3
+   print "unreachable"
+end

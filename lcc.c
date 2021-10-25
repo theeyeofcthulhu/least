@@ -22,6 +22,9 @@ NOOP,
 
 enum cmp_operations{
 EQUAL,
+LESS,
+GREATER,
+NOT_EQUAL,
 };
 
 typedef struct{
@@ -34,6 +37,24 @@ operation equals = {
 "==",
 EQUAL,
 "je",
+};
+
+operation less = {
+"<",
+LESS,
+"jl",
+};
+
+operation greater = {
+">",
+GREATER,
+"jg",
+};
+
+operation not_equals = {
+"!=",
+NOT_EQUAL,
+"jne",
 };
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
@@ -282,6 +303,12 @@ char* generate_nasm(char* source_file_name, char* source_code){
             // Parse operator
             if(strcmp(words[1], "==") == 0)
                 operator = equals;
+            else if(strcmp(words[1], "<") == 0)
+                operator = less;
+            else if(strcmp(words[1], ">") == 0)
+                operator = greater;
+            else if(strcmp(words[1], "!=") == 0)
+                operator = not_equals;
             else
                 compiler_error(source_file_name, i + 1, "Could not parse operator: '%s'\n", words[1]);
 
