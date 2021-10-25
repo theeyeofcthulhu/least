@@ -20,6 +20,22 @@ EXIT,
 NOOP,
 };
 
+enum cmp_operations{
+EQUAL,
+};
+
+typedef struct{
+    char* source_name;
+    int enum_name;
+    char* asm_name;
+}operation;
+
+operation equals = {
+"==",
+EQUAL,
+"je",
+};
+
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error_on_true(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error(char* source_file, int line, char* format, ...);
@@ -119,10 +135,11 @@ char* generate_nasm(char* source_file_name, char* source_code){
     int lines_len = 0;
     char* source_file_name_cpy;
 
-    int operands[OP_CAPACITY] = {0};
-    int operands_len = 0;
-
     char* strings[STR_CAPACITY] = {0};
+    int strings_len;
+
+    int end_stack[OP_CAPACITY] = {0};
+    int end_stack_acc = 0;
 
     source_file_name_cpy = malloc((strlen(source_file_name) + 1) * sizeof(char));
     strcpy(source_file_name_cpy, source_file_name);
@@ -146,15 +163,42 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     // Split file by '\n' chars and load into lines
     lines = malloc(lines_len * sizeof(char*));
-    char* tmp_ptr = source_code, *line_ptr;
-    for(int i = 0; (line_ptr = strtok(tmp_ptr, "\n")) != NULL; tmp_ptr = NULL, i++){
-        lines[i] = malloc((strlen(line_ptr) + 1) * sizeof(char));
-        strcpy(lines[i], line_ptr);
+    char* offset = source_code;
+
+    bool found_all = false;
+    int accumulator = 0;
+    while(!found_all){
+        char* next_offset = index(offset, '\n');
+        if(!next_offset){
+            found_all = true;
+            break;
+        }
+        if(next_offset - offset <= 0){
+            lines[accumulator++] = NULL;
+            offset = next_offset + 1;
+            continue;
+        }
+
+        char* space_offset = offset;
+        for(; space_offset < next_offset; space_offset++){
+            if(*space_offset != ' ')
+                break;
+        }
+
+        lines[accumulator] = malloc(((int)(next_offset - space_offset) + 1) * sizeof(char));
+        memcpy(lines[accumulator], space_offset, (int)(next_offset - space_offset));
+        lines[accumulator][(int)(next_offset - space_offset)] = '\0';
+
+        offset = next_offset + 1;
+        accumulator++;
     }
 
     // Parse operations
     // Things like print parse strings here and add them to 'strings'
     for (int i = 0; i < lines_len; i++){
+        if(!lines[i])
+            continue;
+
         char* instruction_op;
         int instruction_op_len = 0;
         char* line_cpy;
@@ -193,16 +237,14 @@ char* generate_nasm(char* source_file_name, char* source_code){
             }
             compiler_error_on_false(acc == 2, source_file_name, i + 1, "Did not find two '\"' while parsing string\n");
 
-            operands[operands_len] = PRINT;
-
             string_len = string_boundaries[1] - string_boundaries[0] - 1;
             compiler_error_on_false(string_len > 0, source_file_name, i + 1, "Refusing to print empty string\n");
 
-            strings[operands_len] = malloc((string_len + 1) * sizeof(char));
-            memcpy(strings[operands_len], line_cpy + string_boundaries[0] + 1, string_len);
-            strings[operands_len][string_len] = '\0';
+            strings_len = i + 1;
+            strings[i] = malloc((string_len + 1) * sizeof(char));
+            memcpy(strings[i], line_cpy + string_boundaries[0] + 1, string_len);
+            strings[i][string_len] = '\0';
 
-            operands_len++;
             fprintf(output_file,    "\t;; print\n"
                                     "\tmov rax, 1\n"
                                     "\tmov rdi, 1\n"
@@ -219,20 +261,62 @@ char* generate_nasm(char* source_file_name, char* source_code){
             // Parse string that comes after the instruction to number
             for (int j = instruction_op_len; j < line_len; j++) {
                 compiler_error_on_true(line_cpy[j] < '0' || line_cpy[j] > '9', filename, i, "Character: '%c' is not a digit\n", line_cpy[j]);
-                compiler_error_on_true(acc >= 8, filename, i, "Number too long\n");
+                compiler_error_on_true(acc >= INT_LEN, filename, i, "Number too long\n");
                 code[acc++] = line_cpy[j];
             }
 
-            operands[operands_len++] = EXIT;
             fprintf(output_file,    "\t;; exit\n"
                                     "\tmov rax, 60\n"
                                     "\tmov rdi, %s\n"
                                     "\tsyscall\n", code);
+        }else if(strcmp(instruction_op, "if") == 0){
+            operation operator;
+            char* words[3] = {0};
+
+            for (int i = 0; i < 3; i++) {
+                words[i] = strtok(NULL, " ");
+                compiler_error_on_true(words[i] == NULL, source_file_name, i + 1, "Could not parse three words after if\n");
+            }
+            compiler_error_on_true(strtok(NULL, " "), source_file_name, i + 1, "Found more than three words after if\n");
+
+            // Parse operator
+            if(strcmp(words[1], "==") == 0)
+                operator = equals;
+            else
+                compiler_error(source_file_name, i + 1, "Could not parse operator: '%s'\n", words[1]);
+
+            // Check if numbers are valid
+            for (int i = 0; i < 3; i++) {
+                if(i == 1)
+                    continue;
+
+                for(int j = 0; j < INT_LEN + 1 && j < strlen(words[i]); j++){
+                    compiler_error_on_true(words[i][j] < '0' || words[i][j] > '9', filename, i, "Character: '%c' is not a digit\n", words[i][j]);
+                    compiler_error_on_true(j >= INT_LEN, filename, i, "Number too long\n");
+                }
+            }
+
+            fprintf(output_file,    "\t;; if\n"
+                                    "\tmov rax, %s\n"
+                                    "\tcmp rax, %s\n"
+                                    "\t%s .if%d\n"
+                                    "\tjmp .end%d\n"
+                                    "\t.if%d:\n", words[0], words[2], operator.asm_name, i, i, i);
+            end_stack[end_stack_acc++] = i;
+
+        }else if(strcmp(instruction_op, "end") == 0){
+            compiler_error_on_true(line_len > instruction_op_len, source_file_name, i + 1, "Expected end of line after 'end' instruction\n");
+            compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'end'\n");
+
+            fprintf(output_file,    "\t;; end\n"
+                                    "\t.end%d:\n", end_stack[--end_stack_acc]);
         }else
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
 
         free(line_cpy);
     }
+
+    compiler_error_on_true(end_stack_acc != 0, filename, 0, "Not all conditionals resolved\n");
 
     for(int i = 0; i < lines_len; i++)
         free(lines[i]);
@@ -247,7 +331,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
     fprintf(output_file,    "section .rodata\n");
 
     // Parse strings into nasm strings in data section
-    for(int i = 0; i < operands_len; i++){
+    for(int i = 0; i < strings_len; i++){
         if(!strings[i])
             continue;
         fprintf(output_file, "\tstr%d: db \"%s\", 10\n"
