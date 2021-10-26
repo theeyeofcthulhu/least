@@ -1,0 +1,37 @@
+int inta 2
+int intb 7
+
+if inta < intb
+   print "2 is less than 7"
+end
+if inta > intb
+   print "unreachable"
+end
+
+int intc 8
+
+if 10 > intc
+   print "successfully used numeric constant and variable"
+end
+
+int intd 9
+
+if intd > intc
+   if inta != intb
+      print "nested if with int"
+   end
+   print "9 is greater than 8"
+end
+if intd < intc
+   print "unreachable"
+end
+
+int inte 1
+int intf 1
+
+if inte == intf
+   print "1 equals 1"
+end
+if inte != intf
+   print "unreachable"
+end

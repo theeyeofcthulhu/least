@@ -57,12 +57,16 @@ NOT_EQUAL,
 "jne",
 };
 
+typedef struct{
+    char* name;
+    char* value;
+}int_var;
+
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error_on_true(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error(char* source_file, int line, char* format, ...);
 char* read_source_code(char* filename);
 char* generate_nasm(char* source_file_name, char* source_code);
-void process_line_to_nasm(char* line, FILE* nasm_file);
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...){
     if(eval)
@@ -161,6 +165,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     int end_stack[OP_CAPACITY] = {0};
     int end_stack_acc = 0;
+
+    int_var int_vars[OP_CAPACITY] = {0};
+    int int_var_acc = 0;
 
     source_file_name_cpy = malloc((strlen(source_file_name) + 1) * sizeof(char));
     strcpy(source_file_name_cpy, source_file_name);
@@ -313,19 +320,27 @@ char* generate_nasm(char* source_file_name, char* source_code){
                 compiler_error(source_file_name, i + 1, "Could not parse operator: '%s'\n", words[1]);
 
             // Check if numbers are valid
-            for (int i = 0; i < 3; i++) {
-                if(i == 1)
+            for (int j = 0; j < 3; j++) {
+                if(j == 1)
                     continue;
 
-                for(int j = 0; j < INT_LEN + 1 && j < strlen(words[i]); j++){
-                    compiler_error_on_true(words[i][j] < '0' || words[i][j] > '9', filename, i, "Character: '%c' is not a digit\n", words[i][j]);
-                    compiler_error_on_true(j >= INT_LEN, filename, i, "Number too long\n");
+                bool found_int = false;
+                for (int k = 0; k < int_var_acc; k++) {
+                    if(strcmp(int_vars[k].name, words[j]) == 0)
+                        found_int = true;
+                }
+                if(found_int)
+                    continue;
+                for(int k = 0; k < INT_LEN + 1 && k < strlen(words[j]); k++){
+                    compiler_error_on_true(words[j][k] < '0' || words[j][k] > '9', filename, i + 1,
+                                           "Character: '%c' is not a digit and '%s' is not a defined variable\n", words[j][k], words[j]);
+                    compiler_error_on_true(k >= INT_LEN, filename, i + 1, "Number too long\n");
                 }
             }
 
             fprintf(output_file,    "\t;; if\n"
-                                    "\tmov rax, %s\n"
-                                    "\tcmp rax, %s\n"
+                                    "\tmov eax, %s\n"
+                                    "\tcmp eax, %s\n"
                                     "\t%s .if%d\n"
                                     "\tjmp .end%d\n"
                                     "\t.if%d:\n", words[0], words[2], operator.asm_name, i, i, i);
@@ -337,6 +352,36 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
             fprintf(output_file,    "\t;; end\n"
                                     "\t.end%d:\n", end_stack[--end_stack_acc]);
+        }else if(strcmp(instruction_op, "int") == 0){
+            compiler_error_on_true(instruction_op_len >= line_len, filename, i + 1, "No argument for assigning int\n");
+
+            char* words[2] = {0};
+            int_var new_int;
+
+            for (int i = 0; i < 2; i++) {
+                words[i] = strtok(NULL, " ");
+                compiler_error_on_true(words[i] == NULL, source_file_name, i + 1, "Could not parse two words after if\n");
+            }
+            compiler_error_on_true(strtok(NULL, " "), source_file_name, i + 1, "Found more than two words after if\n");
+
+            // Parse string that comes after the instruction to number
+            for (int j = 0; j < strlen(words[0]); j++) {
+                compiler_error_on_true(words[0][j] >= '0' && words[0][j] <= '9', filename, i + 1, "Character: '%c' is a digit\n", words[0][j]);
+            }
+            for(int j = 0; j < int_var_acc; j++){
+                compiler_error_on_true(strcmp(words[0], int_vars[j].name) == 0, source_file_name, i + 1, "Redifinition of '%s'\n", words[0]);
+            }
+            new_int.name = malloc((strlen(words[0]) + 1) * sizeof(char));
+            strcpy(new_int.name, words[0]);
+
+            for(int j = 0; j < INT_LEN + 1 && j < strlen(words[1]); j++){
+                compiler_error_on_true(words[1][j] < '0' || words[1][j] > '9', filename, i + 1, "Character: '%c' is not a digit\n", words[1][j]);
+                compiler_error_on_true(j >= INT_LEN, filename, i + 1, "Number too long\n");
+            }
+            new_int.value = malloc((strlen(words[1]) + 1) * sizeof(char));
+            strcpy(new_int.value, words[1]);
+
+            int_vars[int_var_acc++] = new_int;
         }else
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
 
@@ -365,6 +410,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
                "\tstr%dLen: equ $ - str%d\n",
                i, strings[i], i, i);
         free(strings[i]);
+    }
+
+    // Parse ints into constants
+    for(int i = 0; i < int_var_acc; i++){
+        fprintf(output_file, "\t%s: equ %s\n", int_vars[i].name, int_vars[i].value);
+        free(int_vars[i].name);
+        free(int_vars[i].value);
     }
 
     fclose(output_file);

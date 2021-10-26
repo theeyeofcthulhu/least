@@ -2,6 +2,10 @@
 
 FAIL=false
 
+SHELL_GREEN="\033[0;32m"
+SHELL_RED="\033[0;31m"
+SHELL_WHITE="\033[0;37m"
+
 function test_program_compile {
     $@ > /dev/null
     local status=$?
@@ -15,7 +19,7 @@ make
 
 echo -e "\nCompiling tests\n"
 
-FILES=(tests/hello_world.least tests/exit_code.least tests/if.least tests/ops.least)
+FILES=(tests/hello_world.least tests/exit_code.least tests/if.least tests/ops.least tests/int.least)
 
 for file in "${FILES[@]}" ; do
     echo "Compiling $file"
@@ -57,6 +61,16 @@ else
     FAIL=1
 fi
 
+if [[ $(tests/int) = $'2 is less than 7\nsuccessfully used numeric constant and variable\nnested if with int\n9 is greater than 8\n1 equals 1' ]]; then
+    echo "tests/int printed expected results"
+else
+    echo "tests/int did not print expected results"
+    FAIL=1
+fi
+
 if (( $FAIL == 0 )); then
-    echo -e "\nAll test succeeded"
+    echo -e "$SHELL_GREEN\nAll test succeeded$SHELL_WHITE"
+else
+    echo -e "$SHELL_RED\nSome tests failed$SHELL_WHITE"
+    exit 1
 fi
