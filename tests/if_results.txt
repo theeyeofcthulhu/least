@@ -1,0 +1,3 @@
+2 is equal to 2
+Second instruction inside if block
+nested if

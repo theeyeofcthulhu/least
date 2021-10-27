@@ -1,0 +1,5 @@
+2 is less than 7
+successfully used numeric constant and variable
+nested if with int
+9 is greater than 8
+1 equals 1
