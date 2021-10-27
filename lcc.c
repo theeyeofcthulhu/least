@@ -22,39 +22,26 @@ NOOP,
 
 enum cmp_operations{
 EQUAL,
-LESS,
-GREATER,
 NOT_EQUAL,
+LESS,
+LESS_OR_EQ,
+GREATER,
+GREATER_OR_EQ,
+OPERATION_ENUM_END,
 };
 
 typedef struct{
     char* source_name;
-    int enum_name;
     char* asm_name;
 }operation;
 
-operation equals = {
-"==",
-EQUAL,
-"je",
-};
-
-operation less = {
-"<",
-LESS,
-"jl",
-};
-
-operation greater = {
-">",
-GREATER,
-"jg",
-};
-
-operation not_equals = {
-"!=",
-NOT_EQUAL,
-"jne",
+const operation operation_structs[OPERATION_ENUM_END] = {
+{"==",   "je"},
+{"!=",   "jne"},
+{"<",    "jl"},
+{"<=",   "jle"},
+{">",    "jg"},
+{">=",   "jge"},
 };
 
 typedef struct{
@@ -221,6 +208,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         accumulator++;
     }
 
+    // TODO: generalize expecting a number/variable through functions or something
     // Parse operations
     // Things like print parse strings here and add them to 'strings'
     for (int i = 0; i < lines_len; i++){
@@ -307,17 +295,10 @@ char* generate_nasm(char* source_file_name, char* source_code){
             }
             compiler_error_on_true(strtok(NULL, " "), source_file_name, i + 1, "Found more than three words after if\n");
 
-            // Parse operator
-            if(strcmp(words[1], "==") == 0)
-                operator = equals;
-            else if(strcmp(words[1], "<") == 0)
-                operator = less;
-            else if(strcmp(words[1], ">") == 0)
-                operator = greater;
-            else if(strcmp(words[1], "!=") == 0)
-                operator = not_equals;
-            else
-                compiler_error(source_file_name, i + 1, "Could not parse operator: '%s'\n", words[1]);
+            for(int j = 0; j < OPERATION_ENUM_END; j++){
+                if(strcmp(words[1], operation_structs[j].source_name) == 0)
+                    operator = operation_structs[j];
+            }
 
             // Check if numbers are valid
             for (int j = 0; j < 3; j++) {
