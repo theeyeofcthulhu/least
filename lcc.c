@@ -14,12 +14,6 @@
 #define SHELL_RED   "\033[0;31m"
 #define SHELL_WHITE "\033[0;37m"
 
-enum operands{
-PRINT,
-EXIT,
-NOOP,
-};
-
 enum cmp_operations{
 EQUAL,
 NOT_EQUAL,
@@ -47,6 +41,7 @@ const operation operation_structs[OPERATION_ENUM_END] = {
 typedef struct{
     char* name;
     char* value;
+    char* mem_addr_ref;
 }int_var;
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
@@ -54,6 +49,7 @@ void compiler_error_on_true(bool eval, char* source_file, int line, char* format
 void compiler_error(char* source_file, int line, char* format, ...);
 char* read_source_code(char* filename);
 char* generate_nasm(char* source_file_name, char* source_code);
+char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...){
     if(eval)
@@ -268,23 +264,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tmov rdx, str%dLen\n"
                                     "\tsyscall\n", i, i);
         }else if(strcmp(instruction_op, "exit") == 0){
-            char code[INT_LEN] = {0};
-            int acc = 0;
-
-            strcpy(line_cpy, lines[i]);
-
-            compiler_error_on_true(instruction_op_len >= line_len, filename, i, "No argument for function '%s'\n", instruction_op);
-            // Parse string that comes after the instruction to number
-            for (int j = instruction_op_len; j < line_len; j++) {
-                compiler_error_on_true(line_cpy[j] < '0' || line_cpy[j] > '9', filename, i, "Character: '%c' is not a digit\n", line_cpy[j]);
-                compiler_error_on_true(acc >= INT_LEN, filename, i, "Number too long\n");
-                code[acc++] = line_cpy[j];
-            }
+            char* rest_of_line = strtok(NULL, "\0");
+            parse_number(rest_of_line, source_file_name, i, int_vars, int_var_acc);
 
             fprintf(output_file,    "\t;; exit\n"
                                     "\tmov rax, 60\n"
                                     "\tmov rdi, %s\n"
-                                    "\tsyscall\n", code);
+                                    "\tsyscall\n", rest_of_line);
         }else if(strcmp(instruction_op, "if") == 0){
             operation operator;
             char* words[3] = {0};
@@ -305,23 +291,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
                 if(j == 1)
                     continue;
 
-                bool found_int = false;
-                for (int k = 0; k < int_var_acc; k++) {
-                    if(strcmp(int_vars[k].name, words[j]) == 0)
-                        found_int = true;
-                }
-                if(found_int)
-                    continue;
-                for(int k = 0; k < INT_LEN + 1 && k < strlen(words[j]); k++){
-                    compiler_error_on_true(words[j][k] < '0' || words[j][k] > '9', filename, i + 1,
-                                           "Character: '%c' is not a digit and '%s' is not a defined variable\n", words[j][k], words[j]);
-                    compiler_error_on_true(k >= INT_LEN, filename, i + 1, "Number too long\n");
-                }
+                words[j] = parse_number(words[j], source_file_name, i, int_vars, int_var_acc);
             }
 
             fprintf(output_file,    "\t;; if\n"
                                     "\tmov eax, %s\n"
-                                    "\tcmp eax, %s\n"
+                                    "\tmov ebx, %s\n"
+                                    "\tcmp eax, ebx\n"
                                     "\t%s .if%d\n"
                                     "\tjmp .end%d\n"
                                     "\t.if%d:\n", words[0], words[2], operator.asm_name, i, i, i);
@@ -352,7 +328,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             for(int j = 0; j < int_var_acc; j++){
                 compiler_error_on_true(strcmp(words[0], int_vars[j].name) == 0, source_file_name, i + 1, "Redifinition of '%s'\n", words[0]);
             }
-            new_int.name = malloc((strlen(words[0]) + 1) * sizeof(char));
+            new_int.name = malloc((strlen(words[0]) + 1 + 2) * sizeof(char));
             strcpy(new_int.name, words[0]);
 
             for(int j = 0; j < INT_LEN + 1 && j < strlen(words[1]); j++){
@@ -361,6 +337,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
             }
             new_int.value = malloc((strlen(words[1]) + 1) * sizeof(char));
             strcpy(new_int.value, words[1]);
+
+            new_int.mem_addr_ref = malloc((strlen(words[0]) + 1 + 2) * sizeof(char));
+            sprintf(new_int.mem_addr_ref, "[%s]", words[0]);
 
             int_vars[int_var_acc++] = new_int;
         }else
@@ -395,14 +374,29 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     // Parse ints into constants
     for(int i = 0; i < int_var_acc; i++){
-        fprintf(output_file, "\t%s: equ %s\n", int_vars[i].name, int_vars[i].value);
+        fprintf(output_file, "\t%s: dd %s\n", int_vars[i].name, int_vars[i].value);
         free(int_vars[i].name);
         free(int_vars[i].value);
+        free(int_vars[i].mem_addr_ref);
     }
 
     fclose(output_file);
 
     return filename;
+}
+
+char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars){
+    for (int i = 0; i < len_int_vars; i++) {
+        if(strcmp(int_vars[i].name, expression) == 0)
+            return int_vars[i].mem_addr_ref;
+    }
+    for(int i = 0; i < INT_LEN + 1 && i < strlen(expression); i++){
+        compiler_error_on_true(expression[i] < '0' || expression[i] > '9', filename, line + 1,
+                                "Unknown word: '%s'\n", expression);
+        compiler_error_on_true(i >= INT_LEN, filename, line + 1, "Number too long\n");
+    }
+
+    return expression;
 }
 
 int main(int argc, char *argv[]) {

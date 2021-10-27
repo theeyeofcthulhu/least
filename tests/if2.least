@@ -1,0 +1,26 @@
+int inta 1000
+int intb 900
+
+if intb < inta
+   print "reach1"
+end
+
+if inta < intb
+   print "unreach1"
+end
+
+if inta == intb
+   print "unreach2"
+end
+
+if inta != intb
+   print "reach2"
+end
+
+if 2 < intb
+   print "reach3"
+end
+
+if inta > 8000
+   print "unreach3"
+end
