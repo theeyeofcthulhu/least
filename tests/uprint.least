@@ -1,0 +1,9 @@
+uprint 23
+
+uprint 203
+
+uprint 30
+
+int a 3434
+
+uprint a
