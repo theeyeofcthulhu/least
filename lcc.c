@@ -152,6 +152,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
     int_var int_vars[OP_CAPACITY] = {0};
     int int_var_acc = 0;
 
+    bool require_uprint = false;
+
     source_file_name_cpy = malloc((strlen(source_file_name) + 1) * sizeof(char));
     strcpy(source_file_name_cpy, source_file_name);
 
@@ -264,32 +266,14 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tmov rdx, str%dLen\n"
                                     "\tsyscall\n", i, i);
         }else if(strcmp(instruction_op, "uprint") == 0){
+            require_uprint = true;
+
             char* rest_of_line = strtok(NULL, "\0");
             rest_of_line = parse_number(rest_of_line, source_file_name, i, int_vars, int_var_acc);
 
             fprintf(output_file,    "\t;; uprint\n"
-                                    "\tmov r8, 0\n"
                                     "\tmov rax, %s\n"
-
-                                    "\t.uprint%d1:\n"
-                                    "\tcall divten\n"
-                                    "\tadd rdx, 0x30\n"
-                                    "\tpush rdx\n"
-                                    "\tinc r8\n"
-                                    "\tcmp rax, 0\n"
-                                    "\tjne .uprint%d1\n"
-
-                                    "\t.uprint%d2:\n"
-                                    "\tmov rsi, rsp\n"
-                                    "\tcall putchar\n"
-                                    "\tpop rax\n"
-                                    "\tdec r8\n"
-                                    "\tjne .uprint%d2\n"
-
-                                    "\tpush 10\n"
-                                    "\tcall putchar\n"
-                                    "\tpop rax\n"
-                                    "\tsyscall\n", rest_of_line, i, i, i, i);
+                                    "\tcall uprint\n", rest_of_line);
         }else if(strcmp(instruction_op, "exit") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             rest_of_line = parse_number(rest_of_line, source_file_name, i, int_vars, int_var_acc);
@@ -387,21 +371,42 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\tmov rdi, 0\n"
                             "\tsyscall\n");
 
-    fprintf(output_file,";; divide rax by 10\n"
-                        "divten:\n"
-                        "\tmov rdx, 0\n"
-                        "\tmov rcx, 10\n"
-                        "\tdiv rcx\n"
-                        "\tret\n");
-    fprintf(output_file,";; print char in rsi onto screen\n"
-                        "putchar:\n"
-                        "\tenter 0,0\n"
-                        "\tmov rax, 1\n"
-                        "\tmov rdi, 1\n"
-                        "\tmov rdx, 1\n"
-                        "\tsyscall\n"
-                        "\tleave\n"
-                        "\tret\n");
+    if(require_uprint){
+        fprintf(output_file,";; divide rax by 10\n"
+                            "divten:\n"
+                            "\tmov rdx, 0\n"
+                            "\tmov rcx, 10\n"
+                            "\tdiv rcx\n"
+                            "\tret\n");
+        fprintf(output_file,";; print char in rsi onto screen\n"
+                            "putchar:\n"
+                            "\tmov rax, 1\n"
+                            "\tmov rdi, 1\n"
+                            "\tmov rdx, 1\n"
+                            "\tsyscall\n"
+                            "\tret\n");
+        fprintf(output_file,"uprint:\n"
+                            "\tmov r8, 0\n"
+                            "\t.div:\n"
+                            "\tcall divten\n"
+                            "\tadd rdx, 0x30\n"
+                            "\tpush rdx\n"
+                            "\tinc r8\n"
+                            "\tcmp rax, 0\n"
+                            "\tjne .div\n"
+
+                            "\t.pr:\n"
+                            "\tmov rsi, rsp\n"
+                            "\tcall putchar\n"
+                            "\tpop rax\n"
+                            "\tdec r8\n"
+                            "\tjne .pr\n"
+
+                            "\tpush 10\n"
+                            "\tcall putchar\n"
+                            "\tpop rax\n"
+                            "\tret\n");
+    }
 
     fprintf(output_file,    "section .data\n");
 
