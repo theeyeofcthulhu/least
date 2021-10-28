@@ -4,6 +4,13 @@ uprint 203
 
 uprint 30
 
-int a 3434
+int zz 1111
+uprint zz
 
-uprint a
+uprint 3434
+
+int b 111111
+
+uprint b
+
+uprint 000

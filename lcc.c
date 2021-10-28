@@ -226,6 +226,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         instruction_op_len = strlen(instruction_op) + 1;
 
         if(strcmp(instruction_op, "print") == 0){
+            //TODO: add parsing \n to newline and dont add one automatically
             int string_boundaries[2] = {0};
             int string_len = 0;
             int acc = 0;
@@ -403,6 +404,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\tjne .pr\n"
 
                             "\tpush 10\n"
+                            "\tmov rsi, rsp\n"
                             "\tcall putchar\n"
                             "\tpop rax\n"
                             "\tret\n");
@@ -422,7 +424,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     // Parse ints into constants
     for(int i = 0; i < int_var_acc; i++){
-        fprintf(output_file, "\t%s: dd %s\n", int_vars[i].name, int_vars[i].value);
+        fprintf(output_file, "\t%s: dq %s\n", int_vars[i].name, int_vars[i].value);
         free(int_vars[i].name);
         free(int_vars[i].value);
         free(int_vars[i].mem_addr_ref);
