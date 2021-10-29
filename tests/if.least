@@ -1,11 +1,11 @@
 if 2 == 2
-   print "2 is equal to 2"
-   print "Second instruction inside if block"
+   print "2 is equal to 2\n"
+   print "Second instruction inside if block\n"
    if 4 == 4
-      print "nested if"
+      print "nested if\n"
    end
 end
 
 if 2 == 3
-   print "Unreachable"
+   print "Unreachable\n"
 end

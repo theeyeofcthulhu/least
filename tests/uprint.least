@@ -1,16 +1,23 @@
 uprint 23
+print "\n"
 
 uprint 203
+print "\n"
 
 uprint 30
+print "\n"
 
 int zz 1111
 uprint zz
+print "\n"
 
 uprint 3434
+print "\n"
 
 int b 111111
 
 uprint b
+print "\n"
 
 uprint 000
+print "\n"

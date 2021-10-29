@@ -44,12 +44,36 @@ typedef struct{
     char* mem_addr_ref;
 }int_var;
 
+typedef struct{
+    bool is_char;
+    char default_char;
+    char* expression;
+    int expr_len;
+    char expandeur;
+}str_token;
+
+enum str_tokens{
+NEW_LINE,
+TAB,
+BACKSLASH,
+QUOTE,
+STR_TOKEN_END,
+};
+
+const str_token token_structs[STR_TOKEN_END] = {
+{false, 0, "\",0xa,\"", 7, 'n'},
+{false, 0, "    ", 4, 't'},
+{false, 0, "\\", 1, '\\'},
+{false, 0, "\",0x22,\"", 8, '\"'},
+};
+
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error_on_true(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error(char* source_file, int line, char* format, ...);
 char* read_source_code(char* filename);
 char* generate_nasm(char* source_file_name, char* source_code);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
+char* parse_string(char* string, char* filename, int line);
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...){
     if(eval)
@@ -226,46 +250,15 @@ char* generate_nasm(char* source_file_name, char* source_code){
         instruction_op_len = strlen(instruction_op) + 1;
 
         if(strcmp(instruction_op, "print") == 0){
-            //TODO: add parsing \n to newline and dont add one automatically
-            int string_boundaries[2] = {0};
-            int string_len = 0;
-            int acc = 0;
-
-            // Copy line back into line_cpy, was destroyed with strtok()
-            strcpy(line_cpy, lines[i]);
-
-            // Parse string that comes after the instruction
-            for (int j = instruction_op_len; j < line_len; j++) {
-                if(line_cpy[j] == '"'){
-                    if(acc == 0)
-                        compiler_error_on_false((j+1) < line_len, source_file_name, i + 1, "Reached end of line while parsing first '\"' in string\n");
-
-                    string_boundaries[acc++] = j;
-                    compiler_error_on_true(acc > 2, source_file_name, i + 1, "Found more than two '\"' while parsing string\n");
-                    if(acc == 2){
-                        compiler_error_on_false((j+1) == line_len, source_file_name, i + 1, "Expected end of line after string\n");
-                        break;
-                    }
-                }
-                compiler_error_on_true(line_cpy[j] != '"' && acc == 0, source_file_name, i + 1,
-                                        "First '\"' not at beginning of parsed sequence, instead found '%c'\n", line_cpy[j]);
-            }
-            compiler_error_on_false(acc == 2, source_file_name, i + 1, "Did not find two '\"' while parsing string\n");
-
-            string_len = string_boundaries[1] - string_boundaries[0] - 1;
-            compiler_error_on_false(string_len > 0, source_file_name, i + 1, "Refusing to print empty string\n");
-
-            strings_len = i + 1;
-            strings[i] = malloc((string_len + 1) * sizeof(char));
-            memcpy(strings[i], line_cpy + string_boundaries[0] + 1, string_len);
-            strings[i][string_len] = '\0';
-
+            char* rest_of_line = strtok(NULL, "\0");
+            strings[strings_len] = parse_string(rest_of_line, source_file_name, i);
             fprintf(output_file,    "\t;; print\n"
                                     "\tmov rax, 1\n"
                                     "\tmov rdi, 1\n"
                                     "\tmov rsi, str%d\n"
                                     "\tmov rdx, str%dLen\n"
-                                    "\tsyscall\n", i, i);
+                                    "\tsyscall\n", strings_len, strings_len);
+            strings_len++;
         }else if(strcmp(instruction_op, "uprint") == 0){
             require_uprint = true;
 
@@ -402,11 +395,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\tpop rax\n"
                             "\tdec r8\n"
                             "\tjne .pr\n"
-
-                            "\tpush 10\n"
-                            "\tmov rsi, rsp\n"
-                            "\tcall putchar\n"
-                            "\tpop rax\n"
                             "\tret\n");
     }
 
@@ -416,7 +404,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
     for(int i = 0; i < strings_len; i++){
         if(!strings[i])
             continue;
-        fprintf(output_file, "\tstr%d: db \"%s\", 10\n"
+        fprintf(output_file, "\tstr%d: db \"%s\"\n"
                "\tstr%dLen: equ $ - str%d\n",
                i, strings[i], i, i);
         free(strings[i]);
@@ -447,6 +435,72 @@ char* parse_number(char* expression, char* filename, int line, int_var int_vars[
     }
 
     return expression;
+}
+
+char* parse_string(char* string, char* filename, int line){
+    char* result;
+    int result_len = 0;
+
+    int string_len = strlen(string);
+
+    int acc = 0;
+
+    str_token tokens[string_len];
+    int tokens_len = 0;
+
+    // Parse string that comes after the instruction
+    for (int j = 0; j < string_len; j++) {
+        switch(string[j]){
+            case '"':
+                if(acc == 0)
+                    compiler_error_on_false((j+1) < string_len, filename, line + 1, "Reached end of line while parsing first '\"' in string\n");
+
+                acc++;
+                compiler_error_on_true(acc > 2, filename, line + 1, "Found more than two '\"' while parsing string\n");
+                if(acc == 2)
+                    compiler_error_on_false((j+1) == string_len, filename, line + 1, "Expected end of line after string\n");
+                break;
+            case '\\':
+                j++;
+                compiler_error_on_true(j >= string_len - 1, filename, line + 1, "Reached end of line while trying to parse escape sequence\n");
+                bool found = false;
+                for(int i = 0; i < STR_TOKEN_END; i++){
+                    if(string[j] == token_structs[i].expandeur){
+                        tokens[tokens_len++] = token_structs[i];
+                        found = true;
+                    }
+                }
+                compiler_error_on_false(found, filename, line + 1, "Failed to parse escape sequence '\\%c'\n", string[j]);
+                break;
+            default:
+            {
+                str_token token;
+                token.is_char = true;
+                token.default_char = string[j];
+                token.expr_len = 1;
+                tokens[tokens_len++] = token;
+                break;
+            }
+        }
+        compiler_error_on_true(string[j] != '"' && acc == 0, filename, line + 1,
+                                "First '\"' not at beginning of parsed sequence, instead found '%c'\n", string[j]);
+    }
+    compiler_error_on_false(acc == 2, filename, line + 1, "Did not find two '\"' while parsing string\n");
+
+    for (int i = 0; i < tokens_len; i++)
+        result_len += tokens[i].expr_len;
+
+    result = malloc((result_len + 1) * sizeof(char));
+    result[result_len] = '\0';
+    for (int i = 0, j = 0; i < tokens_len; i++) {
+        if(tokens[i].is_char)
+            result[j] = tokens[i].default_char;
+        else
+            memcpy(result + j, tokens[i].expression, tokens[i].expr_len);
+        j += tokens[i].expr_len;
+    }
+
+    return result;
 }
 
 int main(int argc, char *argv[]) {

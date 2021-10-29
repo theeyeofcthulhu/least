@@ -1,0 +1,4 @@
+print "\ttabstop\n"
+print "New\n\nLine\n"
+print "writing '\\'\n"
+print "writing '\"'\n"

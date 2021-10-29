@@ -2,36 +2,45 @@ int inta 2
 int intb 7
 
 if inta < intb
-   print "2 is less than 7"
+   uprint inta
+   print " is less than "
+   uprint intb
+   print "\n"
 end
 if inta > intb
-   print "unreachable"
+   print "unreachable\n"
 end
 
 int intc 8
 
 if 10 > intc
-   print "successfully used numeric constant and variable"
+   print "successfully used numeric constant and variable\n"
 end
 
 int intd 9
 
 if intd > intc
    if inta != intb
-      print "nested if with int"
+      print "nested if with int\n"
    end
-   print "9 is greater than 8"
+   uprint intd
+   print " is greater than "
+   uprint intc
+   print "\n"
 end
 if intd < intc
-   print "unreachable"
+   print "unreachable\n"
 end
 
 int inte 1
 int intf 1
 
 if inte == intf
-   print "1 equals 1"
+   uprint inte
+   print " equals "
+   uprint intf
+   print "\n"
 end
 if inte != intf
-   print "unreachable"
+   print "unreachable\n"
 end
