@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -504,33 +505,39 @@ char* parse_string(char* string, char* filename, int line){
 }
 
 int main(int argc, char *argv[]) {
-    char* input_source;
-    char* nasm_filename;
+    bool run_after_compile = false;
+	// Handle command line input with getopt
+	int flag;
+	while ((flag = getopt(argc, argv, "r")) != -1){
+		switch (flag){
+		case 'r':
+			run_after_compile = true;
+			break;
+		case '?':
+		default:
+			return 1;
+		}
+	}
+
     const char* nasm_cmd_base = "nasm -felf64 -o ";
-    char* nasm_cmd;
     const char* ld_cmd_base = "ld -o ";
-    char* ld_cmd;
-    char* execute_cmd;
-    const char* execute_cmd_base = "./";
-    char* object_filename;
-    char* source_filename_cpy;
 
     compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
 
-    printf("[INFO] Input file: %s%s%s\n", SHELL_GREEN, argv[1], SHELL_WHITE);
-    input_source = read_source_code(argv[1]);
+    printf("[INFO] Input file: %s%s%s\n", SHELL_GREEN, argv[argc - 1], SHELL_WHITE);
+    char* input_source = read_source_code(argv[argc - 1]);
 
-    nasm_filename = generate_nasm(argv[1], input_source);
+    char* nasm_filename = generate_nasm(argv[argc - 1], input_source);
     printf("[INFO] Generating nasm source to %s%s%s\n", SHELL_GREEN, nasm_filename, SHELL_WHITE);
 
-    source_filename_cpy = malloc((strlen(argv[1]) + 1) * sizeof(char));
-    strcpy(source_filename_cpy, argv[1]);
+    char* source_filename_cpy = malloc((strlen(argv[argc - 1]) + 1) * sizeof(char));
+    strcpy(source_filename_cpy, argv[argc - 1]);
     strtok(source_filename_cpy, ".");
 
-    object_filename = malloc((strlen(source_filename_cpy) + strlen(".o") + 1) * sizeof(char));
+    char* object_filename = malloc((strlen(source_filename_cpy) + strlen(".o") + 1) * sizeof(char));
     sprintf(object_filename, "%s%s", source_filename_cpy, ".o");
 
-    nasm_cmd = malloc((strlen(nasm_cmd_base) + strlen(object_filename) + 1 + strlen(nasm_filename) + 1) * sizeof(char));
+    char* nasm_cmd = malloc((strlen(nasm_cmd_base) + strlen(object_filename) + 1 + strlen(nasm_filename) + 1) * sizeof(char));
     sprintf(nasm_cmd, "%s%s %s", nasm_cmd_base, object_filename, nasm_filename);
 
     printf("[CMD] %s%s%s%s %s%s%s\n", nasm_cmd_base,
@@ -539,7 +546,7 @@ int main(int argc, char *argv[]) {
     system(nasm_cmd);
     free(nasm_cmd);
 
-    ld_cmd = malloc((strlen(ld_cmd_base) + strlen(source_filename_cpy) + 1 + strlen(object_filename) + 1) * sizeof(char));
+    char* ld_cmd = malloc((strlen(ld_cmd_base) + strlen(source_filename_cpy) + 1 + strlen(object_filename) + 1) * sizeof(char));
     sprintf(ld_cmd, "%s%s %s", ld_cmd_base, source_filename_cpy, object_filename);
 
     printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
@@ -548,13 +555,16 @@ int main(int argc, char *argv[]) {
     system(ld_cmd);
     free(ld_cmd);
 
-    execute_cmd = malloc((strlen(execute_cmd_base) + strlen(source_filename_cpy) + 1) * sizeof(char));
-    sprintf(execute_cmd, "%s%s", execute_cmd_base, source_filename_cpy);
+    if(run_after_compile){
+        const char* execute_cmd_base = "./";
+        char* execute_cmd = malloc((strlen(execute_cmd_base) + strlen(source_filename_cpy) + 1) * sizeof(char));
+        sprintf(execute_cmd, "%s%s", execute_cmd_base, source_filename_cpy);
 
-    printf("[CMD] %s%s%s%s\n", execute_cmd_base,
-           SHELL_GREEN, source_filename_cpy, SHELL_WHITE);
-    system(execute_cmd);
-    free(execute_cmd);
+        printf("[CMD] %s%s%s%s\n", execute_cmd_base,
+            SHELL_GREEN, source_filename_cpy, SHELL_WHITE);
+        system(execute_cmd);
+        free(execute_cmd);
+    }
 
     free(input_source);
     free(object_filename);
