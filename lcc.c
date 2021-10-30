@@ -108,7 +108,7 @@ char** sepbyspc(char* src, int* dest_len);
 void freewordarr(char** arr, int len);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
 char* parse_string(char* string, char* filename, int line);
-bool parse_expression(char* expr, char* target, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
+bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
 
 /* Classes for asserting something and exiting
  * if something is unwanted; compiler_error just
@@ -277,6 +277,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
         if(!lines[i])
             continue;
 
+        compiler_error_on_true(lines[i][strlen(lines[i]) - 1] == ' ', source_file_name, i + 1, "Trailing spaces\n");
+
         char* instruction_op;
         int instruction_op_len = 0;
         char* line_cpy;
@@ -373,11 +375,12 @@ char* generate_nasm(char* source_file_name, char* source_code){
             }
             for (int j = 0; j < 2; j++)
                 sides[j][sizes[j] - 1] = '\0';
-            parse_expression(sides[0], "eax", output_file, source_file_name, i, int_vars, int_var_acc);
-            parse_expression(sides[1], "ebx", output_file, source_file_name, i, int_vars, int_var_acc);
+            parse_expression(sides[0], "rax", NULL, 0, output_file, source_file_name, i, int_vars, int_var_acc);
+            char* preserve[1] = {"rax"};
+            parse_expression(sides[1], "rbx", preserve, 1, output_file, source_file_name, i, int_vars, int_var_acc);
 
             fprintf(output_file,    "\t;; if\n"
-                                    "\tcmp eax, ebx\n"
+                                    "\tcmp rax, rbx\n"
                                     "\t%s .if%d\n"
                                     "\tjmp .end%d\n"
                                     "\t.if%d:\n", operator.asm_name, i, i, i);
@@ -439,9 +442,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
             }
             compiler_error_on_false(found, source_file_name, i + 1, "'%s' is not a defined variable\n", int_to_set);
 
-            parse_expression(expr, "eax", output_file, source_file_name, i, int_vars, int_var_acc);
+            parse_expression(expr, "rax", NULL, 0, output_file, source_file_name, i, int_vars, int_var_acc);
             fprintf(output_file,    "\t;; set\n"
-                                "\tmov %s, eax\n", int_to_set);
+                                "\tmov %s, rax\n", int_to_set);
         }else
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
 
@@ -655,10 +658,16 @@ char* parse_string(char* string, char* filename, int line){
 
 // Convert arithmetic expression into assembly and print to nasm_output
 // Result is moved into target register
-bool parse_expression(char* expr, char* target, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars){
+bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars){
     arit_operation operator;
     int expr_len = 0;
     char** expr_arr = sepbyspc(expr, &expr_len);
+
+    if(preserve_len != 0){
+        for(int i = 0; i < preserve_len; i++)
+            fprintf(nasm_output,    "\t;; preserving %s\n"
+                                    "\tpush %s\n", preserve[i], preserve[i]);
+    }
 
     compiler_error_on_false(expr_arr, filename, line + 1, "Could not parse expression\n");
     switch(expr_len){
@@ -667,7 +676,7 @@ bool parse_expression(char* expr, char* target, FILE* nasm_output, char* filenam
             char* number = parse_number(expr_arr[0], filename, line, int_vars, len_int_vars);
             fprintf(nasm_output, "\tmov %s, %s\n", target, number);
             freewordarr(expr_arr, expr_len);
-            return true;
+            break;
         }
         case 3:
         {
@@ -692,28 +701,33 @@ bool parse_expression(char* expr, char* target, FILE* nasm_output, char* filenam
 
             if(operator.op_enum == MOD || operator.op_enum == DIV){
                 fprintf(nasm_output,    "\t;; mod\n"
-                                        "\tmov edx, 0\n"
-                                        "\tmov eax, %s\n"
-                                        "\tmov ecx, %s\n"
-                                        "\tdiv ecx\n", numbers[0], numbers[2]);
+                                        "\tmov rdx, 0\n"
+                                        "\tmov rax, %s\n"
+                                        "\tmov rcx, %s\n"
+                                        "\tdiv rcx\n", numbers[0], numbers[2]);
                 // If taking modulus: get remainder instead of quotient
-                if(operator.op_enum == MOD && (strcmp(target, "edx") != 0))
-                    fprintf(nasm_output,    "\tmov eax, edx\n");
-                else if(strcmp(target, "eax") != 0)
-                    fprintf(nasm_output,"\tmov %s, eax\n", target);
+                if(operator.op_enum == MOD && (strcmp(target, "rdx") != 0))
+                    fprintf(nasm_output,    "\tmov rax, rdx\n");
+                else if(strcmp(target, "rax") != 0)
+                    fprintf(nasm_output,"\tmov %s, rax\n", target);
             }else{
                 fprintf(nasm_output,    "\t;; %s\n"
-                                        "\tmov eax, %s\n"
-                                        "\tmov ebx, %s\n"
-                                        "\t%s eax, ebx\n", operator.asm_name, numbers[0], numbers[2], operator.asm_name);
-                if(strcmp(target, "eax") != 0)
-                    fprintf(nasm_output,"\tmov %s, eax\n", target);
+                                        "\tmov rax, %s\n"
+                                        "\tmov rbx, %s\n"
+                                        "\t%s rax, rbx\n", operator.asm_name, numbers[0], numbers[2], operator.asm_name);
+                if(strcmp(target, "rax") != 0)
+                    fprintf(nasm_output,"\tmov %s, rax\n", target);
             }
             freewordarr(expr_arr, expr_len);
-            return true;
+            break;
         }
         default:
             compiler_error(filename, line + 1, "Unexpected number of elements in expression '%s'\n", expr);
+    }
+
+    if(preserve_len != 0){
+        for(int i = preserve_len - 1; i >= 0; i--)
+            fprintf(nasm_output, "\tpop %s\n", preserve[i]);
     }
 
     return true;
