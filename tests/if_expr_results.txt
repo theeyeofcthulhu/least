@@ -1,0 +1,4 @@
+2 % 2 is zero
+3 % 2 is one
+10 + 3 is 13
+20 + 10 is int a (30)
