@@ -17,6 +17,13 @@
 
 //TODO: comment everything
 
+enum conditionals{
+IF,
+ELIF,
+ELSE,
+NO_CONDITIONAL,
+};
+
 // Structure for organizing comparison operations
 enum cmp_operations{
 EQUAL,
@@ -109,6 +116,7 @@ void freewordarr(char** arr, int len);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
 char* parse_string(char* string, char* filename, int line);
 bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
+void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int end_stack[OP_CAPACITY], int *end_stack_acc);
 
 /* Classes for asserting something and exiting
  * if something is unwanted; compiler_error just
@@ -213,8 +221,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
     int end_stack[OP_CAPACITY] = {0};
     int end_stack_acc = 0;
 
+    int real_end_stack[OP_CAPACITY] = {0};
+    int real_end_acc = 0;
+
     int_var int_vars[OP_CAPACITY] = {0};
     int int_var_acc = 0;
+
+    int last_conditional = NO_CONDITIONAL;
 
     bool require_uprint = false;
 
@@ -324,76 +337,42 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tsyscall\n", rest_of_line);
         // Conditional if statement
         }else if(strcmp(instruction_op, "if") == 0){
-            cmp_operation operator;
+            last_conditional = IF;
 
             char* rest_of_line = strtok(NULL, "\0");
-            int words_len = 0;
-            char** words = sepbyspc(rest_of_line, &words_len);
+            parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack, &end_stack_acc);
 
-            compiler_error_on_false(words, filename, i + 1, "Could not parse expression\n");
+            real_end_stack[real_end_acc++] = i;
+        }else if(strcmp(instruction_op, "elif") == 0){
+            compiler_error_on_false(last_conditional == IF || last_conditional == ELIF || last_conditional == NO_CONDITIONAL, source_file_name, i + 1, "'elif' must follow 'if' or 'elif'\n");
 
-            bool found_operator = false;
-            int operator_index = 0;
-            for(int j = 0; j < words_len; j++){
-                for(int k = 0; k < CMP_OPERATION_ENUM_END; k++){
-                    if(strcmp(words[j], cmp_operation_structs[k].source_name) == 0){
-                        compiler_error_on_true(found_operator, filename, i + 1, "Found more than one operator in expression in expression '%s'\n", rest_of_line);
-                        operator = cmp_operation_structs[k];
-                        operator_index = j;
-                        found_operator = true;
-                    }
-                }
-            }
-            compiler_error_on_false(found_operator, source_file_name, i, "Could not parse operation '%s'\n", words[1]);
-            compiler_error_on_true(operator_index == words_len, source_file_name, i, "Operator is last operand in operation '%s'\n", words[1]);
+            last_conditional = ELIF;
+            compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'elif'\n");
 
-            // Join the two sides of the operation, pass them to the expression parser and then compare
-            char* sides[2] = {0};
-            int sizes[2] = {0};
-            bool init[2] = {0};
-            for (int j = 0; j < words_len; j++) {
-                if(j == operator_index)
-                    continue;
-                int addressing = j < operator_index ? 0 : 1;
-                sizes[addressing] += strlen(words[j]) + 1;
-            }
-            for (int j = 0; j < 2; j++)
-                sides[j] = malloc((sizes[j]) * sizeof(char*));
-            for (int j = 0; j < words_len; j++) {
-                if(j == operator_index)
-                    continue;
-                int addressing = j < operator_index ? 0 : 1;
-                if(init[addressing]){
-                    char* copy = malloc((strlen(sides[addressing]) + 1) * sizeof(char));
-                    strcpy(copy, sides[addressing]);
-                    sprintf(sides[addressing], "%s%s ", copy, words[j]);
-                    free(copy);
-                }else{
-                    sprintf(sides[addressing], "%s ", words[j]);
-                    init[addressing] = true;
-                }
-            }
-            for (int j = 0; j < 2; j++)
-                sides[j][sizes[j] - 1] = '\0';
-            parse_expression(sides[0], "rax", NULL, 0, output_file, source_file_name, i, int_vars, int_var_acc);
-            char* preserve[1] = {"rax"};
-            parse_expression(sides[1], "rbx", preserve, 1, output_file, source_file_name, i, int_vars, int_var_acc);
+            fprintf(output_file,    "\t;; elif\n"
+                                    "\tjmp .realend%d\n"
+                                    "\t.end%d:\n", real_end_stack[real_end_acc - 1], end_stack[--end_stack_acc]);
 
-            fprintf(output_file,    "\t;; if\n"
-                                    "\tcmp rax, rbx\n"
-                                    "\t%s .if%d\n"
-                                    "\tjmp .end%d\n"
-                                    "\t.if%d:\n", operator.asm_name, i, i, i);
+            char* rest_of_line = strtok(NULL, "\0");
+            parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack, &end_stack_acc);
+        }else if(strcmp(instruction_op, "else") == 0){
+            last_conditional = ELSE;
+            compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'else'\n");
+
+            fprintf(output_file,    "\t;; else\n"
+                                    "\tjmp .realend%d\n"
+                                    "\t.end%d:\n", real_end_stack[real_end_acc - 1], end_stack[--end_stack_acc]);
             end_stack[end_stack_acc++] = i;
-
-            freewordarr(words, words_len);
         // End blocks
         }else if(strcmp(instruction_op, "end") == 0){
+            last_conditional = NO_CONDITIONAL;
+
             compiler_error_on_true(line_len > instruction_op_len, source_file_name, i + 1, "Expected end of line after 'end' instruction\n");
             compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'end'\n");
 
             fprintf(output_file,    "\t;; end\n"
-                                    "\t.end%d:\n", end_stack[--end_stack_acc]);
+                                    "\t.realend%d:\n"
+                                    "\t.end%d:\n", real_end_stack[--real_end_acc], end_stack[--end_stack_acc]);
         // Declare integer
         }else if(strcmp(instruction_op, "int") == 0){
             compiler_error_on_true(instruction_op_len >= line_len, filename, i + 1, "No argument for assigning int\n");
@@ -527,8 +506,10 @@ char* generate_nasm(char* source_file_name, char* source_code){
 // Separate src by spaces (gobble up duplicate spaces) into array of strings
 char** sepbyspc(char* src, int* dest_len){
     //rest  of line
+    if(src == NULL)
+        return NULL;
     int src_len = strlen(src);
-    if(!(src_len > 0))
+    if(src_len == 0)
         return NULL;
     char* src_cpy = malloc((src_len + 1) * sizeof(char));
     strcpy(src_cpy, src);
@@ -731,6 +712,73 @@ bool parse_expression(char* expr, char* target, char** preserve, int preserve_le
     }
 
     return true;
+}
+
+void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int end_stack[OP_CAPACITY], int *end_stack_acc){
+    cmp_operation operator;
+
+    // char* rest_of_line = strtok(NULL, "\0");
+    int words_len = 0;
+    char** words = sepbyspc(expr, &words_len);
+
+    compiler_error_on_false(words, filename, line + 1, "Could not parse expression\n");
+
+    bool found_operator = false;
+    int operator_index = 0;
+    for(int j = 0; j < words_len; j++){
+        for(int k = 0; k < CMP_OPERATION_ENUM_END; k++){
+            if(strcmp(words[j], cmp_operation_structs[k].source_name) == 0){
+                compiler_error_on_true(found_operator, filename, line + 1, "Found more than one operator in expression in expression '%s'\n", expr);
+                operator = cmp_operation_structs[k];
+                operator_index = j;
+                found_operator = true;
+            }
+        }
+    }
+    compiler_error_on_false(found_operator, filename, line, "Could not parse operation '%s'\n", words[1]);
+    compiler_error_on_true(operator_index == words_len, filename, line, "Operator is last operand in operation '%s'\n", words[1]);
+
+    // Join the two sides of the operation, pass them to the expression parser and then compare
+    char* sides[2] = {0};
+    int sizes[2] = {0};
+    bool init[2] = {0};
+    for (int j = 0; j < words_len; j++) {
+        if(j == operator_index)
+            continue;
+        int addressing = j < operator_index ? 0 : 1;
+        sizes[addressing] += strlen(words[j]) + 1;
+    }
+    for (int j = 0; j < 2; j++)
+        sides[j] = malloc((sizes[j]) * sizeof(char*));
+    for (int j = 0; j < words_len; j++) {
+        if(j == operator_index)
+            continue;
+        int addressing = j < operator_index ? 0 : 1;
+        if(init[addressing]){
+            char* copy = malloc((strlen(sides[addressing]) + 1) * sizeof(char));
+            strcpy(copy, sides[addressing]);
+            sprintf(sides[addressing], "%s%s ", copy, words[j]);
+            free(copy);
+        }else{
+            sprintf(sides[addressing], "%s ", words[j]);
+            init[addressing] = true;
+        }
+    }
+    for (int j = 0; j < 2; j++)
+        sides[j][sizes[j] - 1] = '\0';
+    parse_expression(sides[0], "rax", NULL, 0, nasm_output, filename, line, int_vars, len_int_vars);
+    char* preserve[1] = {"rax"};
+    parse_expression(sides[1], "rbx", preserve, 1, nasm_output, filename, line, int_vars, len_int_vars);
+
+    fprintf(nasm_output,    "\t;; if\n"
+                            "\tcmp rax, rbx\n"
+                            "\t%s .if%d\n"
+                            "\tjmp .end%d\n"
+                            "\t.if%d:\n", operator.asm_name, line, line, line);
+    end_stack[*end_stack_acc] = line;
+    *end_stack_acc += 1;
+
+    freewordarr(words, words_len);
 }
 
 int main(int argc, char *argv[]) {
