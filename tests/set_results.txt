@@ -1,0 +1,7 @@
+Expecting 700, got: 700
+Added 700 and 20 to form: 720
+Mod:
+1
+0
+Dividing 1000 by 20 to get: 50
+Expecting 300, got: 300

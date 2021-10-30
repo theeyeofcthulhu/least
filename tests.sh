@@ -51,10 +51,13 @@ FAIL=0
 for file in "${FILES[@]}"; do
     executable=$(echo "$file" | sed 's/\..*//')
     txt="${executable}_results.txt"
-    expected_output=$(<"${txt}")
+    expected_output=$(cat $txt)
+
+    # echo $expected_output
+    # echo "`$executable`"
 
     if [ "`$executable`" != "${expected_output}" ]; then
-        echo "Test ${executable} failed"
+        echo -e "${SHELL_RED}Test ${executable} failed${SHELL_WHITE}"
         FAIL=1
     else
         echo "Test ${executable} succeeded"

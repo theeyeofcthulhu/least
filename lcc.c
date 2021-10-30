@@ -22,21 +22,43 @@ LESS,
 LESS_OR_EQ,
 GREATER,
 GREATER_OR_EQ,
-OPERATION_ENUM_END,
+CMP_OPERATION_ENUM_END,
 };
 
 typedef struct{
+    int op_enum;
     char* source_name;
     char* asm_name;
-}operation;
+}cmp_operation;
 
-const operation operation_structs[OPERATION_ENUM_END] = {
-{"==",   "je"},
-{"!=",   "jne"},
-{"<",    "jl"},
-{"<=",   "jle"},
-{">",    "jg"},
-{">=",   "jge"},
+const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
+{EQUAL,         "==",   "je"},
+{NOT_EQUAL,     "!=",   "jne"},
+{LESS,          "<",    "jl"},
+{LESS_OR_EQ,    "<=",   "jle"},
+{GREATER,       ">",    "jg"},
+{GREATER_OR_EQ, ">=",   "jge"},
+};
+
+enum arit_operations{
+ADD,
+SUB,
+MOD,
+DIV,
+ARIT_OPERATION_ENUM_END,
+};
+
+typedef struct{
+    int op_enum;
+    char* source_name;
+    char* asm_name;
+}arit_operation;
+
+const arit_operation arit_operation_structs[CMP_OPERATION_ENUM_END] = {
+{ADD,   "+",    "add"},
+{SUB,   "-",    "sub"},
+{MOD,   "%",    ""},
+{DIV,   "/",    ""},
 };
 
 typedef struct{
@@ -62,10 +84,10 @@ STR_TOKEN_END,
 };
 
 const str_token token_structs[STR_TOKEN_END] = {
-{false, 0, "\",0xa,\"", 7, 'n'},
-{false, 0, "    ", 4, 't'},
-{false, 0, "\\", 1, '\\'},
-{false, 0, "\",0x22,\"", 8, '\"'},
+{false, 0, "\",0xa,\"",     7, 'n'},
+{false, 0, "    ",          4, 't'},
+{false, 0, "\\",            1, '\\'},
+{false, 0, "\",0x22,\"",    8, '\"'},
 };
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
@@ -73,8 +95,11 @@ void compiler_error_on_true(bool eval, char* source_file, int line, char* format
 void compiler_error(char* source_file, int line, char* format, ...);
 char* read_source_code(char* filename);
 char* generate_nasm(char* source_file_name, char* source_code);
+char** sepbyspc(char* src, int* dest_len);
+void freewordarr(char** arr, int len);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
 char* parse_string(char* string, char* filename, int line);
+bool parse_expression(char* expr, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...){
     if(eval)
@@ -169,7 +194,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
     char* source_file_name_cpy;
 
     char* strings[STR_CAPACITY] = {0};
-    int strings_len;
+    int strings_len = 0;
 
     int end_stack[OP_CAPACITY] = {0};
     int end_stack_acc = 0;
@@ -278,26 +303,33 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tmov rdi, %s\n"
                                     "\tsyscall\n", rest_of_line);
         }else if(strcmp(instruction_op, "if") == 0){
-            operation operator;
-            char* words[3] = {0};
+            //TODO: implement left and right side of equals
+            // and do modulus
+            cmp_operation operator;
 
-            for (int i = 0; i < 3; i++) {
-                words[i] = strtok(NULL, " ");
-                compiler_error_on_true(words[i] == NULL, source_file_name, i + 1, "Could not parse three words after if\n");
+            char* rest_of_line = strtok(NULL, "\0");
+            int words_len = 0;
+            char** words = sepbyspc(rest_of_line, &words_len);
+
+            compiler_error_on_false(words, filename, i + 1, "Could not parse expression\n");
+            compiler_error_on_true(words_len != 3, filename, i + 1, "Did not find three words in expression '%s'\n", rest_of_line);
+
+            bool found_operator = false;
+            for(int j = 0; j < CMP_OPERATION_ENUM_END; j++){
+                if(strcmp(words[1], cmp_operation_structs[j].source_name) == 0){
+                    operator = cmp_operation_structs[j];
+                    found_operator = true;
+                }
             }
-            compiler_error_on_true(strtok(NULL, " "), source_file_name, i + 1, "Found more than three words after if\n");
+            compiler_error_on_false(found_operator, source_file_name, i, "Could not parse operation '%s'\n", words[1]);
 
-            for(int j = 0; j < OPERATION_ENUM_END; j++){
-                if(strcmp(words[1], operation_structs[j].source_name) == 0)
-                    operator = operation_structs[j];
-            }
-
+            char* numbers[3] = {0};
             // Check if numbers are valid
             for (int j = 0; j < 3; j++) {
                 if(j == 1)
                     continue;
 
-                words[j] = parse_number(words[j], source_file_name, i, int_vars, int_var_acc);
+                numbers[j] = parse_number(words[j], source_file_name, i, int_vars, int_var_acc);
             }
 
             fprintf(output_file,    "\t;; if\n"
@@ -306,8 +338,10 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tcmp eax, ebx\n"
                                     "\t%s .if%d\n"
                                     "\tjmp .end%d\n"
-                                    "\t.if%d:\n", words[0], words[2], operator.asm_name, i, i, i);
+                                    "\t.if%d:\n", numbers[0], numbers[2], operator.asm_name, i, i, i);
             end_stack[end_stack_acc++] = i;
+
+            freewordarr(words, words_len);
 
         }else if(strcmp(instruction_op, "end") == 0){
             compiler_error_on_true(line_len > instruction_op_len, source_file_name, i + 1, "Expected end of line after 'end' instruction\n");
@@ -318,14 +352,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
         }else if(strcmp(instruction_op, "int") == 0){
             compiler_error_on_true(instruction_op_len >= line_len, filename, i + 1, "No argument for assigning int\n");
 
-            char* words[2] = {0};
-            int_var new_int;
+            int expr_len;
+            char* rest_of_line = strtok(NULL, "\0");
+            char** words = sepbyspc(rest_of_line, &expr_len);
 
-            for (int i = 0; i < 2; i++) {
-                words[i] = strtok(NULL, " ");
-                compiler_error_on_true(words[i] == NULL, source_file_name, i + 1, "Could not parse two words after if\n");
-            }
-            compiler_error_on_true(strtok(NULL, " "), source_file_name, i + 1, "Found more than two words after if\n");
+            compiler_error_on_false(words, source_file_name, i, "Could not parse expression\n");
+            compiler_error_on_true(expr_len != 2, source_file_name, i, "Did not find two words in expression '%s'\n", rest_of_line);
+            int_var new_int;
 
             // Parse string that comes after the instruction to number
             for (int j = 0; j < strlen(words[0]); j++) {
@@ -334,7 +367,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             for(int j = 0; j < int_var_acc; j++){
                 compiler_error_on_true(strcmp(words[0], int_vars[j].name) == 0, source_file_name, i + 1, "Redifinition of '%s'\n", words[0]);
             }
-            new_int.name = malloc((strlen(words[0]) + 1 + 2) * sizeof(char));
+            new_int.name = malloc((strlen(words[0]) + 1) * sizeof(char));
             strcpy(new_int.name, words[0]);
 
             for(int j = 0; j < INT_LEN + 1 && j < strlen(words[1]); j++){
@@ -348,6 +381,23 @@ char* generate_nasm(char* source_file_name, char* source_code){
             sprintf(new_int.mem_addr_ref, "[%s]", words[0]);
 
             int_vars[int_var_acc++] = new_int;
+            freewordarr(words, expr_len);
+        }else if(strcmp(instruction_op, "set") == 0){
+            char* int_to_set = strtok(NULL, " ");
+            char* expr = strtok(NULL, "\0");
+
+            bool found = false;
+            for (int i = 0; i < int_var_acc; i++) {
+                if(strcmp(int_vars[i].name, int_to_set) == 0){
+                    int_to_set = int_vars[i].mem_addr_ref;
+                    found = true;
+                }
+            }
+            compiler_error_on_false(found, source_file_name, i + 1, "'%s' is not a defined variable\n", int_to_set);
+
+            parse_expression(expr, output_file, source_file_name, i, int_vars, int_var_acc);
+            fprintf(output_file,    "\t;; set\n"
+                                "\tmov %s, eax\n", int_to_set);
         }else
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
 
@@ -422,6 +472,54 @@ char* generate_nasm(char* source_file_name, char* source_code){
     fclose(output_file);
 
     return filename;
+}
+
+char** sepbyspc(char* src, int* dest_len){
+    //rest  of line
+    int src_len = strlen(src);
+    if(!(src_len > 0))
+        return NULL;
+    char* src_cpy = malloc((src_len + 1) * sizeof(char));
+    strcpy(src_cpy, src);
+    char** dest;
+
+    *dest_len = 0;
+
+    for(int i = 0, repeat = 0; i < src_len; i++){
+        if(src_cpy[i] == ' ' && !repeat){
+            *dest_len += 1;
+            repeat = 1;
+        }else if(!(src_cpy[i] == ' ')){
+            repeat = 0;
+        }
+    }
+    *dest_len += 1;
+
+    // Split file by '\n' chars and load into lines
+    dest = malloc((*dest_len + 1) * sizeof(char*));
+
+    char* src_word;
+    char* src_copy_ptr = src_cpy;
+    // control_copy_ptr becomes NULL after first iteration since every call to strtok after the first one
+    // has to be with NULL as str.
+    for(int i = 0; i < *dest_len; src_copy_ptr = NULL, i++){
+        src_word = strtok(src_copy_ptr, " ");
+        int src_word_len = strlen(src_word);
+        dest[i] = malloc((src_word_len + 1) * sizeof(char));
+        dest[i][src_word_len] = '\0';
+        strcpy(dest[i], src_word);
+    }
+
+    free(src_cpy);
+
+    return dest;
+}
+
+void freewordarr(char** arr, int len){
+    for(int i = 0; i < len; i++)
+        free(arr[i]);
+
+    free(arr);
 }
 
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars){
@@ -502,6 +600,52 @@ char* parse_string(char* string, char* filename, int line){
     }
 
     return result;
+}
+
+bool parse_expression(char* expr, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars){
+    arit_operation operator;
+    int expr_len = 0;
+    char** expr_arr = sepbyspc(expr, &expr_len);
+
+    compiler_error_on_false(expr_arr, filename, line, "Could not parse expression\n");
+    compiler_error_on_true(expr_len != 3, filename, line, "Did not find three words in expression '%s'\n", expr);
+
+    bool found_operator = false;
+    for(int j = 0; j < ARIT_OPERATION_ENUM_END; j++){
+        if(strcmp(expr_arr[1], arit_operation_structs[j].source_name) == 0){
+            operator = arit_operation_structs[j];
+            found_operator = true;
+        }
+    }
+    compiler_error_on_false(found_operator, filename, line + 1, "Could not parse operation '%s'\n", expr_arr[1]);
+
+    char* numbers[3] = {0};
+
+    // Check if numbers are valid
+    for (int j = 0; j < 3; j++) {
+        if(j == 1)
+            continue;
+
+        numbers[j] = parse_number(expr_arr[j], filename, line, int_vars, len_int_vars);
+    }
+
+    if(operator.op_enum == MOD || operator.op_enum == DIV){
+        fprintf(nasm_output,    "\t;; mod\n"
+                                "\tmov edx, 0\n"
+                                "\tmov eax, %s\n"
+                                "\tmov ecx, %s\n"
+                                "\tdiv ecx\n", numbers[0], numbers[2]);
+        if(operator.op_enum == MOD)
+            fprintf(nasm_output,    "\tmov eax, edx\n");
+    }else{
+        fprintf(nasm_output,    "\t;; %s\n"
+                                "\tmov eax, %s\n"
+                                "\tmov ebx, %s\n"
+                                "\t%s eax, ebx\n", operator.asm_name, numbers[0], numbers[2], operator.asm_name);
+    }
+    freewordarr(expr_arr, expr_len);
+
+    return true;
 }
 
 int main(int argc, char *argv[]) {

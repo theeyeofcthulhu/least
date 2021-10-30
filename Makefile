@@ -9,4 +9,7 @@ CCFLAGS=-Wall -g
 lcc: lcc.c
 	gcc $(CCFLAGS) -o $@ $^
 
+test: lcc
+	./tests.sh
+
 # end

@@ -1,0 +1,44 @@
+int a 400
+set a a + 300
+
+print "Expecting 700, got: "
+uprint a
+print "\n"
+
+int c 0
+int b 20
+set c a + b
+print "Added "
+uprint a
+print " and "
+uprint b
+print " to form: "
+uprint c
+print "\n"
+
+print "Mod:\n"
+int x 0
+set x 100 % 3
+uprint x
+print "\n"
+set x 100 % 5
+uprint x
+print "\n"
+
+int div 1000
+int dive 20
+
+print "Dividing "
+uprint div
+print " by "
+uprint dive
+print " to get: "
+set div div / dive
+uprint div
+print "\n"
+
+int d 400
+set d d - 100
+print "Expecting 300, got: "
+uprint d
+print "\n"
