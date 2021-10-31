@@ -9,3 +9,13 @@ end
 if 2 == 3
    print "Unreachable\n"
 end
+
+if 1
+   print "1 as 'true'\n"
+end
+if 0
+   print "0 as 'false'\n"
+end
+if 123
+   print "anything as 'false'\n"
+end

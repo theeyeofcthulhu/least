@@ -1,0 +1,17 @@
+int i 0
+
+while i < 100
+    if i % 3 == 0
+        if i % 5 == 0
+            print "FizzBuzz\n"
+        else
+            print "Fizz\n"
+        end
+    elif i % 5 == 0
+        print "Buzz\n"
+    else
+        uprint i
+        print "\n"
+    end
+    set i i + 1
+end
