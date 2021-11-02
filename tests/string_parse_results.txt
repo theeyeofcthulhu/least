@@ -1,4 +1,4 @@
-    tabstop
+	tabstop
 New
 
 Line

@@ -96,19 +96,24 @@ NEW_LINE,
 TAB,
 BACKSLASH,
 QUOTE,
+BRACKET_LEFT,
+BRACKET_RIGHT,
 STR_TOKEN_END,
 };
 
 const str_token token_structs[STR_TOKEN_END] = {
 {false, 0, "\",0xa,\"",     7, 'n'},    // Newline
-{false, 0, "    ",          4, 't'},    // Tabstop
+{false, 0, "\",0x9,\"",     7, 't'},    // Tabstop
 {false, 0, "\\",            1, '\\'},   // The character '\'
 {false, 0, "\",0x22,\"",    8, '\"'},   // The character '"'
+{false, 0, "\",0x5B,\"",    8, '['},    // The character '['
+{false, 0, "\",0x5D,\"",    8, ']'},    // The character ']'
 };
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error_on_true(bool eval, char* source_file, int line, char* format, ...);
 void compiler_error(char* source_file, int line, char* format, ...);
+void compiler_error_core(char* source_file, int line, char* format, va_list format_list);
 char* read_source_code(char* filename);
 char* generate_nasm(char* source_file_name, char* source_code);
 char** sepbyspc(char* src, int* dest_len);
@@ -129,17 +134,9 @@ void compiler_error_on_false(bool eval, char* source_file, int line, char* forma
 
     va_list format_params;
 
-    printf("%sCompiler Error!\n", SHELL_RED);
-    if(line == 0)
-        printf("%s: ", source_file);
-    else
-        printf("%s:%d ", source_file, line);
-
     va_start(format_params, format);
-    vprintf(format, format_params);
+    compiler_error_core(source_file, line, format, format_params);
     va_end(format_params);
-
-    printf(SHELL_WHITE);
 
     exit(1);
 }
@@ -150,17 +147,9 @@ void compiler_error_on_true(bool eval, char* source_file, int line, char* format
 
     va_list format_params;
 
-    printf("%sCompiler Error!\n", SHELL_RED);
-    if(line == 0)
-        printf("%s: ", source_file);
-    else
-        printf("%s:%d ", source_file, line);
-
     va_start(format_params, format);
-    vprintf(format, format_params);
+    compiler_error_core(source_file, line, format, format_params);
     va_end(format_params);
-
-    printf(SHELL_WHITE);
 
     exit(1);
 }
@@ -168,19 +157,23 @@ void compiler_error_on_true(bool eval, char* source_file, int line, char* format
 void compiler_error(char* source_file, int line, char* format, ...){
     va_list format_params;
 
+    va_start(format_params, format);
+    compiler_error_core(source_file, line, format, format_params);
+    va_end(format_params);
+
+    exit(1);
+}
+
+void compiler_error_core(char* source_file, int line, char* format, va_list format_list){
     printf("%sCompiler Error!\n", SHELL_RED);
     if(line == 0)
         printf("%s: ", source_file);
     else
         printf("%s:%d ", source_file, line);
 
-    va_start(format_params, format);
-    vprintf(format, format_params);
-    va_end(format_params);
+    vprintf(format, format_list);
 
     printf(SHELL_WHITE);
-
-    exit(1);
 }
 
 /* Read a file into dest, mallocs */
@@ -312,6 +305,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         // Print string to standard out
         if(strcmp(instruction_op, "print") == 0){
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
             strings[strings_len] = parse_string(rest_of_line, source_file_name, i);
             fprintf(output_file,    "\t;; print\n"
                                     "\tmov rax, 1\n"
@@ -325,14 +319,105 @@ char* generate_nasm(char* source_file_name, char* source_code){
             require_uprint = true;
 
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
             rest_of_line = parse_number(rest_of_line, source_file_name, i, int_vars, int_var_acc);
 
             fprintf(output_file,    "\t;; uprint\n"
                                     "\tmov rax, %s\n"
                                     "\tcall uprint\n", rest_of_line);
         // Exit with specified exit code
+        }else if(strcmp(instruction_op, "fprint") == 0){
+            //TODO: better error handling (e.g. alerting on empty format field, etc.)
+            //TODO: escaping []?
+            //TODO: implement format in tests
+            char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
+            char* parsed = parse_string(rest_of_line, source_file_name, i);
+
+            int parsed_len = strlen(parsed);
+
+            // Count '[' and ']'
+            // parsed[i] / 92 is 0 on '[' and 1 on ']', since they are the characters 91 and 93
+            int counters[2] = {0};
+            for(int i = 0; i < parsed_len; i++)
+                counters[parsed[i] / 92] += parsed[i] == '[' || parsed[i] == ']';
+
+            compiler_error_on_false(counters[0] == counters[1], source_file_name, i + 1, "Uneven numbers of '[' and ']' in format string\n");
+
+            char** segments = malloc((counters[0] * 2 + 1) * sizeof(char*));
+            int acc = 0;
+
+            char* parsed_cpy = malloc((parsed_len + 1) * sizeof(char));
+            strcpy(parsed_cpy, parsed);
+            char* tmp_ptr = parsed_cpy;
+
+            for(int j = 0; j < parsed_len; j++){
+                if(parsed[j] == '['){
+                    compiler_error_on_true(j == parsed_len - 1, source_file_name, i + 1, "Reached end of string after '['\n");
+                    compiler_error_on_true(parsed[j+1] == ']', source_file_name, i + 1, "Empty format parameter\n");
+
+                    require_uprint = true;
+
+                    if(j > 0){
+                        char* before = strtok(tmp_ptr, "[");
+                        tmp_ptr = NULL;
+                        compiler_error_on_false(before, source_file_name, i + 1, "String parsing error\n");
+
+                        int before_len = strlen(before);
+
+                        strings[strings_len] = malloc((before_len + 1) * sizeof(char));
+
+                        fprintf(output_file,    "\t;; print\n"
+                                                "\tmov rax, 1\n"
+                                                "\tmov rdi, 1\n"
+                                                "\tmov rsi, str%d\n"
+                                                "\tmov rdx, str%dLen\n"
+                                                "\tsyscall\n", strings_len, strings_len);
+
+                        strcpy(strings[strings_len++], before);
+                    }else{
+                        // Since we are the first character, we don't need to parse a 'before' the format
+                        tmp_ptr++;
+                    }
+
+                    char* inside = strtok(tmp_ptr, "]");
+                    tmp_ptr = NULL;
+                    compiler_error_on_false(inside, source_file_name, i + 1, "String parsing error\n");
+
+                    char* number = parse_number(inside, source_file_name, i + 1, int_vars, int_var_acc);
+                    fprintf(output_file,    "\t;; uprint\n"
+                                            "\tmov rax, %s\n"
+                                            "\tcall uprint\n", number);
+                }
+            }
+            // If there are characters after the last '['
+            char* seq = strtok(tmp_ptr, "\0");
+            if(seq){
+                int seq_len = strlen(seq);
+
+                compiler_error_on_false(seq, source_file_name, i + 1, "String parsing error\n");
+                segments[acc] = malloc((seq_len + 1) * sizeof(char));
+                strcpy(segments[acc], seq);
+
+                fprintf(output_file,    "\t;; print\n"
+                                        "\tmov rax, 1\n"
+                                        "\tmov rdi, 1\n"
+                                        "\tmov rsi, str%d\n"
+                                        "\tmov rdx, str%dLen\n"
+                                        "\tsyscall\n", strings_len, strings_len);
+
+                strings[strings_len++] = segments[acc++];
+            }
+
+            free(parsed);
+            free(parsed_cpy);
+            free(segments);
         }else if(strcmp(instruction_op, "exit") == 0){
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
             rest_of_line = parse_number(rest_of_line, source_file_name, i, int_vars, int_var_acc);
 
             fprintf(output_file,    "\t;; exit\n"
@@ -345,6 +430,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
             last_conditional = IF;
 
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
             parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack, &end_stack_acc);
 
             real_end_stack[real_end_acc++] = i;
@@ -359,6 +446,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\t.end%d:\n", real_end_stack[real_end_acc - 1], end_stack[--end_stack_acc]);
 
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
             parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack, &end_stack_acc);
         }else if(strcmp(instruction_op, "else") == 0){
             last_conditional = ELSE;
@@ -370,6 +459,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             end_stack[end_stack_acc++] = i;
         }else if(strcmp(instruction_op, "while") == 0){
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
             fprintf(output_file,    "\t;; while\n"
                                     "\t.whileentry%d:\n", i);
@@ -407,6 +497,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
             int expr_len;
             char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
             char** words = sepbyspc(rest_of_line, &expr_len);
 
             compiler_error_on_false(words, source_file_name, i, "Could not parse expression\n");
@@ -438,7 +530,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
         // Set value of integer
         }else if(strcmp(instruction_op, "set") == 0){
             char* int_to_set = strtok(NULL, " ");
+            compiler_error_on_false(int_to_set, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
             char* expr = strtok(NULL, "\0");
+            compiler_error_on_false(expr, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
             bool found = false;
             for (int i = 0; i < int_var_acc; i++) {
@@ -503,8 +597,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\tpop rax\n"
                             "\tdec r8\n"
                             "\tjne .pr\n"
-                            "\tret\n");
-    }
+                            "\tret\n");    }
 
     fprintf(output_file,    "section .data\n");
 
@@ -591,7 +684,7 @@ char* parse_number(char* expression, char* filename, int line, int_var int_vars[
     }
     for(int i = 0; i < INT_LEN + 1 && i < strlen(expression); i++){
         compiler_error_on_true(expression[i] < '0' || expression[i] > '9', filename, line + 1,
-                                "Unknown word: '%s'\n", expression);
+                                "Unknown variable or number constant: '%s'\n", expression);
         compiler_error_on_true(i >= INT_LEN, filename, line + 1, "Number too long\n");
     }
 
