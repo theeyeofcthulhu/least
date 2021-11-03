@@ -568,36 +568,29 @@ char* generate_nasm(char* source_file_name, char* source_code){
     // Subroutine for uprint instruction
     // Only printed if uprint is used
     if(require_uprint){
-        fprintf(output_file,";; divide rax by 10\n"
-                            "divten:\n"
-                            "\tmov rdx, 0\n"
-                            "\tmov rcx, 10\n"
-                            "\tdiv rcx\n"
-                            "\tret\n");
-        fprintf(output_file,";; print char in rsi onto screen\n"
-                            "putchar:\n"
-                            "\tmov rax, 1\n"
-                            "\tmov rdi, 1\n"
-                            "\tmov rdx, 1\n"
-                            "\tsyscall\n"
-                            "\tret\n");
         fprintf(output_file,"uprint:\n"
-                            "\tmov r8, 0\n"
+                            "\tenter 32,0\n"
+                            "\tmov rdi, rbp\n" // Start at base pointer
+                            "\tmov rcx, 10\n"
                             "\t.div:\n"
-                            "\tcall divten\n"
-                            "\tadd rdx, 0x30\n"
-                            "\tpush rdx\n"
-                            "\tinc r8\n"
+                            "\txor rdx, rdx\n" // Reset to 0
+                            "\tdiv rcx\n"
+                            "\tor dl, '0'\n" // Add char constant value to 8-bit end of rdx
+                            "\tdec rdi\n"
+                            "\tmov [rdi], dl\n" // Move character to start of string
                             "\tcmp rax, 0\n"
                             "\tjne .div\n"
 
                             "\t.pr:\n"
-                            "\tmov rsi, rsp\n"
-                            "\tcall putchar\n"
-                            "\tpop rax\n"
-                            "\tdec r8\n"
-                            "\tjne .pr\n"
-                            "\tret\n");    }
+                            "\tmov rsi, rdi\n" // Points to beginning of string
+                            "\tmov rax, 1\n"
+                            "\tmov rdi, 1\n"
+                            "\tmov rdx, rbp\n"
+                            "\tsub rdx, rsi\n" // Calculate length of string
+                            "\tsyscall\n"
+                            "\tleave\n"
+                            "\tret\n");
+    }
 
     fprintf(output_file,    "section .data\n");
 
