@@ -16,7 +16,7 @@
 #define SHELL_RED   "\033[0;31m"
 #define SHELL_WHITE "\033[0;37m"
 
-//TODO: comment everything
+/*TODO: comment everything */
 
 enum conditionals{
 IF,
@@ -25,7 +25,7 @@ ELSE,
 NO_CONDITIONAL,
 };
 
-// Structure for organizing comparison operations
+/* Structure for organizing comparison operations */
 enum cmp_operations{
 EQUAL,
 NOT_EQUAL,
@@ -51,7 +51,7 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
 {GREATER_OR_EQ, ">=",   "jge"},
 };
 
-// Structure for organizing arithmetic operations
+/* Structure for organizing arithmetic operations */
 enum arit_operations{
 ADD,
 SUB,
@@ -103,12 +103,12 @@ STR_TOKEN_END,
 };
 
 const str_token token_structs[STR_TOKEN_END] = {
-{false, 0, "\",0xa,\"",     7, 'n'},    // Newline
-{false, 0, "\",0x9,\"",     7, 't'},    // Tabstop
-{false, 0, "\\",            1, '\\'},   // The character '\'
-{false, 0, "\",0x22,\"",    8, '\"'},   // The character '"'
-{false, 0, "\",0x5B,\"",    8, '['},    // The character '['
-{false, 0, "\",0x5D,\"",    8, ']'},    // The character ']'
+{false, 0, "\",0xa,\"",     7, 'n'},    /* Newline */
+{false, 0, "\",0x9,\"",     7, 't'},    /* Tabstop */
+{false, 0, "\\",            1, '\\'},   /* The character '\' */
+{false, 0, "\",0x22,\"",    8, '\"'},   /* The character '"' */
+{false, 0, "\",0x5B,\"",    8, '['},    /* The character '[' */
+{false, 0, "\",0x5D,\"",    8, ']'},    /* The character ']' */
 };
 
 void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
@@ -209,7 +209,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
     int lines_len = 0;
     char* source_file_name_cpy;
 
-    // Stacks for handling variables, conditionals and loops
+    /* Stacks for handling variables, conditionals and loops */
     char* strings[STR_CAPACITY] = {0};
     int strings_len = 0;
 
@@ -250,7 +250,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         if(source_code[i] == '\n')
             lines_len++;
 
-    // Split file by '\n' chars and load into lines
+    /* Split file by '\n' chars and load into lines */
     lines = malloc(lines_len * sizeof(char*));
     char* offset = source_code;
 
@@ -282,8 +282,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
         accumulator++;
     }
 
-    // Parse operations
-    // Things like print parse strings here and add them to 'strings'
+    /* Parse operations
+     * Things like print parse strings here and add them to 'strings' */
     for (int i = 0; i < lines_len; i++){
         if(!lines[i])
             continue;
@@ -298,12 +298,12 @@ char* generate_nasm(char* source_file_name, char* source_code){
         line_cpy = malloc((line_len + 1) * sizeof(char));
         strcpy(line_cpy, lines[i]);
 
-        // Get instruction by taking all characters up to the first SPC
+        /* Get instruction by taking all characters up to the first SPC */
         instruction_op = strtok(line_cpy, " ");
         compiler_error_on_true(instruction_op == NULL, source_file_name, i + 1, "Could not read instruction\n");
         instruction_op_len = strlen(instruction_op) + 1;
 
-        // Print string to standard out
+        /* Print string to standard out */
         if(strcmp(instruction_op, "print") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -315,7 +315,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tmov rdx, str%dLen\n"
                                     "\tsyscall\n", strings_len, strings_len);
             strings_len++;
-        // Print integer to standard out
+        /* Print integer to standard out */
         }else if(strcmp(instruction_op, "uprint") == 0){
             require_uprint = true;
 
@@ -327,11 +327,11 @@ char* generate_nasm(char* source_file_name, char* source_code){
             fprintf(output_file,    "\t;; uprint\n"
                                     "\tmov rax, %s\n"
                                     "\tcall uprint\n", rest_of_line);
-        // Exit with specified exit code
+        /* Exit with specified exit code */
         }else if(strcmp(instruction_op, "fprint") == 0){
-            //TODO: better error handling (e.g. alerting on empty format field, etc.)
-            //TODO: escaping []?
-            //TODO: implement format in tests
+            /* TODO: better error handling (e.g. alerting on empty format field, etc.) */
+            /* TODO: escaping []? */
+            /* TODO: implement format in tests */
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
@@ -339,8 +339,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
             int parsed_len = strlen(parsed);
 
-            // Count '[' and ']'
-            // parsed[i] / 92 is 0 on '[' and 1 on ']', since they are the characters 91 and 93
+            /* Count '[' and ']'
+             * parsed[i] / 92 is 0 on '[' and 1 on ']', since they are the characters 91 and 93 */
             int counters[2] = {0};
             for(int i = 0; i < parsed_len; i++)
                 counters[parsed[i] / 92] += parsed[i] == '[' || parsed[i] == ']';
@@ -377,7 +377,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
                         strcpy(strings[strings_len++], before);
                     }else{
-                        // Since we are the first character, we don't need to parse a 'before' the format
+                        /* Since we are the first character, we don't need to parse a 'before' the format */
                         tmp_ptr++;
                     }
                     char* inside = strtok(tmp_ptr, "]");
@@ -392,7 +392,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                             "\tcall uprint\n", number);
                 }
             }
-            // If there are characters after the last '['
+            /* If there are characters after the last '[' */
             char* seq = strtok(tmp_ptr, "\0");
             if(seq){
                 int seq_len = strlen(seq);
@@ -421,8 +421,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tmov rax, 60\n"
                                     "\tmov rdi, %s\n"
                                     "\tsyscall\n", rest_of_line);
-        //TODO: logical operators
-        // Conditional if statement
+        /*TODO: logical operators
+         * Conditional if statement */
         }else if(strcmp(instruction_op, "if") == 0){
             last_conditional = IF;
 
@@ -468,7 +468,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\t.while%d:\n", operator.asm_name, i, i, i);
             end_stack[end_stack_acc++] = i;
             while_stack[while_stack_acc++] = i;
-        // End blocks
+        /* End blocks */
         }else if(strcmp(instruction_op, "end") == 0){
             last_conditional = NO_CONDITIONAL;
 
@@ -476,7 +476,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'end'\n");
             int to_pop = end_stack[--end_stack_acc];
 
-            // If this end ends a while loop: jump back to the top if we reached the line just before this end
+            /* If this end ends a while loop: jump back to the top if we reached the line just before this end */
             if(while_stack_acc > 0){
                 int possible_while_pop = while_stack[while_stack_acc - 1];
                 if(to_pop == possible_while_pop){
@@ -488,7 +488,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             fprintf(output_file,    "\t;; end\n"
                                     "\t.realend%d:\n"
                                     "\t.end%d:\n", real_end_stack[--real_end_acc], to_pop);
-        // Declare integer
+        /* Declare integer */
         }else if(strcmp(instruction_op, "int") == 0){
             compiler_error_on_true(instruction_op_len >= line_len, filename, i + 1, "No argument for assigning int\n");
 
@@ -502,7 +502,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             compiler_error_on_true(expr_len != 2, source_file_name, i, "Did not find two words in expression '%s'\n", rest_of_line);
             int_var new_int;
 
-            // Parse string that comes after the instruction to number
+            /* Parse string that comes after the instruction to number */
             for (int j = 0; j < strlen(words[0]); j++) {
                 compiler_error_on_true(words[0][j] >= '0' && words[0][j] <= '9', filename, i + 1, "Character: '%c' is a digit\n", words[0][j]);
             }
@@ -524,7 +524,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
             int_vars[int_var_acc++] = new_int;
             freewordarr(words, expr_len);
-        // Set value of integer
+        /* Set value of integer */
         }else if(strcmp(instruction_op, "set") == 0){
             char* int_to_set = strtok(NULL, " ");
             compiler_error_on_false(int_to_set, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -556,34 +556,34 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     free(lines);
 
-    // If not otherwise specified, exit with code 0
+    /* If not otherwise specified, exit with code 0 */
     fprintf(output_file,    "\t;; exit\n"
                             "\tmov rax, 60\n"
                             "\tmov rdi, 0\n"
                             "\tsyscall\n");
 
-    // Subroutine for uprint instruction
-    // Only printed if uprint is used
+    /* Subroutine for uprint instruction
+     * Only printed if uprint is used */
     if(require_uprint){
         fprintf(output_file,"uprint:\n"
                             "\tenter 32,0\n"
-                            "\tmov rdi, rbp\n" // Start at base pointer
+                            "\tmov rdi, rbp\n" /* Start at base pointer */
                             "\tmov rcx, 10\n"
                             "\t.div:\n"
-                            "\txor rdx, rdx\n" // Reset to 0
+                            "\txor rdx, rdx\n" /* Reset to 0 */
                             "\tdiv rcx\n"
-                            "\tor dl, '0'\n" // Add char constant value to 8-bit end of rdx
+                            "\tor dl, '0'\n" /* Add char constant value to 8-bit end of rdx */
                             "\tdec rdi\n"
-                            "\tmov [rdi], dl\n" // Move character to start of string
+                            "\tmov [rdi], dl\n" /* Move character to start of string */
                             "\tcmp rax, 0\n"
                             "\tjne .div\n"
 
                             "\t.pr:\n"
-                            "\tmov rsi, rdi\n" // Points to beginning of string
+                            "\tmov rsi, rdi\n" /* Points to beginning of string */
                             "\tmov rax, 1\n"
                             "\tmov rdi, 1\n"
                             "\tmov rdx, rbp\n"
-                            "\tsub rdx, rsi\n" // Calculate length of string
+                            "\tsub rdx, rsi\n" /* Calculate length of string */
                             "\tsyscall\n"
                             "\tleave\n"
                             "\tret\n");
@@ -591,7 +591,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     fprintf(output_file,    "section .data\n");
 
-    // Parse strings into nasm strings in data section
+    /* Parse strings into nasm strings in data section */
     for(int i = 0; i < strings_len; i++){
         if(!strings[i])
             continue;
@@ -601,7 +601,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         free(strings[i]);
     }
 
-    // Parse ints into constants
+    /* Parse ints into constants */
     for(int i = 0; i < int_var_acc; i++){
         fprintf(output_file, "\t%s: dq %s\n", int_vars[i].name, int_vars[i].value);
         free(int_vars[i].name);
@@ -614,9 +614,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
     return filename;
 }
 
-// Separate src by spaces (gobble up duplicate spaces) into array of strings
+/* Separate src by spaces (gobble up duplicate spaces) into array of strings */
 char** sepbyspc(char* src, int* dest_len){
-    //rest  of line
+    /* rest  of line */
     if(src == NULL)
         return NULL;
     int src_len = strlen(src);
@@ -638,13 +638,13 @@ char** sepbyspc(char* src, int* dest_len){
     }
     *dest_len += 1;
 
-    // Split file by '\n' chars and load into lines
+    /* Split file by '\n' chars and load into lines */
     dest = malloc((*dest_len + 1) * sizeof(char*));
 
     char* src_word;
     char* src_copy_ptr = src_cpy;
-    // control_copy_ptr becomes NULL after first iteration since every call to strtok after the first one
-    // has to be with NULL as str.
+    /* control_copy_ptr becomes NULL after first iteration since every call to strtok after the first one
+     * has to be with NULL as str. */
     for(int i = 0; i < *dest_len; src_copy_ptr = NULL, i++){
         src_word = strtok(src_copy_ptr, " ");
         int src_word_len = strlen(src_word);
@@ -658,7 +658,7 @@ char** sepbyspc(char* src, int* dest_len){
     return dest;
 }
 
-// Free array generated by, for example, sepbyspc
+/* Free array generated by, for example, sepbyspc */
 void freewordarr(char** arr, int len){
     for(int i = 0; i < len; i++)
         free(arr[i]);
@@ -666,7 +666,7 @@ void freewordarr(char** arr, int len){
     free(arr);
 }
 
-// Check if expression is either a valid number or a variable (return nasm memory reference if so)
+/* Check if expression is either a valid number or a variable (return nasm memory reference if so) */
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars){
     for (int i = 0; i < len_int_vars; i++) {
         if(strcmp(int_vars[i].name, expression) == 0)
@@ -681,7 +681,7 @@ char* parse_number(char* expression, char* filename, int line, int_var int_vars[
     return expression;
 }
 
-// Check validity of string and insert escape sequences
+/* Check validity of string and insert escape sequences */
 char* parse_string(char* string, char* filename, int line){
     char* result;
     int result_len = 0;
@@ -693,7 +693,7 @@ char* parse_string(char* string, char* filename, int line){
     str_token tokens[string_len];
     int tokens_len = 0;
 
-    // Parse string that comes after the instruction
+    /* Parse string that comes after the instruction */
     for (int j = 0; j < string_len; j++) {
         switch(string[j]){
             case '"':
@@ -748,8 +748,8 @@ char* parse_string(char* string, char* filename, int line){
     return result;
 }
 
-// Convert arithmetic expression into assembly and print to nasm_output
-// Result is moved into target register
+/* Convert arithmetic expression into assembly and print to nasm_output
+ * Result is moved into target register */
 bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars){
     arit_operation operator;
     int expr_len = 0;
@@ -783,7 +783,7 @@ bool parse_expression(char* expr, char* target, char** preserve, int preserve_le
 
             char* numbers[3] = {0};
 
-            // Check if numbers are valid
+            /* Check if numbers are valid */
             for (int j = 0; j < 3; j++) {
                 if(j == 1)
                     continue;
@@ -797,7 +797,7 @@ bool parse_expression(char* expr, char* target, char** preserve, int preserve_le
                                         "\tmov rax, %s\n"
                                         "\tmov rcx, %s\n"
                                         "\tdiv rcx\n", numbers[0], numbers[2]);
-                // If taking modulus: get remainder instead of quotient
+                /* If taking modulus: get remainder instead of quotient */
                 if(operator.op_enum == MOD && (strcmp(target, "rdx") != 0))
                     fprintf(nasm_output,    "\tmov rax, rdx\n");
                 else if(strcmp(target, "rax") != 0)
@@ -842,7 +842,7 @@ cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_
     int words_len = 0;
     char** words = sepbyspc(expr, &words_len);
 
-    // If only one number: if it's one: true, else: false
+    /* If only one number: if it's one: true, else: false */
     if(words_len == 1){
         char* number = parse_number(words[0], filename, line, int_vars, len_int_vars);
         fprintf(nasm_output,    "\t;; checking if number is one\n"
@@ -869,7 +869,7 @@ cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_
     compiler_error_on_false(found_operator, filename, line, "Could not parse operation '%s'\n", words[1]);
     compiler_error_on_true(operator_index == words_len, filename, line, "Operator is last operand in operation '%s'\n", words[1]);
 
-    // Join the two sides of the operation, pass them to the expression parser and then compare
+    /* Join the two sides of the operation, pass them to the expression parser and then compare */
     char* sides[2] = {0};
     int sizes[2] = {0};
     bool init[2] = {0};
@@ -913,7 +913,7 @@ cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_
 
 int main(int argc, char *argv[]) {
     bool run_after_compile = false;
-	// Handle command line input with getopt
+	/* Handle command line input with getopt */
 	int flag;
 	while ((flag = getopt(argc, argv, "r")) != -1){
 		switch (flag){
@@ -949,8 +949,6 @@ int main(int argc, char *argv[]) {
     printf("[CMD] %s%s%s%s %s%s%s\n", nasm_cmd_base,
            SHELL_RED, object_filename, SHELL_WHITE,
            SHELL_GREEN, nasm_filename, SHELL_WHITE);
-    // system(nasm_cmd);
-    // free(nasm_cmd);
 
     if(fork() == 0){
         execlp("nasm", "nasm", "-g", "-felf64", "-o", object_filename, nasm_filename, NULL);
@@ -959,11 +957,8 @@ int main(int argc, char *argv[]) {
     }
 
     printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
-
            SHELL_RED, source_filename_cpy, SHELL_WHITE,
            SHELL_GREEN, object_filename, SHELL_WHITE);
-    // system(ld_cmd);
-    // free(ld_cmd);
 
     if(fork() == 0){
         execlp("ld", "ld", "-o", source_filename_cpy, object_filename, NULL);
