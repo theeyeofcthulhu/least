@@ -57,6 +57,7 @@ ADD,
 SUB,
 MOD,
 DIV,
+MUL,
 ARIT_OPERATION_ENUM_END,
 };
 
@@ -69,8 +70,9 @@ typedef struct{
 const arit_operation arit_operation_structs[CMP_OPERATION_ENUM_END] = {
 {ADD,   "+",    "add"},
 {SUB,   "-",    "sub"},
-{MOD,   "%",    ""},
-{DIV,   "/",    ""},
+{MOD,   "%",    "div"},
+{DIV,   "/",    "div"},
+{MUL,   "*",    "mul"},
 };
 
 typedef struct{
@@ -791,24 +793,29 @@ bool parse_expression(char* expr, char* target, char** preserve, int preserve_le
                 numbers[j] = parse_number(expr_arr[j], filename, line, int_vars, len_int_vars);
             }
 
-            if(operator.op_enum == MOD || operator.op_enum == DIV){
-                fprintf(nasm_output,    "\t;; mod\n"
-                                        "\tmov rdx, 0\n"
-                                        "\tmov rax, %s\n"
-                                        "\tmov rcx, %s\n"
-                                        "\tdiv rcx\n", numbers[0], numbers[2]);
-                /* If taking modulus: get remainder instead of quotient */
-                if(operator.op_enum == MOD && (strcmp(target, "rdx") != 0))
-                    fprintf(nasm_output,    "\tmov rax, rdx\n");
-                else if(strcmp(target, "rax") != 0)
-                    fprintf(nasm_output,"\tmov %s, rax\n", target);
-            }else{
-                fprintf(nasm_output,    "\t;; %s\n"
-                                        "\tmov rax, %s\n"
-                                        "\tmov rbx, %s\n"
-                                        "\t%s rax, rbx\n", operator.asm_name, numbers[0], numbers[2], operator.asm_name);
-                if(strcmp(target, "rax") != 0)
-                    fprintf(nasm_output,"\tmov %s, rax\n", target);
+            switch(operator.op_enum){
+                case DIV:
+                case MUL:
+                case MOD:
+                    fprintf(nasm_output,    "\t;; %s\n"
+                                            "\tmov rdx, 0\n"
+                                            "\tmov rax, %s\n"
+                                            "\tmov rcx, %s\n"
+                                            "\t%s rcx\n", operator.source_name, numbers[0], numbers[2], operator.asm_name);
+                    /* If taking modulus: get remainder instead of quotient */
+                    if(operator.op_enum == MOD && (strcmp(target, "rdx") != 0))
+                        fprintf(nasm_output,    "\tmov rax, rdx\n");
+                    else if(strcmp(target, "rax") != 0)
+                        fprintf(nasm_output,"\tmov %s, rax\n", target);
+                    break;
+                default:
+                    fprintf(nasm_output,    "\t;; %s\n"
+                                            "\tmov rax, %s\n"
+                                            "\tmov rbx, %s\n"
+                                            "\t%s rax, rbx\n", operator.source_name, numbers[0], numbers[2], operator.asm_name);
+                    if(strcmp(target, "rax") != 0)
+                        fprintf(nasm_output,"\tmov %s, rax\n", target);
+                    break;
             }
             freewordarr(expr_arr, expr_len);
             break;
