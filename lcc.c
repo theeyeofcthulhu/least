@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <sys/wait.h>
 
 #define OP_CAPACITY 1000
 #define STR_CAPACITY 1000
@@ -346,9 +347,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
             compiler_error_on_false(counters[0] == counters[1], source_file_name, i + 1, "Uneven numbers of '[' and ']' in format string\n");
 
-            char** segments = malloc((counters[0] * 2 + 1) * sizeof(char*));
-            int acc = 0;
-
             char* parsed_cpy = malloc((parsed_len + 1) * sizeof(char));
             strcpy(parsed_cpy, parsed);
             char* tmp_ptr = parsed_cpy;
@@ -364,6 +362,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                         char* before = strtok(tmp_ptr, "[");
                         tmp_ptr = NULL;
                         compiler_error_on_false(before, source_file_name, i + 1, "String parsing error\n");
+                        compiler_error_on_true(index(before, ']'), source_file_name, i + 1, "Unexpected ']' in format string\n");
 
                         int before_len = strlen(before);
 
@@ -381,10 +380,11 @@ char* generate_nasm(char* source_file_name, char* source_code){
                         // Since we are the first character, we don't need to parse a 'before' the format
                         tmp_ptr++;
                     }
-
                     char* inside = strtok(tmp_ptr, "]");
                     tmp_ptr = NULL;
+
                     compiler_error_on_false(inside, source_file_name, i + 1, "String parsing error\n");
+                    compiler_error_on_true(index(inside, '['), source_file_name, i + 1, "Unexpected '[' in format string\n");
 
                     char* number = parse_number(inside, source_file_name, i + 1, int_vars, int_var_acc);
                     fprintf(output_file,    "\t;; uprint\n"
@@ -397,9 +397,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             if(seq){
                 int seq_len = strlen(seq);
 
-                compiler_error_on_false(seq, source_file_name, i + 1, "String parsing error\n");
-                segments[acc] = malloc((seq_len + 1) * sizeof(char));
-                strcpy(segments[acc], seq);
+                strings[strings_len] = malloc((seq_len + 1) * sizeof(char));
 
                 fprintf(output_file,    "\t;; print\n"
                                         "\tmov rax, 1\n"
@@ -408,12 +406,11 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                         "\tmov rdx, str%dLen\n"
                                         "\tsyscall\n", strings_len, strings_len);
 
-                strings[strings_len++] = segments[acc++];
+                strcpy(strings[strings_len++], seq);
             }
 
             free(parsed);
             free(parsed_cpy);
-            free(segments);
         }else if(strcmp(instruction_op, "exit") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -908,6 +905,8 @@ cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_
                             "\tcmp rax, rbx\n", operator.source_name);
 
     freewordarr(words, words_len);
+    for (int j = 0; j < 2; j++)
+        free(sides[j]);
 
     return operator;
 }
@@ -928,10 +927,10 @@ int main(int argc, char *argv[]) {
 	}
 
     const char* nasm_cmd_base = "nasm -g -felf64 -o ";
+
     const char* ld_cmd_base = "ld -o ";
 
     compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
-
 
     printf("[INFO] Input file: %s%s%s\n", SHELL_GREEN, argv[argc - 1], SHELL_WHITE);
     char* input_source = read_source_code(argv[argc - 1]);
@@ -947,34 +946,47 @@ int main(int argc, char *argv[]) {
     char* object_filename = malloc((strlen(source_filename_cpy) + strlen(".o") + 1) * sizeof(char));
     sprintf(object_filename, "%s%s", source_filename_cpy, ".o");
 
-    char* nasm_cmd = malloc((strlen(nasm_cmd_base) + strlen(object_filename) + 1 + strlen(nasm_filename) + 1) * sizeof(char));
-    sprintf(nasm_cmd, "%s%s %s", nasm_cmd_base, object_filename, nasm_filename);
-
     printf("[CMD] %s%s%s%s %s%s%s\n", nasm_cmd_base,
            SHELL_RED, object_filename, SHELL_WHITE,
            SHELL_GREEN, nasm_filename, SHELL_WHITE);
-    system(nasm_cmd);
-    free(nasm_cmd);
+    // system(nasm_cmd);
+    // free(nasm_cmd);
 
-    char* ld_cmd = malloc((strlen(ld_cmd_base) + strlen(source_filename_cpy) + 1 + strlen(object_filename) + 1) * sizeof(char));
-    sprintf(ld_cmd, "%s%s %s", ld_cmd_base, source_filename_cpy, object_filename);
+    if(fork() == 0){
+        execlp("nasm", "nasm", "-g", "-felf64", "-o", object_filename, nasm_filename, NULL);
+    }else{
+        wait(NULL);
+    }
 
     printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
 
            SHELL_RED, source_filename_cpy, SHELL_WHITE,
            SHELL_GREEN, object_filename, SHELL_WHITE);
-    system(ld_cmd);
-    free(ld_cmd);
+    // system(ld_cmd);
+    // free(ld_cmd);
+
+    if(fork() == 0){
+        execlp("ld", "ld", "-o", source_filename_cpy, object_filename, NULL);
+    }else{
+        wait(NULL);
+    }
 
     if(run_after_compile){
         const char* execute_cmd_base = "./";
-        char* execute_cmd = malloc((strlen(execute_cmd_base) + strlen(source_filename_cpy) + 1) * sizeof(char));
-        sprintf(execute_cmd, "%s%s", execute_cmd_base, source_filename_cpy);
+        char* execute_local_file = malloc(
+            (strlen(execute_cmd_base) + strlen(source_filename_cpy) + 1)
+            * sizeof(char));
+        sprintf(execute_local_file, "%s%s", execute_cmd_base, source_filename_cpy);
 
         printf("[CMD] %s%s%s%s\n", execute_cmd_base,
             SHELL_GREEN, source_filename_cpy, SHELL_WHITE);
-        system(execute_cmd);
-        free(execute_cmd);
+        if(fork() == 0){
+            execlp(execute_local_file, execute_local_file, NULL);
+        }else{
+            wait(NULL);
+        }
+
+        free(execute_local_file);
     }
 
     free(input_source);
