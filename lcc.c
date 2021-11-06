@@ -6,6 +6,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
 #include "stack.h"
 
@@ -170,35 +173,31 @@ void compiler_error(char* source_file, int line, char* format, ...){
 }
 
 void compiler_error_core(char* source_file, int line, char* format, va_list format_list){
-    printf("%sCompiler Error!\n", SHELL_RED);
+    fprintf(stderr, "%sCompiler Error!\n", SHELL_RED);
     if(line == 0)
-        printf("%s: ", source_file);
+        fprintf(stderr, "%s: ", source_file);
     else
-        printf("%s:%d ", source_file, line);
+        fprintf(stderr, "%s:%d ", source_file, line);
 
-    vprintf(format, format_list);
+    vfprintf(stderr, format, format_list);
 
-    printf(SHELL_WHITE);
+    fprintf(stderr, SHELL_WHITE);
 }
 
 /* Read a file into dest, mallocs */
 char* read_source_code(char* filename){
-    FILE* input_file;
-    int input_size;
-    char* result;
+    int input_file = open(filename, O_RDONLY);
+    compiler_error_on_true(input_file < 0, filename, 0, "Could not open file '%s'\n", filename);
 
-    input_file = fopen(filename, "r");
-    compiler_error_on_true(input_file == NULL, filename, 0, "Could not open file '%s'\n", filename);
+    struct stat file_stat = {0};
+    compiler_error_on_true((fstat(input_file, &file_stat)) < 0, filename, 0, "Could not stat file '%s'\n", filename);
 
-    fseek(input_file, 0, SEEK_END);
-    input_size = ftell(input_file);
-    fseek(input_file, 0, SEEK_SET);
+    int input_size = file_stat.st_size;
 
-    result = malloc(input_size + 1);
-    fread(result, 1, input_size, input_file);
-    result[input_size] = '\0';
+    char* result = mmap(NULL, input_size, PROT_READ, MAP_PRIVATE, input_file, 0);
+    compiler_error_on_false(result, filename, 0, "Failed to map file '%s'\n", filename);
 
-    fclose(input_file);
+    close(input_file);
 
     return result;
 }
@@ -988,7 +987,6 @@ int main(int argc, char *argv[]) {
         free(execute_local_file);
     }
 
-    free(input_source);
     free(object_filename);
     free(nasm_filename);
     free(source_filename_cpy);
