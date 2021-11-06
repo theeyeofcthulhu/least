@@ -10,8 +10,7 @@ while i < 100
     elif i % 5 == 0
         print "Buzz\n"
     else
-        uprint i
-        print "\n"
+        fprint "[i]\n"
     end
     set i i + 1
 end

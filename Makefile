@@ -1,15 +1,24 @@
-##
-# Least Programming language
-#
-# @file
-# @version 0.1
+CC = gcc
+CCFLAGS = -g -Wall
 
-CCFLAGS=-Wall -g
+SRC = lcc.c stack.c
+INCLUDE = stack.h
+OBJ = $(SRC:.c=.o)
+EXE = lcc
 
-lcc: lcc.c
-	gcc $(CCFLAGS) -o $@ $^
+.PHONY: all
+all: $(EXE)
 
-test: lcc
-	./tests.sh
+.PHONY: clean
+clean:
+	rm *.o
+	rm lcc
 
-# end
+lcc.o: stack.h
+stack.o: stack.h
+
+$(EXE): $(OBJ) $(INCLUDE)
+	$(CC) $(CCFLAGS) -o $@ $(OBJ) $(LIBS)
+
+%.o: %.c
+	$(CC) -c $(CCFLAGS) -o $@ $<

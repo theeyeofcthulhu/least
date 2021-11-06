@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <sys/wait.h>
 
+#include "stack.h"
+
 #define OP_CAPACITY 1000
 #define STR_CAPACITY 1000
 
@@ -124,7 +126,7 @@ void freewordarr(char** arr, int len);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
 char* parse_string(char* string, char* filename, int line);
 bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
-void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int end_stack[OP_CAPACITY], int *end_stack_acc);
+void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int_stack* end_stack);
 cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars);
 
 /* Classes for asserting something and exiting
@@ -212,17 +214,11 @@ char* generate_nasm(char* source_file_name, char* source_code){
     char* source_file_name_cpy;
 
     /* Stacks for handling variables, conditionals and loops */
-    char* strings[STR_CAPACITY] = {0};
-    int strings_len = 0;
+    str_stack* strings = str_stack_create(STR_CAPACITY);
 
-    int end_stack[OP_CAPACITY] = {0};
-    int end_stack_acc = 0;
-
-    int while_stack[OP_CAPACITY] = {0};
-    int while_stack_acc = 0;
-
-    int real_end_stack[OP_CAPACITY] = {0};
-    int real_end_acc = 0;
+    int_stack* end_stack = int_stack_create(OP_CAPACITY);
+    int_stack* while_stack = int_stack_create(OP_CAPACITY);
+    int_stack* real_end_stack = int_stack_create(OP_CAPACITY);
 
     int_var int_vars[OP_CAPACITY] = {0};
     int int_var_acc = 0;
@@ -309,14 +305,13 @@ char* generate_nasm(char* source_file_name, char* source_code){
         if(strcmp(instruction_op, "print") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
-            strings[strings_len] = parse_string(rest_of_line, source_file_name, i);
             fprintf(output_file,    "\t;; print\n"
                                     "\tmov rax, 1\n"
                                     "\tmov rdi, 1\n"
                                     "\tmov rsi, str%d\n"
                                     "\tmov rdx, str%dLen\n"
-                                    "\tsyscall\n", strings_len, strings_len);
-            strings_len++;
+                                    "\tsyscall\n", strings->counter, strings->counter);
+            str_stack_push(strings, parse_string(rest_of_line, source_file_name, i));
         /* Print integer to standard out */
         }else if(strcmp(instruction_op, "uprint") == 0){
             require_uprint = true;
@@ -368,16 +363,16 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
                         int before_len = strlen(before);
 
-                        strings[strings_len] = malloc((before_len + 1) * sizeof(char));
-
+                        char* new_string = malloc((before_len + 1) * sizeof(char));
+                        strcpy(new_string, before);
                         fprintf(output_file,    "\t;; print\n"
                                                 "\tmov rax, 1\n"
                                                 "\tmov rdi, 1\n"
                                                 "\tmov rsi, str%d\n"
                                                 "\tmov rdx, str%dLen\n"
-                                                "\tsyscall\n", strings_len, strings_len);
+                                                "\tsyscall\n", strings->counter, strings->counter);
 
-                        strcpy(strings[strings_len++], before);
+                        str_stack_push(strings, new_string);
                     }else{
                         /* Since we are the first character, we don't need to parse a 'before' the format */
                         tmp_ptr++;
@@ -399,16 +394,16 @@ char* generate_nasm(char* source_file_name, char* source_code){
             if(seq){
                 int seq_len = strlen(seq);
 
-                strings[strings_len] = malloc((seq_len + 1) * sizeof(char));
-
+                char* new_string = malloc((seq_len + 1) * sizeof(char));
+                strcpy(new_string, seq);
                 fprintf(output_file,    "\t;; print\n"
                                         "\tmov rax, 1\n"
                                         "\tmov rdi, 1\n"
                                         "\tmov rsi, str%d\n"
                                         "\tmov rdx, str%dLen\n"
-                                        "\tsyscall\n", strings_len, strings_len);
+                                        "\tsyscall\n", strings->counter, strings->counter);
 
-                strcpy(strings[strings_len++], seq);
+                str_stack_push(strings, new_string);
             }
 
             free(parsed);
@@ -431,31 +426,32 @@ char* generate_nasm(char* source_file_name, char* source_code){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
-            parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack, &end_stack_acc);
+            parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack);
 
-            real_end_stack[real_end_acc++] = i;
+            int_stack_push(real_end_stack, i);
         }else if(strcmp(instruction_op, "elif") == 0){
             compiler_error_on_false(last_conditional == IF || last_conditional == ELIF || last_conditional == NO_CONDITIONAL, source_file_name, i + 1, "'elif' must follow 'if' or 'elif'\n");
 
             last_conditional = ELIF;
-            compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'elif'\n");
+            compiler_error_on_true(end_stack->counter <= 0, source_file_name, i + 1, "Unexpected 'elif'\n");
 
             fprintf(output_file,    "\t;; elif\n"
                                     "\tjmp .realend%d\n"
-                                    "\t.end%d:\n", real_end_stack[real_end_acc - 1], end_stack[--end_stack_acc]);
+                                    "\t.end%d:\n", int_stack_top(real_end_stack), int_stack_pop(end_stack));
 
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
-            parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack, &end_stack_acc);
+            parse_if(rest_of_line, source_file_name, i, output_file, int_vars, int_var_acc, end_stack);
         }else if(strcmp(instruction_op, "else") == 0){
             last_conditional = ELSE;
-            compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'else'\n");
+            compiler_error_on_true(end_stack->counter <= 0, source_file_name, i + 1, "Unexpected 'else'\n");
 
             fprintf(output_file,    "\t;; else\n"
                                     "\tjmp .realend%d\n"
-                                    "\t.end%d:\n", real_end_stack[real_end_acc - 1], end_stack[--end_stack_acc]);
-            end_stack[end_stack_acc++] = i;
+                                    "\t.end%d:\n", int_stack_top(real_end_stack), int_stack_pop(end_stack));
+
+            int_stack_push(end_stack, i);
         }else if(strcmp(instruction_op, "while") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -468,28 +464,28 @@ char* generate_nasm(char* source_file_name, char* source_code){
             fprintf(output_file,    "\t%s .while%d\n"
                                     "\tjmp .end%d\n"
                                     "\t.while%d:\n", operator.asm_name, i, i, i);
-            end_stack[end_stack_acc++] = i;
-            while_stack[while_stack_acc++] = i;
+            int_stack_push(end_stack, i);
+            int_stack_push(while_stack, i);
         /* End blocks */
         }else if(strcmp(instruction_op, "end") == 0){
             last_conditional = NO_CONDITIONAL;
 
             compiler_error_on_true(line_len > instruction_op_len, source_file_name, i + 1, "Expected end of line after 'end' instruction\n");
-            compiler_error_on_true(end_stack_acc <= 0, source_file_name, i + 1, "Unexpected 'end'\n");
-            int to_pop = end_stack[--end_stack_acc];
+            compiler_error_on_true(end_stack->counter <= 0, source_file_name, i + 1, "Unexpected 'end'\n");
+            int to_pop = int_stack_pop(end_stack);
 
             /* If this end ends a while loop: jump back to the top if we reached the line just before this end */
-            if(while_stack_acc > 0){
-                int possible_while_pop = while_stack[while_stack_acc - 1];
+            if(while_stack->counter > 0){
+                int possible_while_pop = int_stack_top(while_stack);
                 if(to_pop == possible_while_pop){
                     fprintf(output_file,    "\t;; looping back\n"
-                                            "\tjmp .whileentry%d\n", while_stack[--while_stack_acc]);
+                                            "\tjmp .whileentry%d\n", int_stack_pop(while_stack));
                 }
             }
 
             fprintf(output_file,    "\t;; end\n"
                                     "\t.realend%d:\n"
-                                    "\t.end%d:\n", real_end_stack[--real_end_acc], to_pop);
+                                    "\t.end%d:\n", int_stack_pop(real_end_stack), to_pop);
         /* Declare integer */
         }else if(strcmp(instruction_op, "int") == 0){
             compiler_error_on_true(instruction_op_len >= line_len, filename, i + 1, "No argument for assigning int\n");
@@ -551,7 +547,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
         free(line_cpy);
     }
 
-    compiler_error_on_true(end_stack_acc != 0, filename, 0, "Not all conditionals resolved\n");
+    compiler_error_on_true(end_stack->counter != 0, filename, 0, "Not all conditionals resolved\n");
 
     for(int i = 0; i < lines_len; i++)
         free(lines[i]);
@@ -577,8 +573,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\tor dl, '0'\n" /* Add char constant value to 8-bit end of rdx */
                             "\tdec rdi\n"
                             "\tmov [rdi], dl\n" /* Move character to start of string */
-                            "\tcmp rax, 0\n"
-                            "\tjne .div\n"
+                            "\ttest rax, rax\n"
+                            "\tjnz .div\n"
 
                             "\t.pr:\n"
                             "\tmov rsi, rdi\n" /* Points to beginning of string */
@@ -594,14 +590,17 @@ char* generate_nasm(char* source_file_name, char* source_code){
     fprintf(output_file,    "section .data\n");
 
     /* Parse strings into nasm strings in data section */
-    for(int i = 0; i < strings_len; i++){
-        if(!strings[i])
-            continue;
+    while(strings->counter > 0){
+        char* string = str_stack_pop(strings);
         fprintf(output_file, "\tstr%d: db \"%s\"\n"
                "\tstr%dLen: equ $ - str%d\n",
-               i, strings[i], i, i);
-        free(strings[i]);
+               strings->counter, string, strings->counter, strings->counter);
     }
+    str_stack_free(strings);
+
+    int_stack_free(end_stack);
+    int_stack_free(while_stack);
+    int_stack_free(real_end_stack);
 
     /* Parse ints into constants */
     for(int i = 0; i < int_var_acc; i++){
@@ -640,7 +639,6 @@ char** sepbyspc(char* src, int* dest_len){
     }
     *dest_len += 1;
 
-    /* Split file by '\n' chars and load into lines */
     dest = malloc((*dest_len + 1) * sizeof(char*));
 
     char* src_word;
@@ -804,7 +802,7 @@ bool parse_expression(char* expr, char* target, char** preserve, int preserve_le
                                             "\t%s rcx\n", operator.source_name, numbers[0], numbers[2], operator.asm_name);
                     /* If taking modulus: get remainder instead of quotient */
                     if(operator.op_enum == MOD && (strcmp(target, "rdx") != 0))
-                        fprintf(nasm_output,    "\tmov rax, rdx\n");
+                        fprintf(nasm_output,"\tmov rax, rdx\n");
                     else if(strcmp(target, "rax") != 0)
                         fprintf(nasm_output,"\tmov %s, rax\n", target);
                     break;
@@ -832,15 +830,14 @@ bool parse_expression(char* expr, char* target, char** preserve, int preserve_le
     return true;
 }
 
-void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int end_stack[OP_CAPACITY], int *end_stack_acc){
+void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int_stack* end_stack){
     cmp_operation operator = parse_comparison(expr, filename, line, nasm_output, int_vars, len_int_vars);
 
     fprintf(nasm_output,    "\t;; if\n"
                             "\t%s .if%d\n"
                             "\tjmp .end%d\n"
                             "\t.if%d:\n", operator.asm_name, line, line, line);
-    end_stack[*end_stack_acc] = line;
-    *end_stack_acc += 1;
+    int_stack_push(end_stack, line);
 }
 
 cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars){

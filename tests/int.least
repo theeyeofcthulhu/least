@@ -23,10 +23,7 @@ if intd > intc
    if inta != intb
       print "nested if with int\n"
    end
-   uprint intd
-   print " is greater than "
-   uprint intc
-   print "\n"
+   fprint "[intd] is greater than [intc]\n"
 end
 if intd < intc
    print "unreachable\n"
@@ -36,10 +33,7 @@ int inte 1
 int intf 1
 
 if inte == intf
-   uprint inte
-   print " equals "
-   uprint intf
-   print "\n"
+   fprint "[inte] equals [intf]\n"
 end
 if inte != intf
    print "unreachable\n"

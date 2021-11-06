@@ -25,9 +25,7 @@ end
 int a 30
 
 if 20 + 10 == a
-    print "20 + 10 is int a ("
-    uprint a
-    print ")\n"
+    fprint "20 + 10 is int a ([a])\n"
 end
 
 if 20 - 10 == a
