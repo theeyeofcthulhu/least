@@ -1,8 +1,8 @@
 CC = gcc
 CCFLAGS = -g -Wall
 
-SRC = lcc.c stack.c
-INCLUDE = stack.h
+SRC = lcc.c stack.c error.c
+INCLUDE = stack.h error.h
 OBJ = $(SRC:.c=.o)
 EXE = lcc
 
@@ -18,8 +18,8 @@ clean:
 test:
 	./tests.sh
 
-lcc.o: stack.h
-stack.o: stack.h
+lcc.o: stack.h error.h
+stack.o: stack.h error.h
 
 $(EXE): $(OBJ) $(INCLUDE)
 	$(CC) $(CCFLAGS) -o $@ $(OBJ) $(LIBS)

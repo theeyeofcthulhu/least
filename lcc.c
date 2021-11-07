@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 
 #include "stack.h"
+#include "error.h"
 
 #define OP_CAPACITY 1000
 #define STR_CAPACITY 1000
@@ -138,10 +139,6 @@ const str_token token_structs[STR_TOKEN_END] = {
 {false, 0, "\",0x5D,\"",    8, ']'},    /* The character ']' */
 };
 
-void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...);
-void compiler_error_on_true(bool eval, char* source_file, int line, char* format, ...);
-void compiler_error(char* source_file, int line, char* format, ...);
-void compiler_error_core(char* source_file, int line, char* format, va_list format_list);
 char* read_source_code(char* filename);
 char* generate_nasm(char* source_file_name, char* source_code);
 char** sepbyspc(char* src, int* dest_len);
@@ -151,58 +148,6 @@ char* parse_string(char* string, char* filename, int line);
 bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
 void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int_stack* end_stack);
 cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars);
-
-/* Classes for asserting something and exiting
- * if something is unwanted; compiler_error just
- * exits no matter what */
-
-void compiler_error_on_false(bool eval, char* source_file, int line, char* format, ...){
-    if(eval)
-        return;
-
-    va_list format_params;
-
-    va_start(format_params, format);
-    compiler_error_core(source_file, line, format, format_params);
-    va_end(format_params);
-
-    exit(1);
-}
-
-void compiler_error_on_true(bool eval, char* source_file, int line, char* format, ...){
-    if(!eval)
-        return;
-
-    va_list format_params;
-
-    va_start(format_params, format);
-    compiler_error_core(source_file, line, format, format_params);
-    va_end(format_params);
-
-    exit(1);
-}
-
-void compiler_error(char* source_file, int line, char* format, ...){
-    va_list format_params;
-
-    va_start(format_params, format);
-    compiler_error_core(source_file, line, format, format_params);
-    va_end(format_params);
-
-    exit(1);
-}
-
-void compiler_error_core(char* source_file, int line, char* format, va_list format_list){
-    fprintf(stderr, "%sCompiler Error!\n", SHELL_RED);
-    if(line == 0)
-        fprintf(stderr, "%s: ", source_file);
-    else
-        fprintf(stderr, "%s:%d ", source_file, line);
-
-    vfprintf(stderr, format, format_list);
-
-    fprintf(stderr, SHELL_WHITE);
-}
 
 /* Read a file into dest, mallocs */
 char* read_source_code(char* filename){
@@ -494,6 +439,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\tjmp .end%d\n"
                                     "\t.while%d:\n", operator.asm_name, i, i, i);
             int_stack_push(end_stack, i);
+            int_stack_push(real_end_stack, i);
             int_stack_push(while_stack, i);
         /* End blocks */
         }else if(strcmp(instruction_op, "end") == 0){
@@ -668,7 +614,8 @@ char* unite(char** src, int off, int len){
     return out;
 }
 
-/* Separate src by spaces (gobble up duplicate spaces) into array of strings */
+/* Separate src by spaces (gobble up duplicate spaces) into array of strings.
+ * Store length of array in dest_len. */
 char** sepbyspc(char* src, int* dest_len){
     if(!src)
         return NULL;
@@ -705,7 +652,6 @@ char** sepbyspc(char* src, int* dest_len){
         int src_word_len = strlen(src_word);
 
         dest[i] = malloc((src_word_len + 1) * sizeof(char));
-        dest[i][src_word_len] = '\0';
         strcpy(dest[i], src_word);
     }
 
@@ -910,7 +856,7 @@ void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var i
 
         int off = 0;
 
-        for(int i = 0, acc = 0; i < words_len; i++){
+        for(int i = 0, acc = 0; i < words_len && indices->counter > 0; i++){
             if(i == int_stack_bottom(indices)){
                 int len = int_stack_pull(indices);
                 comparisons[acc++] = unite(words, off, len - off);
