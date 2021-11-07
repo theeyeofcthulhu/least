@@ -14,6 +14,10 @@ clean:
 	rm *.o
 	rm lcc
 
+.PHONY: test
+test:
+	./tests.sh
+
 lcc.o: stack.h
 stack.o: stack.h
 

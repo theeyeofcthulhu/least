@@ -1,12 +1,10 @@
 int i 0
 
 while i < 100
-    if i % 3 == 0
-        if i % 5 == 0
-            print "FizzBuzz\n"
-        else
-            print "Fizz\n"
-        end
+    if i % 15 == 0
+        print "FizzBuzz\n"
+    elif i % 3 == 0
+        print "Fizz\n"
     elif i % 5 == 0
         print "Buzz\n"
     else
