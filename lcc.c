@@ -21,6 +21,9 @@
 #define SHELL_RED   "\033[0;31m"
 #define SHELL_WHITE "\033[0;37m"
 
+#define RED(str) SHELL_RED, str, SHELL_WHITE
+#define GREEN(str) SHELL_GREEN, str, SHELL_WHITE
+
 /*TODO: comment everything */
 
 enum conditionals{
@@ -1028,11 +1031,11 @@ int main(int argc, char *argv[]) {
 
     compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
 
-    printf("[INFO] Input file: %s%s%s\n", SHELL_GREEN, argv[argc - 1], SHELL_WHITE);
+    printf("[INFO] Input file: %s%s%s\n", GREEN(argv[argc - 1]));
     char* input_source = read_source_code(argv[argc - 1]);
 
     char* nasm_filename = generate_nasm(argv[argc - 1], input_source);
-    printf("[INFO] Generating nasm source to %s%s%s\n", SHELL_GREEN, nasm_filename, SHELL_WHITE);
+    printf("[INFO] Generating nasm source to %s%s%s\n", GREEN(nasm_filename));
 
     char* source_filename_cpy = malloc((strlen(argv[argc - 1]) + 1) * sizeof(char));
     strcpy(source_filename_cpy, argv[argc - 1]);
@@ -1043,8 +1046,8 @@ int main(int argc, char *argv[]) {
     sprintf(object_filename, "%s%s", source_filename_cpy, ".o");
 
     printf("[CMD] %s%s%s%s %s%s%s\n", nasm_cmd_base,
-           SHELL_RED, object_filename, SHELL_WHITE,
-           SHELL_GREEN, nasm_filename, SHELL_WHITE);
+           RED(object_filename),
+           GREEN(nasm_filename));
 
     if(fork() == 0){
         execlp("nasm", "nasm", "-g", "-felf64", "-o", object_filename, nasm_filename, NULL);
@@ -1053,8 +1056,8 @@ int main(int argc, char *argv[]) {
     }
 
     printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
-           SHELL_RED, source_filename_cpy, SHELL_WHITE,
-           SHELL_GREEN, object_filename, SHELL_WHITE);
+           RED(source_filename_cpy),
+           GREEN(object_filename));
 
     if(fork() == 0){
         execlp("ld", "ld", "-o", source_filename_cpy, object_filename, NULL);
@@ -1070,7 +1073,7 @@ int main(int argc, char *argv[]) {
         sprintf(execute_local_file, "%s%s", execute_cmd_base, source_filename_cpy);
 
         printf("[CMD] %s%s%s%s\n", execute_cmd_base,
-            SHELL_GREEN, source_filename_cpy, SHELL_WHITE);
+            GREEN(source_filename_cpy));
         if(fork() == 0){
             execlp(execute_local_file, execute_local_file, NULL);
         }else{
