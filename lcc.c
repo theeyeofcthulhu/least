@@ -619,11 +619,11 @@ char* generate_nasm(char* source_file_name, char* source_code){
     fprintf(output_file,    "section .data\n");
 
     /* Parse strings into nasm strings in data section */
-    while(strings->counter > 0){
-        char* string = str_stack_pop(strings);
+    char* string;
+    for(int i = 0; (string = str_stack_pull(strings)) != NULL; i++){
         fprintf(output_file, "\tstr%d: db \"%s\"\n"
                "\tstr%dLen: equ $ - str%d\n",
-               strings->counter, string, strings->counter, strings->counter);
+               i, string, i, i);
         free(string);
     }
     str_stack_free(strings);
