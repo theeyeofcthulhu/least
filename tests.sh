@@ -55,14 +55,20 @@ for file in "${FILES[@]}"; do
     txt="${executable}_results.txt"
     expected_output=$(cat $txt)
 
-    # echo $expected_output
-    # echo "`$executable`"
-
-    if [ "`$executable`" != "${expected_output}" ]; then
-        echo -e "${SHELL_RED}Test ${executable} failed${SHELL_WHITE}"
-        FAIL=1
+    if [ "$executable" == "tests/yourname" ]; then
+        if [ "`$executable <<< 'tests.sh'`" != "${expected_output}" ]; then
+            echo -e "${SHELL_RED}Test ${executable} failed${SHELL_WHITE}"
+            FAIL=1
+        else
+            echo "Test ${executable} succeeded"
+        fi
     else
-        echo "Test ${executable} succeeded"
+        if [ "`$executable`" != "${expected_output}" ]; then
+            echo -e "${SHELL_RED}Test ${executable} failed${SHELL_WHITE}"
+            FAIL=1
+        else
+            echo "Test ${executable} succeeded"
+        fi
     fi
 done
 

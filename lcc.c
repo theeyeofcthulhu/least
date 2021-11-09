@@ -17,6 +17,7 @@
 #define STR_CAPACITY 1000
 
 #define INT_LEN 8
+#define STR_MAX 100
 
 #define SHELL_GREEN "\033[0;32m"
 #define SHELL_RED   "\033[0;31m"
@@ -107,6 +108,12 @@ typedef struct{
     char* mem_addr_ref;
 }int_var;
 
+typedef struct{
+    char* name;
+    char* len_ref;
+    char* len_ref_mem;
+}str_var;
+
 /* Token for string escape sequences
  * Every character is converted into a token,
  * normal character just have the 'is_char' flag set
@@ -144,6 +151,7 @@ char* generate_nasm(char* source_file_name, char* source_code);
 char** sepbyspc(char* src, int* dest_len);
 void freewordarr(char** arr, int len);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
+str_var* parse_string_var(char* expression, char* filename, int line, str_var str_vars[], int len_str_vars);
 char* parse_string(char* string, char* filename, int line);
 bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
 void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int_stack* end_stack);
@@ -189,6 +197,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     int_var int_vars[OP_CAPACITY] = {0};
     int int_var_acc = 0;
+
+    str_var str_vars[OP_CAPACITY] = {0};
+    int str_var_acc = 0;
 
     int last_conditional = NO_CONDITIONAL;
 
@@ -328,8 +339,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
                     compiler_error_on_true(j == parsed_len - 1, source_file_name, i + 1, "Reached end of string after '['\n");
                     compiler_error_on_true(parsed[j+1] == ']', source_file_name, i + 1, "Empty format parameter\n");
 
-                    require_uprint = true;
-
                     if(j > 0){
                         char* before = strtok(tmp_ptr, "[");
                         tmp_ptr = NULL;
@@ -358,10 +367,24 @@ char* generate_nasm(char* source_file_name, char* source_code){
                     compiler_error_on_false(inside, source_file_name, i + 1, "String parsing error\n");
                     compiler_error_on_true(index(inside, '['), source_file_name, i + 1, "Unexpected '[' in format string\n");
 
-                    char* number = parse_number(inside, source_file_name, i + 1, int_vars, int_var_acc);
-                    fprintf(output_file,    "\t;; uprint\n"
-                                            "\tmov rax, %s\n"
-                                            "\tcall uprint\n", number);
+                    /* Parsing string */
+                    if(inside[0] == '!'){
+                        str_var* string = parse_string_var(inside + 1, source_file_name, i, str_vars, str_var_acc);
+                        fprintf(output_file,    "\t;; print\n"
+                                                "\tmov rax, 1\n"
+                                                "\tmov rdi, 1\n"
+                                                "\tmov rsi, %s\n"
+                                                "\tmov rdx, %s\n"
+                                                "\tsyscall\n", string->name, string->len_ref_mem);
+                    }else{
+                        char* number = parse_number(inside, source_file_name, i + 1, int_vars, int_var_acc);
+
+                        require_uprint = true;
+
+                        fprintf(output_file,    "\t;; uprint\n"
+                                                "\tmov rax, %s\n"
+                                                "\tcall uprint\n", number);
+                    }
                 }
             }
             /* If there are characters after the last '[' */
@@ -498,6 +521,57 @@ char* generate_nasm(char* source_file_name, char* source_code){
             int_vars[int_var_acc++] = new_int;
             freewordarr(words, expr_len);
         /* Set value of integer */
+        }else if(strcmp(instruction_op, "str") == 0){
+            char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
+            int expr_len;
+            char** words = sepbyspc(rest_of_line, &expr_len);
+
+            compiler_error_on_true(expr_len != 1, source_file_name, i, "Did not find one word in expression '%s'\n", rest_of_line);
+
+            for(int j = 0; j < str_var_acc; j++){
+                compiler_error_on_true(strcmp(words[0], str_vars[j].name) == 0, source_file_name, i + 1, "Redifinition of '%s'\n", words[0]);
+            }
+            compiler_error_on_true((words[0][0] >= '0' && words[0][0] <= '9') || words[0][0] == '!', source_file_name, i + 1,
+                                   "Variable name cannot start with a number or an exclamation mark\n");
+
+            str_var new_var;
+            new_var.name = malloc((strlen(words[0]) + 1) * sizeof(char));
+            strcpy(new_var.name, words[0]);
+
+            new_var.len_ref = malloc((strlen(words[0]) + 1 + 3) * sizeof(char));
+            sprintf(new_var.len_ref, "%sLen", words[0]);
+
+            new_var.len_ref_mem = malloc((strlen(new_var.len_ref) + 2 + 1) * sizeof(char));
+            sprintf(new_var.len_ref_mem, "[%s]", new_var.len_ref);
+
+            str_vars[str_var_acc++] = new_var;
+
+            freewordarr(words, expr_len);
+        }else if(strcmp(instruction_op, "read") == 0){
+            char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
+            int expr_len;
+            char** words = sepbyspc(rest_of_line, &expr_len);
+
+            compiler_error_on_true(expr_len != 1, source_file_name, i, "Did not find one word in expression '%s'\n", rest_of_line);
+
+            str_var* buffer = parse_string_var(words[0], source_file_name, i, str_vars, str_var_acc);
+
+            fprintf(output_file,    "\t;; read\n"
+                                    "\txor rax, rax\n"
+                                    "\txor rdi, rdi\n"
+                                    "\tmov rsi, %s\n"
+                                    "\tmov rdx, strMax\n"
+                                    "\tsyscall\n"
+                                    "\tdec rax\n"
+                                    "\tmov %s, rax\n" /* Move return value of write, i.e., length of input into the length variable*/
+                                    "\tmov byte [rsi + rax], 0\n" /* Clear newline at end of input */
+                                    , buffer->name, buffer->len_ref_mem);
+
+            freewordarr(words, expr_len);
         }else if(strcmp(instruction_op, "set") == 0){
             char* int_to_set = strtok(NULL, " ");
             compiler_error_on_false(int_to_set, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -572,6 +646,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
                i, string, i, i);
         free(string);
     }
+
+    fprintf(output_file,    "\tstrMax: equ %d\n", STR_MAX);
+
     str_stack_free(strings);
 
     int_stack_free(end_stack);
@@ -584,6 +661,16 @@ char* generate_nasm(char* source_file_name, char* source_code){
         free(int_vars[i].name);
         free(int_vars[i].value);
         free(int_vars[i].mem_addr_ref);
+    }
+
+    fprintf(output_file,    "section .bss\n");
+    /* Parse strings into reservations */
+    for(int i = 0; i < str_var_acc; i++){
+        fprintf(output_file, "\t%s: resb %d\n"
+                "\t%s: resq 1\n", str_vars[i].name, STR_MAX, str_vars[i].len_ref);
+        free(str_vars[i].name);
+        free(str_vars[i].len_ref);
+        free(str_vars[i].len_ref_mem);
     }
 
     fclose(output_file);
@@ -681,6 +768,17 @@ char* parse_number(char* expression, char* filename, int line, int_var int_vars[
     }
 
     return expression;
+}
+
+str_var* parse_string_var(char* expression, char* filename, int line, str_var str_vars[], int len_str_vars){
+    for (int i = 0; i < len_str_vars; i++) {
+        if(strcmp(str_vars[i].name, expression) == 0)
+            return &str_vars[i];
+    }
+
+    compiler_error(filename, line + 1, "Unknown string variable '%s'\n", expression);
+
+    return NULL;
 }
 
 /* Check validity of string and insert escape sequences */

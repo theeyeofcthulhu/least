@@ -1,0 +1,6 @@
+print "Your name?\n"
+
+str name
+read name
+
+fprint "Hello, [!name]!\n"
