@@ -6,7 +6,7 @@ else
     print "Unreachable\n"
 end
 
-if a == 20 || b == 20
+if a == 20 || b == 20 && a == 30
     print "At least one success\n"
 else
     print "Unreachable\n"

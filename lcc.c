@@ -50,15 +50,16 @@ typedef struct{
     int op_enum;
     char* source_name;
     char* asm_name;
+    char* opposite_asm_name;
 }cmp_operation;
 
 const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
-{EQUAL,         "==",   "je"},
-{NOT_EQUAL,     "!=",   "jne"},
-{LESS,          "<",    "jl"},
-{LESS_OR_EQ,    "<=",   "jle"},
-{GREATER,       ">",    "jg"},
-{GREATER_OR_EQ, ">=",   "jge"},
+{EQUAL,         "==",   "je",   "jne"},
+{NOT_EQUAL,     "!=",   "jne",  "je"},
+{LESS,          "<",    "jl",   "jge"},
+{LESS_OR_EQ,    "<=",   "jle",  "jg"},
+{GREATER,       ">",    "jg",   "jle"},
+{GREATER_OR_EQ, ">=",   "jge",  "jl"},
 };
 
 /* Structure for organizing arithmetic operations */
@@ -969,19 +970,14 @@ void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var i
             if(logical){
                 fprintf(nasm_output,    "\t;; %s\n", logical);
                 if(strcmp(logical, "and") == 0){
-                    fprintf(nasm_output,    "\t%s .%s%d%d\n"
-                                            "\tjmp .end%d\n"
-                                            "\t.%s%d%d:\n", operator.asm_name, logical, line, i, line, logical, line, i);
+                    fprintf(nasm_output,    "\t%s .end%d\n", operator.opposite_asm_name, line);
                 }else if(strcmp(logical, "or") == 0){
-                    fprintf(nasm_output,    "\t%s .if%d\n"
-                                            "\tjmp .%s%d%d\n"
-                                            "\t.%s%d%d:\n", operator.asm_name, line, logical, line, i, logical, line, i);
+                    fprintf(nasm_output,    "\t%s .if%d\n", operator.asm_name, line);
                 }
             }else{
                 fprintf(nasm_output,    "\t;; if\n"
-                                        "\t%s .if%d\n"
-                                        "\tjmp .end%d\n"
-                                        "\t.if%d:\n", operator.asm_name, line, line, line);
+                                        "\t%s .end%d\n"
+                                        "\t.if%d:\n", operator.opposite_asm_name, line, line);
             }
         }
 
@@ -990,9 +986,7 @@ void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var i
     }else{
         cmp_operation operator = parse_comparison(expr, filename, line, nasm_output, int_vars, len_int_vars);
         fprintf(nasm_output,    "\t;; if\n"
-                                "\t%s .if%d\n"
-                                "\tjmp .end%d\n"
-                                "\t.if%d:\n", operator.asm_name, line, line, line);
+                                "\t%s .end%d\n", operator.opposite_asm_name, line);
     }
 
     int_stack_push(end_stack, line);
