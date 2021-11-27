@@ -26,6 +26,8 @@
 #define RED(str) SHELL_RED, str, SHELL_WHITE
 #define GREEN(str) SHELL_GREEN, str, SHELL_WHITE
 
+#define MAX_DIGITS_IN_NUM 8 /* When mallocing for an arbitrary number */
+
 /*TODO: comment everything */
 
 enum conditionals{
@@ -106,7 +108,7 @@ const logical_operation logical_operation_structs[LOGICAL_OPS_END] = {
 typedef struct{
     char* name;
     char* value;
-    char* mem_addr_ref;
+    char* stack_ref;
 }int_var;
 
 typedef struct{
@@ -184,9 +186,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     FILE* output_file;
 
-    char** lines;
-    int lines_len = 0;
-
     char* source_file_name_cpy;
 
     /* Stacks for handling variables, conditionals and loops */
@@ -205,6 +204,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
     int last_conditional = NO_CONDITIONAL;
 
     bool require_uprint = false;
+
+    int stack_acc = 8;
+    int stack_size = 0;
 
     /* Convert X.least to X.asm */
     source_file_name_cpy = malloc((strlen(source_file_name) + 1) * sizeof(char));
@@ -225,6 +227,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "section .text\n"
                             "_start:\n");
 
+    int lines_len = 0;
     /* Count newlines */
     for(int i = 0; i < strlen(source_code); i++)
         if(source_code[i] == '\n')
@@ -234,7 +237,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
      *
      * We can't use pure strtok() because multiple '\n's would all be eliminated and
      * we want to count empty lines as well */
-    lines = malloc(lines_len * sizeof(char*));
+    char* lines[lines_len];
     char* offset = source_code;
 
     bool found_all = false;
@@ -266,6 +269,24 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
         offset = next_offset + 1;
         accumulator++;
+    }
+
+    for (int i = 0; i < lines_len; i++){
+        if(!lines[i])
+            continue;
+
+        int len;
+        char** words = sepbyspc(lines[i], &len);
+
+        if(strcmp(words[0], "int") == 0)
+            stack_size += 8;
+
+        freewordarr(words, len);
+    }
+
+    if(stack_size > 0){
+        fprintf(output_file,    "\tmov rbp, rsp\n"
+                                "\tsub rsp, %d\n", stack_size);
     }
 
     /* Parse operations
@@ -516,12 +537,16 @@ char* generate_nasm(char* source_file_name, char* source_code){
             new_int.value = malloc((strlen(words[1]) + 1) * sizeof(char));
             strcpy(new_int.value, words[1]);
 
-            new_int.mem_addr_ref = malloc((strlen(words[0]) + 1 + 2) * sizeof(char));
-            sprintf(new_int.mem_addr_ref, "[%s]", words[0]);
+            new_int.stack_ref = malloc((strlen("qword [rbp - ]") + MAX_DIGITS_IN_NUM) * sizeof(char));
+            sprintf(new_int.stack_ref, "qword [rbp - %d]", stack_acc);
+            stack_acc += 8;
+
+            fprintf(output_file,    "\t;; int\n"
+                                    "\tmov %s, %s\n", new_int.stack_ref, new_int.value);
 
             int_vars[int_var_acc++] = new_int;
             freewordarr(words, expr_len);
-        /* Set value of integer */
+        /* Declare empty string */
         }else if(strcmp(instruction_op, "str") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -565,7 +590,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                                     "\txor rax, rax\n"
                                     "\txor rdi, rdi\n"
                                     "\tmov rsi, %s\n"
-                                    "\tmov rdx, strMax\n"
+                                    "\tmov rdx, 100\n"
                                     "\tsyscall\n"
                                     "\tdec rax\n"
                                     "\tmov %s, rax\n" /* Move return value of write, i.e., length of input into the length variable*/
@@ -582,7 +607,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             bool found = false;
             for (int i = 0; i < int_var_acc; i++) {
                 if(strcmp(int_vars[i].name, int_to_set) == 0){
-                    int_to_set = int_vars[i].mem_addr_ref;
+                    int_to_set = int_vars[i].stack_ref;
                     found = true;
                 }
             }
@@ -591,8 +616,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
             parse_expression(expr, "rax", NULL, 0, output_file, source_file_name, i, int_vars, int_var_acc);
             fprintf(output_file,    "\t;; set\n"
                                     "\tmov %s, rax\n", int_to_set);
-        }else
+        }else{
             compiler_error(source_file_name, i + 1, "Could not parse operation: '%s'\n", instruction_op);
+        }
 
         free(line_cpy);
     }
@@ -601,8 +627,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     for(int i = 0; i < lines_len; i++)
         free(lines[i]);
-
-    free(lines);
 
     /* If not otherwise specified, exit with code 0 */
     fprintf(output_file,    "\t;; exit\n"
@@ -626,7 +650,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\ttest rax, rax\n"
                             "\tjnz .div\n"
 
-                            "\t.pr:\n"
                             "\tmov rsi, rdi\n" /* Points to beginning of string */
                             "\tmov rax, 1\n"
                             "\tmov rdi, 1\n"
@@ -648,30 +671,28 @@ char* generate_nasm(char* source_file_name, char* source_code){
         free(string);
     }
 
-    fprintf(output_file,    "\tstrMax: equ %d\n", STR_MAX);
-
     str_stack_free(strings);
 
     int_stack_free(end_stack);
     int_stack_free(while_stack);
     int_stack_free(real_end_stack);
 
-    /* Parse ints into constants */
     for(int i = 0; i < int_var_acc; i++){
-        fprintf(output_file, "\t%s: dq %s\n", int_vars[i].name, int_vars[i].value);
         free(int_vars[i].name);
         free(int_vars[i].value);
-        free(int_vars[i].mem_addr_ref);
+        free(int_vars[i].stack_ref);
     }
 
-    fprintf(output_file,    "section .bss\n");
-    /* Parse strings into reservations */
-    for(int i = 0; i < str_var_acc; i++){
-        fprintf(output_file, "\t%s: resb %d\n"
-                "\t%s: resq 1\n", str_vars[i].name, STR_MAX, str_vars[i].len_ref);
-        free(str_vars[i].name);
-        free(str_vars[i].len_ref);
-        free(str_vars[i].len_ref_mem);
+    if(str_var_acc > 0){
+        fprintf(output_file,    "section .bss\n");
+        /* Parse strings into reservations */
+        for(int i = 0; i < str_var_acc; i++){
+            fprintf(output_file, "\t%s: resb %d\n"
+                    "\t%s: resq 1\n", str_vars[i].name, STR_MAX, str_vars[i].len_ref);
+            free(str_vars[i].name);
+            free(str_vars[i].len_ref);
+            free(str_vars[i].len_ref_mem);
+        }
     }
 
     fclose(output_file);
@@ -760,7 +781,7 @@ void freewordarr(char** arr, int len){
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars){
     for (int i = 0; i < len_int_vars; i++) {
         if(strcmp(int_vars[i].name, expression) == 0)
-            return int_vars[i].mem_addr_ref;
+            return int_vars[i].stack_ref;
     }
     for(int i = 0; i < INT_LEN + 1 && i < strlen(expression); i++){
         compiler_error_on_true(expression[i] < '0' || expression[i] > '9', filename, line + 1,
@@ -948,7 +969,7 @@ void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var i
         }
     }
 
-    // Concatenate comparisons into nasm code with logical operators governing when we goto .ifX
+    /* Concatenate comparisons into nasm code with logical operators governing when we goto .ifX */
     if(indices->counter > 0){
         int comparison_len = indices->counter + 1;
         char* comparisons[comparison_len];

@@ -5,7 +5,7 @@
 #include <string.h>
 
 int_stack* int_stack_create(int cap){
-    int_stack* result = malloc(sizeof(str_stack));
+    int_stack* result = malloc(sizeof(int_stack));
     result->cap = cap;
     result->counter = 0;
     result->stack_arr = malloc(cap * sizeof(int));
@@ -46,6 +46,7 @@ int int_stack_bottom(int_stack* stack){
 }
 
 void int_stack_free(int_stack* stack){
+    compiler_error_on_false(stack->stack_arr || stack, "Internal", 0, "Compiler internal try to free empty stack\n");
     free(stack->stack_arr);
     free(stack);
 }
@@ -96,6 +97,7 @@ char* str_stack_bottom(str_stack* stack){
 }
 
 void str_stack_free(str_stack* stack){
+    compiler_error_on_false(stack->stack_arr || stack, "Internal", 0, "Compiler internal try to free empty stack\n");
     free(stack->stack_arr);
     free(stack);
 }
