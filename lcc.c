@@ -316,13 +316,37 @@ char* generate_nasm(char* source_file_name, char* source_code){
         if(strcmp(instruction_op, "print") == 0){
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
-            fprintf(output_file,    "\t;; print\n"
-                                    "\tmov rax, 1\n"
-                                    "\tmov rdi, 1\n"
-                                    "\tmov rsi, str%d\n"
-                                    "\tmov rdx, str%dLen\n"
-                                    "\tsyscall\n", strings->counter, strings->counter);
-            str_stack_push(strings, parse_string(rest_of_line, source_file_name, i));
+
+            char* string = parse_string(rest_of_line, source_file_name, i);
+
+            bool duplicate = false;
+
+            /* Check if string literal already exists, we can reuse it in that case */
+            for(int j = 0; j < strings->counter; j++){
+                if(strcmp(string, str_stack_get(strings, j)) == 0){
+                    duplicate = true;
+
+                    fprintf(output_file,    "\t;; print\n"
+                                            "\tmov rax, 1\n"
+                                            "\tmov rdi, 1\n"
+                                            "\tmov rsi, str%d\n"
+                                            "\tmov rdx, str%dLen\n"
+                                            "\tsyscall\n", j, j);
+                    free(string);
+
+                    break;
+                }
+            }
+
+            if(!duplicate){
+                fprintf(output_file,    "\t;; print\n"
+                                        "\tmov rax, 1\n"
+                                        "\tmov rdi, 1\n"
+                                        "\tmov rsi, str%d\n"
+                                        "\tmov rdx, str%dLen\n"
+                                        "\tsyscall\n", strings->counter, strings->counter);
+                str_stack_push(strings, string);
+            }
         /* Print integer to standard out */
         }else if(strcmp(instruction_op, "uprint") == 0){
             require_uprint = true;

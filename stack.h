@@ -28,5 +28,6 @@ char* str_stack_pull(str_stack* stack);
 char* str_stack_top(str_stack* stack);
 char* str_stack_bottom(str_stack* stack);
 void str_stack_free(str_stack* stack);
+char* str_stack_get(str_stack* stack, int n);
 
 #endif // STACK_H_

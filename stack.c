@@ -101,3 +101,12 @@ void str_stack_free(str_stack* stack){
     free(stack->stack_arr);
     free(stack);
 }
+
+char* str_stack_get(str_stack* stack, int n){
+    if(stack->counter == 0)
+        return NULL;
+
+    compiler_error_on_true(n < 0 || n >= stack->counter, "Internal", 0, "Internal out of bounds access to stack\n");
+
+    return stack->stack_arr[n];
+}
