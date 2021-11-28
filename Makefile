@@ -1,13 +1,18 @@
 CC = gcc
 CCFLAGS = -g -Wall -Wextra -Wshadow
 
+AS = nasm
+ASFLAGS = -g -felf64
+
 SRC = lcc.c stack.c error.c
 INCLUDE = stack.h error.h
 OBJ = $(SRC:.c=.o)
 EXE = lcc
+ASM_LIB = $(addprefix lib/, uprint.asm)
+ASM_LIB_O = $(ASM_LIB:.asm=.o)
 
 .PHONY: all
-all: $(EXE)
+all: $(EXE) lib
 
 .PHONY: clean
 clean:
@@ -18,11 +23,18 @@ clean:
 test:
 	./tests.sh
 
+.PHONY: lib
+lib: $(ASM_LIB_O)
+
+lib/%.o: lib/%.asm
+	$(AS) $(ASFLAGS) -o $@ $<
+
 lcc.o: stack.h error.h
 stack.o: stack.h error.h
+error.o: error.h
 
 $(EXE): $(OBJ) $(INCLUDE)
-	$(CC) $(CCFLAGS) -o $@ $(OBJ) $(LIBS)
+	$(CC) -o $@ $(OBJ) $(LIBS)
 
 %.o: %.c
 	$(CC) -c $(CCFLAGS) -o $@ $<

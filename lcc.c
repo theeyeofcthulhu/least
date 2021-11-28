@@ -149,8 +149,12 @@ const str_token token_structs[STR_TOKEN_END] = {
 {false, 0, "\",0x5D,\"",    8, ']'},    /* The character ']' */
 };
 
+typedef struct{
+    bool require_uprint;
+}runtime_opts;
+
 char* read_source_code(char* filename);
-char* generate_nasm(char* source_file_name, char* source_code);
+char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opts);
 char** sepbyspc(char* src, int* dest_len);
 void freewordarr(char** arr, int len);
 char* parse_number(char* expression, char* filename, int line, int_var int_vars[], int len_int_vars);
@@ -180,7 +184,7 @@ char* read_source_code(char* filename){
 
 /* Generate nasm assembly code from the least source,
  * write it to a file and return the filename */
-char* generate_nasm(char* source_file_name, char* source_code){
+char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opts){
     char* filename;
     const char* appendix = ".asm";
 
@@ -202,8 +206,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
     int str_var_acc = 0;
 
     int last_conditional = NO_CONDITIONAL;
-
-    bool require_uprint = false;
 
     int stack_acc = 8;
     int stack_size = 0;
@@ -349,7 +351,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             }
         /* Print integer to standard out */
         }else if(strcmp(instruction_op, "uprint") == 0){
-            require_uprint = true;
+            opts->require_uprint = true;
 
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, line + 1, "Could not parse arguments to function '%s'\n", instruction_op);
@@ -425,7 +427,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
                     }else{
                         char* number = parse_number(inside, source_file_name, line + 1, int_vars, int_var_acc);
 
-                        require_uprint = true;
+                        opts->require_uprint = true;
 
                         fprintf(output_file,    "\t;; uprint\n"
                                                 "\tmov rax, %s\n"
@@ -565,8 +567,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
             sprintf(new_int.stack_ref, "qword [rbp - %d]", stack_acc);
             stack_acc += 8;
 
-            fprintf(output_file,    "\t;; int\n"
-                                    "\tmov %s, %s\n", new_int.stack_ref, new_int.value);
+            fprintf(output_file,    "\t;; int %s\n"
+                                    "\tmov %s, %s\n", new_int.name, new_int.stack_ref, new_int.value);
 
             int_vars[int_var_acc++] = new_int;
             freewordarr(words, expr_len);
@@ -658,32 +660,6 @@ char* generate_nasm(char* source_file_name, char* source_code){
                             "\tmov rdi, 0\n"
                             "\tsyscall\n");
 
-    /* Subroutine for uprint instruction
-     * Only printed if uprint is used */
-    if(require_uprint){
-        fprintf(output_file,"uprint:\n"
-                            "\tenter 32,0\n"
-                            "\tmov rdi, rbp\n" /* Start at base pointer */
-                            "\tmov rcx, 10\n"
-                            "\t.div:\n"
-                            "\txor rdx, rdx\n" /* Reset to 0 */
-                            "\tdiv rcx\n"
-                            "\tor dl, '0'\n" /* Add char constant value to 8-bit end of rdx */
-                            "\tdec rdi\n"
-                            "\tmov [rdi], dl\n" /* Move character to start of string */
-                            "\ttest rax, rax\n"
-                            "\tjnz .div\n"
-
-                            "\tmov rsi, rdi\n" /* Points to beginning of string */
-                            "\tmov rax, 1\n"
-                            "\tmov rdi, 1\n"
-                            "\tmov rdx, rbp\n"
-                            "\tsub rdx, rsi\n" /* Calculate length of string */
-                            "\tsyscall\n"
-                            "\tleave\n"
-                            "\tret\n");
-    }
-
     fprintf(output_file,    "section .data\n");
 
     /* Parse strings into nasm strings in data section */
@@ -718,6 +694,10 @@ char* generate_nasm(char* source_file_name, char* source_code){
             free(str_vars[i].len_ref_mem);
         }
     }
+
+    /* Tell nasm that 'uprint' is going to come from an external source */
+    if(opts->require_uprint)
+        fprintf(output_file, "\nextern uprint\n");
 
     fclose(output_file);
 
@@ -1108,16 +1088,16 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    const char* nasm_cmd_base = "nasm -g -felf64 -o ";
+    runtime_opts opts = {0};
 
-    const char* ld_cmd_base = "ld -o ";
+    const char* lib_uprint_o = "lib/uprint.o";
 
     compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
 
     printf("[INFO] Input file: %s%s%s\n", GREEN(argv[argc - 1]));
     char* input_source = read_source_code(argv[argc - 1]);
 
-    char* nasm_filename = generate_nasm(argv[argc - 1], input_source);
+    char* nasm_filename = generate_nasm(argv[argc - 1], input_source, &opts);
     printf("[INFO] Generating nasm source to %s%s%s\n", GREEN(nasm_filename));
 
     char* source_filename_cpy = malloc((strlen(argv[argc - 1]) + 1) * sizeof(char));
@@ -1126,27 +1106,45 @@ int main(int argc, char *argv[]) {
     strtok(source_filename_cpy, ".");
 
     char* object_filename = malloc((strlen(source_filename_cpy) + strlen(".o") + 1) * sizeof(char));
-    sprintf(object_filename, "%s%s", source_filename_cpy, ".o");
+    sprintf(object_filename, "%s.o", source_filename_cpy);
+
+    const char* nasm_cmd_base = "nasm -g -felf64 -o ";
 
     printf("[CMD] %s%s%s%s %s%s%s\n", nasm_cmd_base,
            RED(object_filename),
            GREEN(nasm_filename));
 
-    if(fork() == 0){
+    if(fork() == 0)
         execlp("nasm", "nasm", "-g", "-felf64", "-o", object_filename, nasm_filename, NULL);
-    }else{
+    else
         wait(NULL);
+
+    const char* ld_cmd_base = "ld -o ";
+
+    /* Link with uprint file if we need it */
+    if(opts.require_uprint){
+        printf("[CMD] %s%s%s%s %s%s%s %s\n", ld_cmd_base,
+            RED(source_filename_cpy),
+            GREEN(object_filename),
+            lib_uprint_o);
+
+        if(fork() == 0){
+                execlp("ld", "ld", "-o", source_filename_cpy, object_filename, lib_uprint_o, NULL);
+        }else{
+            wait(NULL);
+        }
+    }else{
+        printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
+            RED(source_filename_cpy),
+            GREEN(object_filename));
+
+        if(fork() == 0){
+            execlp("ld", "ld", "-o", source_filename_cpy, object_filename, NULL);
+        }else{
+            wait(NULL);
+        }
     }
 
-    printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
-           RED(source_filename_cpy),
-           GREEN(object_filename));
-
-    if(fork() == 0){
-        execlp("ld", "ld", "-o", source_filename_cpy, object_filename, NULL);
-    }else{
-        wait(NULL);
-    }
 
     if(run_after_compile){
         const char* execute_cmd_base = "./";
@@ -1157,6 +1155,7 @@ int main(int argc, char *argv[]) {
 
         printf("[CMD] %s%s%s%s\n", execute_cmd_base,
             GREEN(source_filename_cpy));
+
         if(fork() == 0){
             execlp(execute_local_file, execute_local_file, NULL);
         }else{

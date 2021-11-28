@@ -4,3 +4,8 @@
 tmp/
 vgcore*
 .ccls-cache
+lib/*.o
+lcc
+*.o
+tests/*
+!tests/*.least
