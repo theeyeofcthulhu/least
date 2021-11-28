@@ -1,5 +1,5 @@
 CC = gcc
-CCFLAGS = -g -Wall
+CCFLAGS = -g -Wall -Wextra -Wshadow
 
 SRC = lcc.c stack.c error.c
 INCLUDE = stack.h error.h

@@ -229,7 +229,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
 
     int lines_len = 0;
     /* Count newlines */
-    for(int i = 0; i < strlen(source_code); i++)
+    for(size_t i = 0; i < strlen(source_code); i++)
         if(source_code[i] == '\n')
             lines_len++;
 
@@ -371,8 +371,8 @@ char* generate_nasm(char* source_file_name, char* source_code){
             /* Count '[' and ']'
              * parsed[i] / 92 is 0 on '[' and 1 on ']', since they are the characters 91 and 93 */
             int counters[2] = {0};
-            for(int i = 0; i < parsed_len; i++)
-                counters[parsed[i] / 92] += parsed[i] == '[' || parsed[i] == ']';
+            for(int j = 0; j < parsed_len; j++)
+                counters[parsed[j] / 92] += parsed[j] == '[' || parsed[j] == ']';
 
             compiler_error_on_false(counters[0] == counters[1], source_file_name, i + 1, "Uneven numbers of '[' and ']' in format string\n");
 
@@ -545,7 +545,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             int_var new_int;
 
             /* Parse string that comes after the instruction to number */
-            for (int j = 0; j < strlen(words[0]); j++) {
+            for (size_t j = 0; j < strlen(words[0]); j++) {
                 compiler_error_on_true(words[0][j] >= '0' && words[0][j] <= '9', filename, i + 1, "Character: '%c' is a digit\n", words[0][j]);
             }
             for(int j = 0; j < int_var_acc; j++){
@@ -554,7 +554,7 @@ char* generate_nasm(char* source_file_name, char* source_code){
             new_int.name = malloc((strlen(words[0]) + 1) * sizeof(char));
             strcpy(new_int.name, words[0]);
 
-            for(int j = 0; j < INT_LEN + 1 && j < strlen(words[1]); j++){
+            for(size_t j = 0; j < INT_LEN + 1 && j < strlen(words[1]); j++){
                 compiler_error_on_true(words[1][j] < '0' || words[1][j] > '9', filename, i + 1, "Character: '%c' is not a digit\n", words[1][j]);
                 compiler_error_on_true(j >= INT_LEN, filename, i + 1, "Number too long\n");
             }
@@ -629,9 +629,9 @@ char* generate_nasm(char* source_file_name, char* source_code){
             compiler_error_on_false(expr, source_file_name, i + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
             bool found = false;
-            for (int i = 0; i < int_var_acc; i++) {
-                if(strcmp(int_vars[i].name, int_to_set) == 0){
-                    int_to_set = int_vars[i].stack_ref;
+            for (int j = 0; j < int_var_acc; j++) {
+                if(strcmp(int_vars[j].name, int_to_set) == 0){
+                    int_to_set = int_vars[j].stack_ref;
                     found = true;
                 }
             }
@@ -807,7 +807,7 @@ char* parse_number(char* expression, char* filename, int line, int_var int_vars[
         if(strcmp(int_vars[i].name, expression) == 0)
             return int_vars[i].stack_ref;
     }
-    for(int i = 0; i < INT_LEN + 1 && i < strlen(expression); i++){
+    for(size_t i = 0; i < INT_LEN + 1 && i < strlen(expression); i++){
         compiler_error_on_true(expression[i] < '0' || expression[i] > '9', filename, line + 1,
                                 "Unknown variable or number constant: '%s'\n", expression);
         compiler_error_on_true(i >= INT_LEN, filename, line + 1, "Number too long\n");
