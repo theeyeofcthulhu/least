@@ -8,7 +8,7 @@ SRC = lcc.c stack.c error.c
 INCLUDE = stack.h error.h
 OBJ = $(SRC:.c=.o)
 EXE = lcc
-ASM_LIB = $(addprefix lib/, uprint.asm)
+ASM_LIB = $(addprefix lib/, uprint.asm putchar.asm)
 ASM_LIB_O = $(ASM_LIB:.asm=.o)
 
 .PHONY: all

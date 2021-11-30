@@ -28,7 +28,16 @@
 
 #define MAX_DIGITS_IN_NUM 8 /* When mallocing for an arbitrary number */
 
-/*TODO: comment everything */
+enum LIBRARY_FILES{
+LIB_UPRINT,
+LIB_PUTCHAR,
+LIB_ENUM_END,
+};
+
+char* library_files[LIB_ENUM_END] = {
+"lib/uprint.o",
+"lib/putchar.o",
+};
 
 enum conditionals{
 IF,
@@ -150,7 +159,7 @@ const str_token token_structs[STR_TOKEN_END] = {
 };
 
 typedef struct{
-    bool require_uprint;
+    bool req_libs[LIB_ENUM_END];
 }runtime_opts;
 
 char* read_source_code(char* filename);
@@ -351,8 +360,6 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
             }
         /* Print integer to standard out */
         }else if(strcmp(instruction_op, "uprint") == 0){
-            opts->require_uprint = true;
-
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, line + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
@@ -361,6 +368,8 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
             fprintf(output_file,    "\t;; uprint\n"
                                     "\tmov rax, %s\n"
                                     "\tcall uprint\n", rest_of_line);
+
+            opts->req_libs[LIB_UPRINT] = true;
         /* Exit with specified exit code */
         }else if(strcmp(instruction_op, "fprint") == 0){
             char* rest_of_line = strtok(NULL, "\0");
@@ -427,7 +436,7 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
                     }else{
                         char* number = parse_number(inside, source_file_name, line + 1, int_vars, int_var_acc);
 
-                        opts->require_uprint = true;
+                        opts->req_libs[LIB_UPRINT] = true;
 
                         fprintf(output_file,    "\t;; uprint\n"
                                                 "\tmov rax, %s\n"
@@ -642,6 +651,27 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
             parse_expression(expr, "rax", NULL, 0, output_file, source_file_name, line, int_vars, int_var_acc);
             fprintf(output_file,    "\t;; set\n"
                                     "\tmov %s, rax\n", int_to_set);
+        }else if(strcmp(instruction_op, "putchar") == 0){
+            /* TODO: character constants */
+
+            char* rest_of_line = strtok(NULL, "\0");
+            compiler_error_on_false(rest_of_line, source_file_name, line + 1, "Could not parse arguments to function '%s'\n", instruction_op);
+
+            int expr_len;
+            char** words = sepbyspc(rest_of_line, &expr_len);
+
+            compiler_error_on_false(words, source_file_name, line, "Could not parse expression\n");
+            compiler_error_on_true(expr_len != 1, source_file_name, line, "Did not find one word in expression '%s'\n", rest_of_line);
+
+            char* num = parse_number(rest_of_line, source_file_name, line, int_vars, int_var_acc);
+
+            fprintf(output_file,    "\t;; putchar\n"
+                                    "\tmov rax, %s\n"
+                                    "\tcall putchar\n", num);
+
+            opts->req_libs[LIB_PUTCHAR] = true;
+
+            freewordarr(words, expr_len);
         }else{
             compiler_error(source_file_name, line + 1, "Could not parse operation: '%s'\n", instruction_op);
         }
@@ -696,8 +726,10 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
     }
 
     /* Tell nasm that 'uprint' is going to come from an external source */
-    if(opts->require_uprint)
+    if(opts->req_libs[LIB_UPRINT])
         fprintf(output_file, "\nextern uprint\n");
+    if(opts->req_libs[LIB_PUTCHAR])
+        fprintf(output_file, "\nextern putchar\n");
 
     fclose(output_file);
 
@@ -1090,8 +1122,6 @@ int main(int argc, char *argv[]) {
 
     runtime_opts opts = {0};
 
-    const char* lib_uprint_o = "lib/uprint.o";
-
     compiler_error_on_false(argc >= 2, "Initialization", 0, "No input file provided\n");
 
     printf("[INFO] Input file: %s%s%s\n", GREEN(argv[argc - 1]));
@@ -1121,29 +1151,37 @@ int main(int argc, char *argv[]) {
 
     const char* ld_cmd_base = "ld -o ";
 
-    /* Link with uprint file if we need it */
-    if(opts.require_uprint){
-        printf("[CMD] %s%s%s%s %s%s%s %s\n", ld_cmd_base,
-            RED(source_filename_cpy),
-            GREEN(object_filename),
-            lib_uprint_o);
+    printf("[CMD] %s%s%s%s %s%s%s ", ld_cmd_base,
+        RED(source_filename_cpy),
+        GREEN(object_filename));
 
-        if(fork() == 0){
-                execlp("ld", "ld", "-o", source_filename_cpy, object_filename, lib_uprint_o, NULL);
-        }else{
-            wait(NULL);
-        }
-    }else{
-        printf("[CMD] %s%s%s%s %s%s%s\n", ld_cmd_base,
-            RED(source_filename_cpy),
-            GREEN(object_filename));
+    /* Generate array of all required libs */
+    int n_libs = 0;
+    for(int i = 0; i < LIB_ENUM_END; i++)
+        n_libs += opts.req_libs[i];
 
-        if(fork() == 0){
-            execlp("ld", "ld", "-o", source_filename_cpy, object_filename, NULL);
-        }else{
-            wait(NULL);
-        }
+    char* req_libs[n_libs];
+    for(int i = 0, j = 0; j < LIB_ENUM_END && i < n_libs; j++){
+        if(opts.req_libs[j])
+            req_libs[i++] = library_files[j];
     }
+
+    char* ld_argv[5 + n_libs];
+    ld_argv[0] = "ld";
+    ld_argv[1] = "-o";
+    ld_argv[2] = source_filename_cpy;
+    ld_argv[3] = object_filename;
+    for(int i = 0; i < n_libs; i++){
+        ld_argv[4 + i] = req_libs[i];
+        printf("%s ", ld_argv[4 + i]);
+    }
+    printf("\n");
+    ld_argv[4 + n_libs] = NULL;
+
+    if(fork() == 0)
+        execvp("ld", ld_argv);
+    else
+        wait(NULL);
 
 
     if(run_after_compile){
@@ -1156,11 +1194,10 @@ int main(int argc, char *argv[]) {
         printf("[CMD] %s%s%s%s\n", execute_cmd_base,
             GREEN(source_filename_cpy));
 
-        if(fork() == 0){
+        if(fork() == 0)
             execlp(execute_local_file, execute_local_file, NULL);
-        }else{
+        else
             wait(NULL);
-        }
 
         free(execute_local_file);
     }
