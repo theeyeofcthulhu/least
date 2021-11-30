@@ -1112,8 +1112,15 @@ int main(int argc, char *argv[]) {
     bool run_after_compile = false;
     /* Handle command line input with getopt */
     int flag;
-    while ((flag = getopt(argc, argv, "r")) != -1){
+    while ((flag = getopt(argc, argv, "hr")) != -1){
         switch (flag){
+        case 'h':
+            printf( "Least Complicated Compiler - lcc\n"
+                    "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
+                    "usage: %s [-hr] FILE\n\n"
+                    "-h: display this message and exit\n"
+                    "-r: run program after compilation\n", argv[0]);
+            return 0;
         case 'r':
             run_after_compile = true;
             break;
