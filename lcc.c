@@ -137,6 +137,7 @@ typedef struct{
     char* expression;
     int expr_len;
     char expandeur;
+    char the_char;
 }str_token;
 
 enum str_tokens{
@@ -144,18 +145,20 @@ NEW_LINE,
 TAB,
 BACKSLASH,
 QUOTE,
+SINGLE_QUOTE,
 BRACKET_LEFT,
 BRACKET_RIGHT,
 STR_TOKEN_END,
 };
 
 const str_token token_structs[STR_TOKEN_END] = {
-{false, 0, "\",0xa,\"",     7, 'n'},    /* Newline */
-{false, 0, "\",0x9,\"",     7, 't'},    /* Tabstop */
-{false, 0, "\\",            1, '\\'},   /* The character '\' */
-{false, 0, "\",0x22,\"",    8, '\"'},   /* The character '"' */
-{false, 0, "\",0x5B,\"",    8, '['},    /* The character '[' */
-{false, 0, "\",0x5D,\"",    8, ']'},    /* The character ']' */
+{false, 0, "\",0xa,\"",     7, 'n',     '\n'},      /* Newline */
+{false, 0, "\",0x9,\"",     7, 't',     '\t'},      /* Tabstop */
+{false, 0, "\\",            1, '\\',    '\\'},      /* The character '\' */
+{false, 0, "\",0x22,\"",    8, '\"',    '\"'},      /* The character '"' */
+{false, 0, "\",0x27,\"",    8, '\'',    '\''},      /* The character "'" */
+{false, 0, "\",0x5B,\"",    8, '[',     '['},       /* The character '[' */
+{false, 0, "\",0x5D,\"",    8, ']',     ']'},       /* The character ']' */
 };
 
 typedef struct{
@@ -172,6 +175,7 @@ char* parse_string(char* string, char* filename, int line);
 bool parse_expression(char* expr, char* target, char** preserve, int preserve_len, FILE* nasm_output, char* filename, int line, int_var int_vars[], int len_int_vars);
 void parse_if(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars, int_stack* end_stack);
 cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_output, int_var int_vars[], int len_int_vars);
+char parse_char_const(char* expr, char* filename, int line);
 
 /* Read a file into dest, mallocs */
 char* read_source_code(char* filename){
@@ -652,8 +656,6 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
             fprintf(output_file,    "\t;; set\n"
                                     "\tmov %s, rax\n", int_to_set);
         }else if(strcmp(instruction_op, "putchar") == 0){
-            /* TODO: character constants */
-
             char* rest_of_line = strtok(NULL, "\0");
             compiler_error_on_false(rest_of_line, source_file_name, line + 1, "Could not parse arguments to function '%s'\n", instruction_op);
 
@@ -661,13 +663,21 @@ char* generate_nasm(char* source_file_name, char* source_code, runtime_opts* opt
             char** words = sepbyspc(rest_of_line, &expr_len);
 
             compiler_error_on_false(words, source_file_name, line, "Could not parse expression\n");
-            compiler_error_on_true(expr_len != 1, source_file_name, line, "Did not find one word in expression '%s'\n", rest_of_line);
+            compiler_error_on_false(expr_len == 1, source_file_name, line, "Did not find one word in expression '%s'\n", rest_of_line);
 
-            char* num = parse_number(rest_of_line, source_file_name, line, int_vars, int_var_acc);
+            if(rest_of_line[0] == '\''){
+                char char_const = parse_char_const(rest_of_line, source_file_name, line);
 
-            fprintf(output_file,    "\t;; putchar\n"
-                                    "\tmov rax, %s\n"
-                                    "\tcall putchar\n", num);
+                fprintf(output_file,    "\t;; putchar\n"
+                                        "\tmov rax, %d\n"
+                                        "\tcall putchar\n", (int)char_const);
+            }else{
+                char* num = parse_number(rest_of_line, source_file_name, line, int_vars, int_var_acc);
+
+                fprintf(output_file,    "\t;; putchar\n"
+                                        "\tmov rax, %s\n"
+                                        "\tcall putchar\n", num);
+            }
 
             opts->req_libs[LIB_PUTCHAR] = true;
 
@@ -1106,6 +1116,25 @@ cmp_operation parse_comparison(char* expr, char* filename, int line, FILE* nasm_
         free(sides[j]);
 
     return operator;
+}
+
+char parse_char_const(char* expr, char* filename, int line){
+    int len = strlen(expr);
+
+    compiler_error_on_false(len == 3 || len == 4, filename, line + 1, "Could not parse character constant '%s'\n", expr);
+    compiler_error_on_false(expr[0] == '\'' && expr[len - 1] == '\'', filename, line + 1, "Could not parse character constant '%s'\n", expr);
+
+    if(len == 4){
+        compiler_error_on_false(expr[1] == '\\', filename, line + 1, "Could not parse character constant '%s'\n", expr);
+        for(int i = 0; i < STR_TOKEN_END; i++){
+            if(expr[2] == token_structs[i].expandeur)
+                return token_structs[i].the_char;
+        }
+        compiler_error(filename, line + 1, "Failed to parse escape sequence '\\%c'\n", expr[2]);
+    }
+
+    compiler_error_on_true(expr[1] == '\\', filename, line + 1, "Unfinished escape sequence\n");
+    return expr[1];
 }
 
 int main(int argc, char *argv[]) {
