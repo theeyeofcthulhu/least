@@ -15,17 +15,17 @@ int_stack* int_stack_create(int cap){
 }
 
 void int_stack_push(int_stack* stack, int num){
-    compiler_error_on_true(stack->counter >= stack->cap, "Internal", 0, "Compiler internal stackoverflow\n");
+    compiler_error_on_true(stack->counter >= stack->cap, 0, "Compiler internal stackoverflow\n");
     stack->stack_arr[stack->counter++] = num;
 }
 
 int int_stack_pop(int_stack* stack){
-    compiler_error_on_true(stack->counter == 0, "Internal", 0, "Compiler internal access to empty integer stack\n");
+    compiler_error_on_true(stack->counter == 0, 0, "Compiler internal access to empty integer stack\n");
     return stack->stack_arr[--stack->counter];
 }
 
 int int_stack_pull(int_stack* stack){
-    compiler_error_on_true(stack->counter == 0, "Internal", 0, "Compiler internal access to empty integer stack\n");
+    compiler_error_on_true(stack->counter == 0, 0, "Compiler internal access to empty integer stack\n");
     int out = stack->stack_arr[0];
     for (int i = 0; i < stack->counter - 1; i++) {
         stack->stack_arr[i] = stack->stack_arr[i + 1];
@@ -36,17 +36,17 @@ int int_stack_pull(int_stack* stack){
 }
 
 int int_stack_top(int_stack* stack){
-    compiler_error_on_true(stack->counter == 0, "Internal", 0, "Compiler internal access to empty integer stack\n");
+    compiler_error_on_true(stack->counter == 0, 0, "Compiler internal access to empty integer stack\n");
     return stack->stack_arr[stack->counter - 1];
 }
 
 int int_stack_bottom(int_stack* stack){
-    compiler_error_on_true(stack->counter == 0, "Internal", 0, "Compiler internal access to empty integer stack\n");
+    compiler_error_on_true(stack->counter == 0, 0, "Compiler internal access to empty integer stack\n");
     return stack->stack_arr[0];
 }
 
 void int_stack_free(int_stack* stack){
-    compiler_error_on_false(stack->stack_arr || stack, "Internal", 0, "Compiler internal try to free empty stack\n");
+    compiler_error_on_false(stack->stack_arr || stack, 0, "Compiler internal try to free empty stack\n");
     free(stack->stack_arr);
     free(stack);
 }
@@ -62,7 +62,7 @@ str_stack* str_stack_create(int cap){
 }
 
 void str_stack_push(str_stack* stack, char* str){
-    compiler_error_on_true(stack->counter >= stack->cap, "Internal", 0, "Compiler internal stackoverflow\n");
+    compiler_error_on_true(stack->counter >= stack->cap, 0, "Compiler internal stackoverflow\n");
     stack->stack_arr[stack->counter++] = str;
 }
 
@@ -97,7 +97,7 @@ char* str_stack_bottom(str_stack* stack){
 }
 
 void str_stack_free(str_stack* stack){
-    compiler_error_on_false(stack->stack_arr || stack, "Internal", 0, "Compiler internal try to free empty stack\n");
+    compiler_error_on_false(stack->stack_arr || stack, 0, "Compiler internal try to free empty stack\n");
     free(stack->stack_arr);
     free(stack);
 }
@@ -106,7 +106,7 @@ char* str_stack_get(str_stack* stack, int n){
     if(stack->counter == 0)
         return NULL;
 
-    compiler_error_on_true(n < 0 || n >= stack->counter, "Internal", 0, "Internal out of bounds access to stack\n");
+    compiler_error_on_true(n < 0 || n >= stack->counter, 0, "Internal out of bounds access to stack\n");
 
     return stack->stack_arr[n];
 }
