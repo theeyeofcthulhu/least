@@ -1,8 +1,8 @@
-#include "error.h"
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+
+#include "error.h"
 
 #define SHELL_RED   "\033[0;31m"
 #define SHELL_WHITE "\033[0;37m"

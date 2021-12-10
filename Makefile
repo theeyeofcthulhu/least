@@ -4,8 +4,8 @@ CCFLAGS = -g -Wall -Wextra -Wshadow
 AS = nasm
 ASFLAGS = -g -felf64
 
-SRC = lcc.c stack.c error.c util.c lstring.c
-INCLUDE = stack.h error.h util.h dictionary.h lstring.h
+SRC = lcc.c error.c util.c lstring.c dictionary.c lexer.c ast.c x86_64.c
+# INCLUDE = error.h util.h dictionary.h lstring.h lexer.h ast.h x86_64.h
 OBJ = $(SRC:.c=.o)
 EXE = lcc
 ASM_LIB = $(addprefix lib/, uprint.asm putchar.asm)
@@ -29,11 +29,14 @@ lib: $(ASM_LIB_O)
 lib/%.o: lib/%.asm
 	$(AS) $(ASFLAGS) -o $@ $<
 
-lcc.o: stack.h error.h util.h dictionary.h lstring.h
-stack.o: stack.h error.h
+lcc.o: util.h dictionary.h error.h lstring.h lexer.h ast.h x86_64.h
 error.o: error.h
-util.o: util.h
+util.o: util.h error.h
 lstring.o: lstring.h error.h
+lexer.o: lexer.h dictionary.h lstring.h util.h error.h
+ast.o: util.h lexer.h error.h ast.h x86_64.h
+x86_64.o: error.h x86_64.h ast.h util.h
+dictionary.o: dictionary.h
 
 $(EXE): $(OBJ) $(INCLUDE)
 	$(CC) -o $@ $(OBJ) $(LIBS)
