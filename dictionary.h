@@ -5,8 +5,6 @@
 
 typedef enum {
 PRINT,
-UPRINT,
-FPRINT,
 EXIT,
 READ,
 SET,
@@ -50,8 +48,6 @@ LOGICAL_OPS_END,
 
 typedef enum {
 K_PRINT,
-K_UPRINT,
-K_FPRINT,
 K_EXIT,
 K_IF,
 K_ELIF,

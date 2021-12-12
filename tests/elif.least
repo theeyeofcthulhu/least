@@ -1,22 +1,22 @@
-int a 30
+int a ; 30 ;
 if a == 30
-   print "a == 30\n"
+   print "a == 30\n" ;
 elif a == 20
-   print "a == 20\n"
+   print "a == 20\n" ;
 end
 
-int b 30
+int b ; 30 ;
 if b == 20
    if 2 == 3
-      print "unreach\n"
+      print "unreach\n" ;
    else
-      print "hello\n"
+      print "hello\n" ;
    end
-   print "b == 30\n"
+   print "b == 30\n" ;
 elif b == 20
-   print "b == 20\n"
+   print "b == 20\n" ;
 elif b == 10
-   print "b == b20\n"
+   print "b == b20\n" ;
 else
-    print "reached else\n"
+   print "reached else\n" ;
 end

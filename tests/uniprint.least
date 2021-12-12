@@ -1,0 +1,8 @@
+int a ; 5 ;
+
+print "value of a: [a] !!! [b]!\n" ;
+print "just a string\n" ;
+print "just a string\n[a]\n" ;
+print "[a]" ;
+print " that was just a number\n" ;
+print "printing const number: [5]\n" ;

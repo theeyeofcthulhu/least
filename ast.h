@@ -5,10 +5,26 @@
 #include "lexer.h"
 #include "util.h"
 
+enum ts_class{
+    T_IF,
+    T_ELIF,
+    T_ELSE,
+    T_WHILE,
+    T_CONST,
+    T_CMP,
+    T_FUNC,
+    T_VAR,
+    T_BODY,
+    T_STR,
+    T_LSTR,
+    T_ARIT,
+    T_ENUM_END,
+};
+
 typedef struct tree_node_s tree_node;
 
 struct tree_node_s{
-    enum{T_IF, T_ELIF, T_ELSE, T_CONST, T_CMP, T_FUNC, T_VAR, T_BODY, T_STR, T_ARIT} class;
+    enum ts_class cls;
     union{
         struct {
             tree_node* condition;
@@ -18,6 +34,10 @@ struct tree_node_s{
         struct {
             tree_node* body;
         }t_else;
+        struct {
+            tree_node* condition;
+            tree_node* body;
+        }t_while;
         int value;
         struct {
             ecmp_operation cmp;
@@ -36,6 +56,10 @@ struct tree_node_s{
             int body_id;
         }body;
         int n_str;
+        struct {
+            tree_node** format;
+            int n_format;
+        } lstr;
         struct {
             earit_operation arit_op;
             tree_node* left;

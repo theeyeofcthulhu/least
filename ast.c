@@ -14,7 +14,7 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
 
 tree_node* create_body(tree_node* parent, struct compile_info* c_info){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_BODY;
+    res->cls = T_BODY;
     res->op.body.children = malloc(NODE_ARR_SZ * sizeof(tree_node));
     res->op.body.n_children = 0;
     res->op.body.body_id = c_info->body_id++;
@@ -27,10 +27,6 @@ efunc ekeytoefunc(ekeyword key){
     switch(key){
         case K_PRINT:
             return PRINT;
-        case K_UPRINT:
-            return UPRINT;
-        case K_FPRINT:
-            return FPRINT;
         case K_EXIT:
             return EXIT;
         case K_READ:
@@ -50,10 +46,6 @@ char* efunctostrfunc(efunc func){
     switch(func){
         case PRINT:
             return "print";
-        case UPRINT:
-            return "uprint";
-        case FPRINT:
-            return "fprint";
         case EXIT:
             return "exit";
         case READ:
@@ -107,7 +99,7 @@ char* earittostrarit(earit_operation arit){
 
 tree_node* create_func(efunc func){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_FUNC;
+    res->cls = T_FUNC;
     res->op.func_args.func = func;
     res->op.func_args.args = malloc(NODE_ARR_SZ * sizeof(tree_node));
     res->op.func_args.n_args = 0;
@@ -117,7 +109,7 @@ tree_node* create_func(efunc func){
 
 tree_node* create_if(tree_node* condition, tree_node* body){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_IF;
+    res->cls = T_IF;
     res->op.t_if.condition = condition;
     res->op.t_if.body = body;
     res->op.t_if.elif = NULL;
@@ -129,7 +121,7 @@ tree_node* get_last_if(tree_node* if_node){
     tree_node* res = if_node;
 
     for(;; res = res->op.t_if.elif){
-        if(res->class == T_ELSE || res->op.t_if.elif == NULL){
+        if(res->cls == T_ELSE || res->op.t_if.elif == NULL){
             return res;
         }
     }
@@ -138,21 +130,30 @@ tree_node* get_last_if(tree_node* if_node){
 }
 
 void if_to_elif(tree_node* if_node){
-    assert(if_node->class == T_IF);
-    if_node->class = T_ELIF;
+    assert(if_node->cls == T_IF);
+    if_node->cls = T_ELIF;
 }
 
 tree_node* create_else(tree_node* body){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_ELSE;
+    res->cls = T_ELSE;
     res->op.t_else.body = body;
+
+    return res;
+}
+
+tree_node* create_while(tree_node* condition, tree_node* body){
+    tree_node* res = malloc(sizeof(tree_node));
+    res->cls = T_WHILE;
+    res->op.t_while.condition = condition;
+    res->op.t_while.body = body;
 
     return res;
 }
 
 tree_node* create_elif(tree_node* condition, tree_node* body){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_ELIF;
+    res->cls = T_ELIF;
     res->op.t_if.condition = condition;
     res->op.t_if.body = body;
 
@@ -161,7 +162,7 @@ tree_node* create_elif(tree_node* condition, tree_node* body){
 
 tree_node* create_condition(tree_node* left, tree_node* right, ecmp_operation cmp){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_CMP;
+    res->cls = T_CMP;
     res->op.sides.left = left;
     res->op.sides.right = right;
     res->op.sides.cmp = cmp;
@@ -171,7 +172,7 @@ tree_node* create_condition(tree_node* left, tree_node* right, ecmp_operation cm
 
 tree_node* create_const(int n){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_CONST;
+    res->cls = T_CONST;
     res->op.value = n;
 
     return res;
@@ -189,7 +190,7 @@ int check_var(char* var, struct compile_info* c_info){
 
 tree_node* create_var(char* var, struct compile_info* c_info){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_VAR;
+    res->cls = T_VAR;
     res->op.n_var = check_var(var, c_info);
 
     return res;
@@ -207,15 +208,41 @@ int check_str(char* str, struct compile_info* c_info){
 
 tree_node* create_str(char* str, struct compile_info* c_info){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_STR;
+    res->cls = T_STR;
     res->op.n_str = check_str(str, c_info);
+
+    return res;
+}
+
+tree_node* create_lstring(lstring* lstr, struct compile_info* c_info){
+    tree_node* res = malloc(sizeof(tree_node));
+    res->cls = T_LSTR;
+    res->op.lstr.format = malloc(lstr->ts_sz * sizeof(tree_node*));
+    res->op.lstr.n_format = lstr->ts_sz;
+
+    for(int i = 0; i < lstr->ts_sz; i++){
+        switch(lstr->ts[i]->type){
+            case STRING:
+                res->op.lstr.format[i] = create_str(lstr->ts[i]->value.string, c_info);
+                break;
+            case VAR:
+                res->op.lstr.format[i] = create_var(lstr->ts[i]->value.name, c_info);
+                break;
+            case NUMBER:
+                res->op.lstr.format[i] = create_const(lstr->ts[i]->value.num);
+                break;
+            default:
+                compiler_error(0, "Unexpected token in lstring\n");
+                break;
+        }
+    }
 
     return res;
 }
 
 tree_node* create_arit(earit_operation arit, tree_node* left, tree_node* right){
     tree_node* res = malloc(sizeof(tree_node));
-    res->class = T_ARIT;
+    res->cls = T_ARIT;
     res->op.arit.arit_op = arit;
     res->op.arit.left = left;
     res->op.arit.right = right;
@@ -224,14 +251,14 @@ tree_node* create_arit(earit_operation arit, tree_node* left, tree_node* right){
 }
 
 void append_child(tree_node* body, tree_node* child){
-    assert(body->class == T_BODY);
+    assert(body->cls == T_BODY);
     assert(body->op.body.n_children + 1 < NODE_ARR_SZ);
 
     body->op.body.children[body->op.body.n_children++] = child;
 }
 
 void append_arg(tree_node* body, tree_node* child){
-    assert(body->class == T_FUNC);
+    assert(body->cls == T_FUNC);
     assert(body->op.func_args.n_args + 1 < NODE_ARR_SZ);
 
     body->op.func_args.args[body->op.func_args.n_args++] = child;
@@ -249,6 +276,10 @@ tree_node* node_from_var_or_const(token* tk, struct compile_info* c_info){
     }
 
     return res;
+}
+
+bool has_precedence(earit_operation op){
+    return op == DIV || op == MUL || op == MOD;
 }
 
 /* Parse arithmetic expression respecting precedence */
@@ -269,18 +300,18 @@ tree_node* parse_arit_expr(token** ts, int len, struct compile_info* c_info){
                 break;
             }
         }
-        if((next_op == MUL || next_op == DIV) && ts[i]->type != OPERATOR){
+        if(has_precedence(next_op) && ts[i]->type != OPERATOR){
             continue;
         }
 
         if(ts[i]->type == OPERATOR){
             /* Make new multiplication */
-            if(ts[i]->value.arit_operator == MUL || ts[i]->value.arit_operator == DIV){
+            if(has_precedence(ts[i]->value.arit_operator)){
                 assert(i > 0 && i + 1 < len);
                 assert(ts[i-1]->type == NUMBER || ts[i-1]->type == VAR);
                 assert(ts[i+1]->type == NUMBER || ts[i+1]->type == VAR);
 
-                if(last_op == MUL || last_op == DIV){
+                if(has_precedence(last_op)){
                     /* If we follow another multiplication:
                      * incorporate previous into ourselves and replace that previous one in the array */
                     tree_node* new = create_arit(ts[i]->value.arit_operator,
@@ -299,7 +330,7 @@ tree_node* parse_arit_expr(token** ts, int len, struct compile_info* c_info){
         }else{
             /* If we follow a multiplication:
              * we are already part of a multiplication and don't need us in the array */
-            if(last_op == MUL || last_op == DIV)
+            if(has_precedence(last_op))
                 continue;
             s2[s2_sz++] = node_from_var_or_const(ts[i], c_info);
         }
@@ -314,7 +345,7 @@ tree_node* parse_arit_expr(token** ts, int len, struct compile_info* c_info){
 
     /* Parse everything into a tree */
     for(int i = 0; i < s2_sz; i++){
-        if(s2[i]->class == T_ARIT){
+        if(s2[i]->cls == T_ARIT){
             if(s2[i]->op.arit.arit_op == ADD || s2[i]->op.arit.arit_op == SUB){
                 if(!root){
                     root = create_arit(s2[i]->op.arit.arit_op, s2[i-1], NULL);
@@ -335,7 +366,7 @@ tree_node* parse_arit_expr(token** ts, int len, struct compile_info* c_info){
     return root;
 }
 
-tree_node* parse_comparison_to_if(token** ts, int* i, tree_node* root, struct compile_info* c_info){
+tree_node* parse_condition(token** ts, int* i, struct compile_info* c_info){
     tree_node* left;
     tree_node* right;
 
@@ -366,15 +397,23 @@ tree_node* parse_comparison_to_if(token** ts, int* i, tree_node* root, struct co
 
         *i += nxt_tkn - 1;
 
-        res = create_if(create_condition(left, right, comparator->value.cmp_operator),
-                        create_body(root, c_info));
+        res = create_condition(left, right, comparator->value.cmp_operator);
     }else{
         left = parse_arit_expr(&ts[0], nxt_tkn-1, c_info);
-        res = create_if(create_condition(left, NULL, CMP_OPERATION_ENUM_END),
-                        create_body(root, c_info));
+        res = create_condition(left, NULL, CMP_OPERATION_ENUM_END);
     }
 
     return res;
+}
+
+tree_node* parse_condition_to_if(token** ts, int* i, tree_node* root, struct compile_info* c_info){
+    tree_node* condition = parse_condition(ts, i, c_info);
+    return create_if(condition, create_body(root, c_info));
+}
+
+tree_node* parse_condition_to_while(token** ts, int* i, tree_node* root, struct compile_info* c_info){
+    tree_node* condition = parse_condition(ts, i, c_info);
+    return create_while(condition, create_body(root, c_info));
 }
 
 tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_info){
@@ -393,7 +432,7 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                 switch(tokens[i]->value.key){
                     case K_IF:
                     {
-                        tree_node* new_if = parse_comparison_to_if(&tokens[i+1], &i, root, c_info);
+                        tree_node* new_if = parse_condition_to_if(&tokens[i+1], &i, root, c_info);
                         append_child(root, new_if);
 
                         root = new_if->op.t_if.body;
@@ -406,7 +445,7 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                     {
                         compiler_error_on_false(current_if, tokens[i]->line + 1, "Unexpected elif");
 
-                        tree_node* new_if = parse_comparison_to_if(&tokens[i+1], &i, root, c_info);
+                        tree_node* new_if = parse_condition_to_if(&tokens[i+1], &i, root, c_info);
                         if_to_elif(new_if);
 
                         current_if->op.t_if.elif = new_if;
@@ -428,8 +467,6 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                         break;
                     }
                     case K_PRINT:
-                    case K_UPRINT:
-                    case K_FPRINT:
                     case K_EXIT:
                     case K_READ:
                     case K_SET:
@@ -440,9 +477,6 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                         append_child(root, func);
 
                         switch(func->op.func_args.func){
-                            case UPRINT:
-                                c_info->req_libs[LIB_UPRINT] = true;
-                                break;
                             case PUTCHAR:
                                 c_info->req_libs[LIB_PUTCHAR] = true;
                                 break;
@@ -450,25 +484,25 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                                 break;
                         }
 
-                        int nxt_tkn = i + 1;
-                        token* next;
-                        while((next = tokens[nxt_tkn++])->type != EOL){
-                            //TODO: print source code of invalid argument
-                            compiler_error_on_true(next->type == COMPARATOR || next->type == KEYWORD || next->type == LOGICAL, tokens[i]->line + 1, "Invalid function argument\n");
-                            switch(next->type){
-                                case VAR:
-                                    append_arg(func, create_var(next->value.name, c_info));
-                                    break;
-                                case STRING:
-                                    append_arg(func, create_str(next->value.string, c_info));
+                        int arg_len;
+                        i += 1;
+
+                        while(has_next_arg(&tokens[i], &arg_len)){
+                            switch(tokens[i]->type){
+                                case LSTRING:
+                                    compiler_error_on_true(arg_len > 1, tokens[i]->line + 1, "Excess tokens after string argument\n");
+                                    append_arg(func, create_lstring(tokens[i]->value.lstring, c_info));
                                     break;
                                 case NUMBER:
-                                    append_arg(func, create_const(next->value.num));
+                                case VAR:
+                                    append_arg(func, parse_arit_expr(&tokens[i], arg_len, c_info));
                                     break;
-                                //TODO: char
                                 default:
+                                    compiler_error(tokens[i]->line, "Unexpected argument to function: '%s', %d\n", efunctostrfunc(func->op.func_args.func), tokens[i]->type);
                                     break;
                             }
+
+                            i += arg_len+1;
                         }
                         break;
                     }
@@ -476,10 +510,13 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                         compiler_error_on_false(root->parent, tokens[i]->line + 1, "Unexpected end\n");
                         // compiler_error_on_true(current_if, tokens[i]->line + 1, "Unexpected end\n");
                         if(blk_stk[blk_stk_sz-1]){
-                            switch(blk_stk[blk_stk_sz-1]->class){
+                            switch(blk_stk[blk_stk_sz-1]->cls){
                                 case T_IF:
                                     root = blk_stk[blk_stk_sz-1]->op.t_if.body->parent;
                                     current_if = blk_stk[blk_stk_sz-2];
+                                    break;
+                                case T_WHILE:
+                                    root = blk_stk[blk_stk_sz-1]->op.t_while.body->parent;
                                     break;
                                 default:
                                     compiler_error(tokens[i]->line, "Exiting invalid block\n");
@@ -489,8 +526,17 @@ tree_node* tokens_to_ast(token** tokens, int token_len, struct compile_info* c_i
                         }else
                             root = root->parent;
                         break;
-                    case K_STR:
                     case K_WHILE:
+                    {
+                        tree_node* new_while = parse_condition_to_while(&tokens[i+1], &i, root, c_info);
+                        append_child(root, new_while);
+
+                        root = new_while->op.t_while.body;
+
+                        blk_stk[blk_stk_sz++] = new_while;
+                        break;
+                    }
+                    case K_STR:
                         compiler_error(tokens[i]->line + 1, "TODO: unimplemented\n");
                         break;
                     case K_NOKEY:
@@ -518,7 +564,7 @@ void tree_to_dot(tree_node* root, char* fn){
 
     int node = 0;
 
-    assert(root->class == T_BODY);
+    assert(root->cls == T_BODY);
     int tbody_id = root->op.body.body_id;
 
     tree_to_dot_core(root, &node, &tbody_id, 0, out);
@@ -529,7 +575,7 @@ void tree_to_dot(tree_node* root, char* fn){
 }
 
 void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body_id, FILE* dot){
-    switch(root->class){
+    switch(root->cls){
         case T_BODY:
             *tbody_id = root->op.body.body_id;
             fprintf(dot, "\tNode_%d [label=\"body %d\"]\n", *tbody_id, *tbody_id - NODE_ARR_SZ);
@@ -541,10 +587,10 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         case T_IF:
         {
             fprintf(dot, "\tNode_%d [label=\"if\"]\n", ++(*node));
-            int s_node = *node;
-            fprintf(dot, "\tNode_%d -> Node_%d [label=\"if > body\"]\n", *node, *tbody_id + 1);
             fprintf(dot, "\tNode_%d -> Node_%d [label=\"body > if\"]\n", parent_body_id, *node);
+            int s_node = *node;
             tree_to_dot_core(root->op.t_if.condition, node, tbody_id, parent_body_id, dot);
+            fprintf(dot, "\tNode_%d -> Node_%d [label=\"if > body\"]\n", s_node, *tbody_id + 1);
             tree_to_dot_core(root->op.t_if.body, node, tbody_id, parent_body_id, dot);
             if(root->op.t_if.elif)
                 tree_to_dot_core(root->op.t_if.elif, node, tbody_id, s_node, dot);
@@ -559,10 +605,10 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         case T_ELIF:
         {
             fprintf(dot, "\tNode_%d [label=\"elif\"]\n", ++(*node));
-            int s_node = *node;
-            fprintf(dot, "\tNode_%d -> Node_%d [label=\"elif > body\"]\n", *node, *tbody_id + 1);
             fprintf(dot, "\tNode_%d -> Node_%d [label=\"body > elif\"]\n", parent_body_id, *node);
+            int s_node = *node;
             tree_to_dot_core(root->op.t_if.condition, node, tbody_id, parent_body_id, dot);
+            fprintf(dot, "\tNode_%d -> Node_%d [label=\"elif > body\"]\n", s_node, *tbody_id + 1);
             tree_to_dot_core(root->op.t_if.body, node, tbody_id, parent_body_id, dot);
             if(root->op.t_if.elif)
                 tree_to_dot_core(root->op.t_if.elif, node, tbody_id, s_node, dot);
@@ -612,5 +658,28 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
             tree_to_dot_core(root->op.arit.right, node, tbody_id, s_node, dot);
             break;
         }
+        case T_WHILE:
+        {
+            fprintf(dot, "\tNode_%d [label=\"while\"]\n", ++(*node));
+            fprintf(dot, "\tNode_%d -> Node_%d [label=\"body > while\"]\n", parent_body_id, *node);
+            int s_node = *node;
+            tree_to_dot_core(root->op.t_while.condition, node, tbody_id, parent_body_id, dot);
+            fprintf(dot, "\tNode_%d -> Node_%d [label=\"while > body\"]\n", s_node, *tbody_id + 1);
+            tree_to_dot_core(root->op.t_while.body, node, tbody_id, parent_body_id, dot);
+            break;
+        }
+        case T_LSTR:
+        {
+            fprintf(dot, "\tNode_%d [label=\"lstring\"]\n", ++(*node));
+            fprintf(dot, "\tNode_%d -> Node_%d [label=\"lstring\"]\n", parent_body_id, *node);
+            int s_node = *node;
+            for(int i = 0; i < root->op.lstr.n_format; i++){
+                tree_to_dot_core(root->op.lstr.format[i], node, tbody_id, s_node, dot);
+            }
+            break;
+        }
+        case T_ENUM_END:
+            compiler_error(0, "Invalid tree node\n");
+            break;
     }
 }

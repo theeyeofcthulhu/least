@@ -9,14 +9,11 @@
 #include "lstring.h"
 #include "util.h"
 #include "error.h"
+#include "lstring.h"
 
 ekeyword strkeytoekey(char* word){
     if(strcmp(word, "print") == 0)
         return K_PRINT;
-    else if(strcmp(word, "uprint") == 0)
-        return K_UPRINT;
-    else if(strcmp(word, "fprint") == 0)
-        return K_FPRINT;
     else if(strcmp(word, "exit") == 0)
         return K_EXIT;
     else if(strcmp(word, "if") == 0)
@@ -110,6 +107,15 @@ token* make_string(char* string, int line){
     return res;
 }
 
+token* make_lstring(lstring* string, int line){
+    token* res = malloc(sizeof(token));
+    res->type = LSTRING;
+    res->value.lstring = string;
+    res->line = line;
+
+    return res;
+}
+
 token* make_num(int value, int line){
     token* res = malloc(sizeof(token));
     res->type = NUMBER;
@@ -163,10 +169,27 @@ token* make_eol(int line){
     return res;
 }
 
+token* make_sep(int line){
+    token* res = malloc(sizeof(token));
+    res->type = SEP;
+    res->line = line;
+
+    return res;
+}
+
 void free_tokens(token** ts, int len){
     for(int i = 0; i < len; i++)
         free(ts[i]);
     free(ts);
+}
+
+bool has_next_arg(token** ts, int* len){
+    *len = 0;
+
+    while((ts[(*len)]->type != SEP) && (ts[(*len)]->type != EOL))
+        *len += 1;
+
+    return ts[(*len)]->type == SEP;
 }
 
 #define MAX_TOKENS 2048
@@ -205,11 +228,11 @@ token** lex_source(char* source, int* lex_len){
                 }
                 char* string_to_parse = unite(words, start, j);
 
-                char* parsed = parse_string(string_to_parse, i);
+                lstring* parsed = parse_string(string_to_parse, i);
 
                 free(string_to_parse);
 
-                tokens[(*lex_len)++] = make_string(parsed, i);
+                tokens[(*lex_len)++] = make_lstring(parsed, i);
 
                 continue;
             }else if(isdigit(words[j][0])){
@@ -245,6 +268,11 @@ token** lex_source(char* source, int* lex_len){
                 continue;
             }
 
+            if(strcmp(words[j], ";") == 0){
+                tokens[(*lex_len)++] = make_sep(i);
+                continue;
+            }
+
             char* var = malloc((strlen(words[j]) + 1) * sizeof(char));
             strcpy(var, words[j]);
             checkbanned(var, i);
@@ -256,6 +284,8 @@ token** lex_source(char* source, int* lex_len){
         freewordarr(words, words_len);
     }
     freewordarr(lines, lines_len);
+
+    tokens = realloc(tokens, *lex_len * sizeof(token*));
 
     return tokens;
 }

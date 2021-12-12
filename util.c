@@ -95,18 +95,31 @@ char** spltlns(char* str, int *len){
         if(str[i] == '\n')
             *len += 1;
 
+    /* Just return back if no newlines are found */
+    if(*len == 0){
+        *len = 1;
+
+        char** res = malloc(sizeof(char*));
+        *res = malloc((strlen(str) + 1) * sizeof(char));
+
+        strcpy(*res, str);
+
+        return res;
+    }
+
     /* Split file by '\n' chars and load into lines
      *
      * We can't use pure strtok() because multiple '\n's would all be eliminated and
      * we want to count empty lines as well */
     char** lines = malloc(*len * sizeof(char*));
+
     char* offset = str;
 
     bool found_all = false;
     int accumulator = 0;
     while(!found_all){
         /* Exit if no more newlines are found */
-        char* next_offset = index(offset, '\n');
+        char* next_offset = strchr(offset, '\n');
         if(!next_offset){
             found_all = true;
             break;

@@ -49,11 +49,11 @@ char* asm_from_var_or_const(tree_node* node){
     if(!var_or_const)
         var_or_const = malloc((strlen("qword [rbp - ]") + MAX_DIGITS) * sizeof(char));
 
-    assert(node->class == T_VAR || node->class == T_CONST);
+    assert(node->cls == T_VAR || node->cls == T_CONST);
 
-    if(node->class == T_VAR){
+    if(node->cls == T_VAR){
         sprintf(var_or_const, "qword [rbp - %d]", (node->op.n_var + 1) * 8);
-    }else if(node->class == T_CONST){
+    }else if(node->cls == T_CONST){
         sprintf(var_or_const, "%d", node->op.value);
     }
 
@@ -76,25 +76,25 @@ void print_mov_if_req(char* target, char* source, FILE* out){
 /* Parse a tree representing an arithmetic expression into assembly recursively */
 void arithmetic_tree_to_x86_64(tree_node* root, char* reg, FILE* out, struct compile_info* c_info){
     /* If we are only a number: mov us into the target and leave */
-    if(root->class == T_VAR || root->class == T_CONST){
+    if(root->cls == T_VAR || root->cls == T_CONST){
         fprintf(out, "mov %s, %s\n\n", reg, asm_from_var_or_const(root));
         return;
     }
 
-    assert(root->op.arit.left->class == T_ARIT ||
-           root->op.arit.left->class == T_CONST ||
-           root->op.arit.left->class == T_VAR);
-    assert(root->op.arit.right->class == T_ARIT ||
-           root->op.arit.right->class == T_CONST ||
-           root->op.arit.right->class == T_VAR);
+    assert(root->op.arit.left->cls == T_ARIT ||
+           root->op.arit.left->cls == T_CONST ||
+           root->op.arit.left->cls == T_VAR);
+    assert(root->op.arit.right->cls == T_ARIT ||
+           root->op.arit.right->cls == T_CONST ||
+           root->op.arit.right->cls == T_VAR);
 
     bool value_in_rax = false;
 
     /* If our children are also calculations: recurse */
-    if(root->op.arit.left->class == T_ARIT){
+    if(root->op.arit.left->cls == T_ARIT){
         arithmetic_tree_to_x86_64(root->op.arit.left, "rax", out, c_info);
         value_in_rax = true;
-    }if(root->op.arit.right->class == T_ARIT){
+    }if(root->op.arit.right->cls == T_ARIT){
         /* Preserve rax */
         if(value_in_rax)
             fprintf(out, "push rax\n\n");
@@ -104,9 +104,9 @@ void arithmetic_tree_to_x86_64(tree_node* root, char* reg, FILE* out, struct com
     }
 
     /* If our children are numbers: mov them into the target */
-    if(root->op.arit.left->class == T_CONST || root->op.arit.left->class == T_VAR)
+    if(root->op.arit.left->cls == T_CONST || root->op.arit.left->cls == T_VAR)
         fprintf(out, "mov rax, %s\n\n", asm_from_var_or_const(root->op.arit.left));
-    if(root->op.arit.right->class == T_CONST || root->op.arit.right->class == T_VAR)
+    if(root->op.arit.right->cls == T_CONST || root->op.arit.right->cls == T_VAR)
         fprintf(out, "mov rcx, %s\n\n", asm_from_var_or_const(root->op.arit.right));
 
     /* Execute the calculation */
@@ -180,7 +180,7 @@ void ast_to_x86_64(tree_node* root, char* fn, struct compile_info* c_info){
 }
 
 void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info, int body_id, int real_end_id){
-    switch(root->class){
+    switch(root->cls){
         case T_BODY:
             for(int i = 0; i < root->op.body.n_children; i++){
                 ast_to_x86_64_core(root->op.body.children[i], out, c_info, root->op.body.body_id, real_end_id);
@@ -191,7 +191,7 @@ void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info,
             /* Getting the end label for the whole block
              * we jmp there if one if succeeded and we traversed its block */
             tree_node* last_if = get_last_if(root);
-            if(last_if->class == T_ELSE){
+            if(last_if->cls == T_ELSE){
                 real_end_id = last_if->op.t_else.body->op.body.body_id;
             }else{
                 real_end_id = last_if->op.t_if.body->op.body.body_id;
@@ -225,6 +225,14 @@ void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info,
             ast_to_x86_64_core(root->op.t_else.body, out, c_info, root->op.t_else.body->op.body.body_id, real_end_id);
             fprintf(out, ".end%d:\n\n", root->op.t_else.body->op.body.body_id);
             break;
+        case T_WHILE:
+            fprintf(out, ";; while\n");
+            fprintf(out, ".entry%d:\n\n", root->op.t_while.body->op.body.body_id);
+            ast_to_x86_64_core(root->op.t_while.condition, out, c_info, root->op.t_while.body->op.body.body_id, real_end_id);
+            ast_to_x86_64_core(root->op.t_while.body, out, c_info, root->op.t_while.body->op.body.body_id, real_end_id);
+            fprintf(out, "jmp .entry%d\n\n", root->op.t_while.body->op.body.body_id);
+            fprintf(out, ".end%d:\n\n", root->op.t_while.body->op.body.body_id);
+            break;
         case T_FUNC:
         {
             //TODO: arit operations as function args
@@ -232,18 +240,18 @@ void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info,
                 case EXIT:
                     compiler_error_on_true(root->op.func_args.n_args != 1,
                                            0, "Expected one argument to 'exit'\n");
-                    compiler_error_on_false(root->op.func_args.args[0]->class == T_VAR ||
-                                            root->op.func_args.args[0]->class == T_CONST,
+                    compiler_error_on_false(root->op.func_args.args[0]->cls == T_VAR ||
+                                            root->op.func_args.args[0]->cls == T_CONST,
                                             0, "Expected variable or constant\n");
                     fprintf(out, "mov rax, 60\n");
-                    if(root->op.func_args.args[0]->class == T_VAR){
+                    if(root->op.func_args.args[0]->cls == T_VAR){
                         compiler_error_on_false(check_defined(*c_info, root->op.func_args.args[0]->op.n_var),
                                                 0,
                                                 "Variable '%s' is undefined at this time\n",
                                                 c_info->known_vars[root->op.func_args.args[0]->op.n_var]);
                         fprintf(out, "mov rdi, %s\n",
                                 asm_from_var_or_const(root->op.func_args.args[0]));
-                    }else if(root->op.func_args.args[0]->class == T_CONST){
+                    }else if(root->op.func_args.args[0]->cls == T_CONST){
                         fprintf(out, "mov rdi, %d\n", root->op.func_args.args[0]->op.value);
                     }
                     fprintf(out, "syscall\n");
@@ -251,10 +259,10 @@ void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info,
                 case INT:
                     compiler_error_on_true(root->op.func_args.n_args != 2,
                                            0, "Expected two arguments to 'int'\n");
-                    compiler_error_on_false(root->op.func_args.args[0]->class == T_VAR,
+                    compiler_error_on_false(root->op.func_args.args[0]->cls == T_VAR,
                                             0, "Expected variable\n");
-                    compiler_error_on_false(root->op.func_args.args[1]->class == T_VAR ||
-                                            root->op.func_args.args[1]->class == T_CONST,
+                    compiler_error_on_false(root->op.func_args.args[1]->cls == T_VAR ||
+                                            root->op.func_args.args[1]->cls == T_CONST,
                                             0, "Expected variable or constant\n");
                     compiler_error_on_true(check_defined(*c_info, root->op.func_args.args[0]->op.n_var),
                                            0,
@@ -270,30 +278,61 @@ void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info,
                 case PRINT:
                     compiler_error_on_true(root->op.func_args.n_args != 1,
                                            0, "Expected one argument to 'print'\n");
-                    compiler_error_on_false(root->op.func_args.args[0]->class == T_STR,
+                    compiler_error_on_false(root->op.func_args.args[0]->cls == T_LSTR,
                                             0, "Expected string\n");
-                    fprintf(out, "mov rax, 1\n"
-                                 "mov rdi, 1\n"
-                                 "mov rsi, str%d\n"
-                                 "mov rdx, str%dLen\n"
-                                 "syscall\n",
-                                 root->op.func_args.args[0]->op.n_str,
-                                 root->op.func_args.args[0]->op.n_str);
+                    tree_node* ls = root->op.func_args.args[0];
+                    for(int i = 0; i < ls->op.lstr.n_format; i++){
+                        switch(ls->op.lstr.format[i]->cls){
+                            case T_STR:
+                                fprintf(out, "mov rax, 1\n"
+                                            "mov rdi, 1\n"
+                                            "mov rsi, str%d\n"
+                                            "mov rdx, str%dLen\n"
+                                            "syscall\n",
+                                            ls->op.lstr.format[i]->op.n_str,
+                                            ls->op.lstr.format[i]->op.n_str);
+                                break;
+                            case T_VAR:
+                            case T_CONST:
+                                fprintf(out, "mov rax, %s\n"
+                                             "call uprint\n", asm_from_var_or_const(ls->op.lstr.format[i]));
+                                c_info->req_libs[LIB_UPRINT] = true;
+                                break;
+                            default:
+                                compiler_error(0, "Unexpected format token in string\n");
+                        }
+                    }
                     break;
-                case UPRINT:
-                    compiler_error_on_true(root->op.func_args.n_args != 1,
-                                           0, "Expected one argument to 'uprint'\n");
-                    compiler_error_on_false(root->op.func_args.args[0]->class == T_VAR ||
-                                            root->op.func_args.args[0]->class == T_CONST,
-                                            0, "Expected variable or constant\n");
-                    fprintf(out, "mov rax, %s\n"
-                                 "call uprint\n",
-                                 asm_from_var_or_const(root->op.func_args.args[0]));
+                case SET:
+                    compiler_error_on_true(root->op.func_args.n_args != 2,
+                                           0, "Expected two arguments to 'set'\n");
+
+                    compiler_error_on_false(root->op.func_args.args[0]->cls == T_VAR,
+                                            0, "Expected variable\n");
+                    compiler_error_on_false(check_defined(*c_info, root->op.func_args.args[0]->op.n_var), 0, "Variable undefined\n");
+
+                    switch(root->op.func_args.args[1]->cls){
+                        case T_ARIT:
+                            fprintf(out, ";; set\n");
+                            arithmetic_tree_to_x86_64(root->op.func_args.args[1],
+                                                      "r8",
+                                                      out, c_info);
+                            fprintf(out, "mov %s, r8\n", asm_from_var_or_const(root->op.func_args.args[0]));
+                            break;
+                        case T_VAR:
+                            compiler_error_on_false(check_defined(*c_info, root->op.func_args.args[1]->op.n_var), 0, "Variable undefined\n");
+                            __attribute__ ((fallthrough)); /* Tell gcc (and you) that we are willing to fall through here */
+                        case T_CONST:
+                            fprintf(out, ";; set\n"
+                                         "mov %s, %s\n", asm_from_var_or_const(root->op.func_args.args[0]),
+                                                         asm_from_var_or_const(root->op.func_args.args[1]));
+                            break;
+                        default:
+                            compiler_error(0, "Unexpected argument to set");
+                    }
                     break;
-                case FPRINT:
                 case PUTCHAR:
                 case READ:
-                case SET:
                     compiler_error(0, "TODO: unimplemented\n");
                     break;
             }
@@ -319,10 +358,7 @@ void ast_to_x86_64_core(tree_node* root, FILE* out, struct compile_info* c_info,
 
             break;
         }
-        case T_CONST:
-        case T_VAR:
-        case T_STR:
-        case T_ARIT:
+        default:
             compiler_error(0, "Unexpected tree node\n");
             break;
     }

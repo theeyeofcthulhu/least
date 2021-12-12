@@ -3,6 +3,14 @@
 
 #include <stdbool.h>
 
+#include "dictionary.h"
+
+#define NODE_ARR_SZ 1024
+
+typedef struct lstring_s lstring;
+
+#include "lexer.h"
+
 typedef struct{
     bool is_char;
     char default_char;
@@ -23,8 +31,13 @@ BRACKET_RIGHT,
 STR_TOKEN_END,
 };
 
+struct lstring_s{
+    token* ts[NODE_ARR_SZ];
+    int ts_sz;
+};
+
 extern const str_token token_structs[STR_TOKEN_END];
 
-char* parse_string(char* string, int line);
+lstring* parse_string(char* string, int line);
 
 #endif // LSTRING_H_
