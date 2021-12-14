@@ -1,6 +1,8 @@
 #ifndef DICTIONARY_H_
 #define DICTIONARY_H_
 
+#include <string>
+
 #define NODE_ARR_SZ 1024
 
 typedef enum {
@@ -68,6 +70,6 @@ LIB_PUTCHAR,
 LIB_ENUM_END,
 };
 
-extern char* library_files[LIB_ENUM_END];
+extern std::string library_files[LIB_ENUM_END];
 
 #endif // DICTIONARY_H_

@@ -1,43 +1,22 @@
 #ifndef LSTRING_H_
 #define LSTRING_H_
 
-#include <stdbool.h>
+#include <string>
+#include <map>
 
 #include "dictionary.h"
 
-#define NODE_ARR_SZ 1024
+class token;
 
-typedef struct lstring_s lstring;
+#define NODE_ARR_SZ 1024
 
 #include "lexer.h"
 
-typedef struct{
-    bool is_char;
-    char default_char;
-    const char* expression;
-    int expr_len;
-    char expandeur;
-    char the_char;
-}str_token;
-
-enum str_tokens{
-NEW_LINE,
-TAB,
-BACKSLASH,
-QUOTE,
-SINGLE_QUOTE,
-BRACKET_LEFT,
-BRACKET_RIGHT,
-STR_TOKEN_END,
+class lstring{
+public:
+    std::vector<token*> ts;
 };
 
-struct lstring_s{
-    token* ts[NODE_ARR_SZ];
-    int ts_sz;
-};
-
-extern const str_token token_structs[STR_TOKEN_END];
-
-lstring* parse_string(char* string, int line);
+lstring* parse_string(std::string string, int line, compile_info& c_info);
 
 #endif // LSTRING_H_

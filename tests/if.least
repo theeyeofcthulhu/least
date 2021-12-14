@@ -1,21 +1,21 @@
 if 2 == 2
-   print "2 is equal to 2\n"
-   print "Second instruction inside if block\n"
+   print "2 is equal to 2\n" ;
+   print "Second instruction inside if block\n" ;
    if 4 == 4
-      print "nested if\n"
+      print "nested if\n" ;
    end
 end
 
 if 2 == 3
-   print "Unreachable\n"
+   print "Unreachable\n" ;
 end
 
 if 1
-   print "1 as 'true'\n"
+   print "1 as 'true'\n" ;
 end
 if 0
-   print "0 as 'false'\n"
+   print "0 as 'false'\n" ;
 end
 if 123
-   print "anything as 'false'\n"
+   print "anything as 'false'\n" ;
 end
