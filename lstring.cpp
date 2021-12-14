@@ -60,7 +60,8 @@ lstring* parse_string(std::string string, int line, compile_info& c_info){
                 std::string part = ss.str();
                 ss.str(std::string());
 
-                res->ts.push_back(new t_str(line, part));
+                if(!part.empty())
+                    res->ts.push_back(new t_str(line, part));
 
                 std::string string_end = string.substr(i, std::string::npos);
                 size_t next_bracket = string_end.find(']');
