@@ -5,10 +5,12 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <map>
 
 #include "dictionary.h"
-#include "lstring.h"
-#include "util.h"
+
+class compile_info;
 
 enum token_type : int {
     TK_KEY,

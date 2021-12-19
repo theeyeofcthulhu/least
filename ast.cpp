@@ -22,48 +22,28 @@ const std::map<ekeyword, efunc> key_func_map = {
     std::make_pair(K_PUTCHAR, PUTCHAR), std::make_pair(K_INT, INT),
 };
 
+/* Maps for converting enum values to strings */
+
 const std::map<efunc, std::string> func_str_map = {
     std::make_pair(PRINT, "print"),     std::make_pair(EXIT, "exit"),
     std::make_pair(READ, "read"),       std::make_pair(SET, "set"),
     std::make_pair(PUTCHAR, "putchar"), std::make_pair(INT, "int"),
 };
 
-std::string ecmptostrcmp(ecmp_operation func) {
-    switch (func) {
-    case EQUAL:
-        return "==";
-    case GREATER:
-        return ">";
-    case GREATER_OR_EQ:
-        return ">=";
-    case LESS:
-        return "<";
-    case LESS_OR_EQ:
-        return "<=";
-    case NOT_EQUAL:
-        return "!=";
-    default:
-        return "Error";
-    }
-}
+const std::map<ecmp_operation, std::string> cmp_str_map = {
+    std::make_pair(EQUAL, "=="),         std::make_pair(GREATER, ">"),
+    std::make_pair(GREATER_OR_EQ, ">="), std::make_pair(LESS, "<"),
+    std::make_pair(LESS_OR_EQ, "<="),    std::make_pair(NOT_EQUAL, "!="),
+};
 
-std::string earittostrarit(earit_operation arit) {
-    switch (arit) {
-    case ADD:
-        return "+";
-    case DIV:
-        return "/";
-    case MOD:
-        return "%";
-    case MUL:
-        return "*";
-    case SUB:
-        return "-";
-    default:
-        return "Error";
-    }
-}
+const std::map<earit_operation, std::string> arit_str_map = {
+    std::make_pair(ADD, "+"), std::make_pair(DIV, "/"),
+    std::make_pair(MOD, "%"), std::make_pair(MUL, "*"),
+    std::make_pair(SUB, "-"),
+};
 
+/* If a var is defined: return its index
+ * else:                add a new variable to c_info's known_vars */
 int check_var(std::string var, compile_info &c_info) {
     for (size_t i = 0; i < c_info.known_vars.size(); i++)
         if (var == c_info.known_vars[i].first)
@@ -74,17 +54,18 @@ int check_var(std::string var, compile_info &c_info) {
     return c_info.known_vars.size() - 1;
 }
 
+/* Same as check_var but with string */
 int check_str(std::string str, compile_info &c_info) {
-    for (size_t i = 0; i < c_info.known_string.size(); i++) {
+    for (size_t i = 0; i < c_info.known_string.size(); i++)
         if (str == c_info.known_string[i])
             return i;
-    }
 
     c_info.known_string.push_back(str);
 
     return c_info.known_string.size() - 1;
 }
 
+/* Tree node from variable or constant */
 std::shared_ptr<tree_node> node_from_var_or_const(std::shared_ptr<token> tk,
                                                   compile_info &c_info) {
     c_info.err.on_false(tk->get_type() == TK_VAR || tk->get_type() == TK_NUM,
@@ -597,7 +578,7 @@ void tree_to_dot_core(std::shared_ptr<tree_node> root, int& node, int& tbody_id,
         dot << "\tNode_" << node - 1 << " -> Node_" << node
             << " [label=\"cmp\"]\n";
         dot << "\tNode_" << ++node << " [label=\""
-            << ecmptostrcmp(cmp->get_cmp()) << "\"]\n";
+            << cmp_str_map.at(cmp->get_cmp()) << "\"]\n";
         dot << "\tNode_" << node - 1 << " -> Node_" << node
             << " [label=\"cond\"]\n";
 
@@ -645,7 +626,7 @@ void tree_to_dot_core(std::shared_ptr<tree_node> root, int& node, int& tbody_id,
             std::dynamic_pointer_cast<tree_arit>(root);
 
         dot << "\tNode_" << ++node << " [label=\""
-            << earittostrarit(arit->get_arit()) << "\"]\n";
+            << arit_str_map.at(arit->get_arit()) << "\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node
             << " [label=\"arit\"]\n";
 

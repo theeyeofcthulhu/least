@@ -80,9 +80,9 @@ std::vector<std::shared_ptr<token>> lex_source(std::string source,
                 continue;
             if (line[j] == '\"') {
                 std::string united;
-                bool done = false;
+
                 size_t k;
-                for (k = j + 1; k < line.length() && !done; k++) {
+                for (k = j + 1; k < line.length(); k++) {
                     if (line[k] == '\"' && line[k - 1] != '\\') {
                         if (k + 1 < line.length())
                             c_info.err.on_false(
@@ -90,10 +90,10 @@ std::vector<std::shared_ptr<token>> lex_source(std::string source,
                                 "Quote not end of word in line: '%s'\n",
                                 line.c_str());
                         united = line.substr(j, k - j + 1);
-                        done = true;
+                        break;
                     }
                 }
-                j = k;
+                j = k; /* Advance current char to end of string */
 
                 c_info.err.on_true(united.empty(),
                                    "Could not find end of string\n");
@@ -110,7 +110,7 @@ std::vector<std::shared_ptr<token>> lex_source(std::string source,
 
                 for (auto new_chr : next_word)
                     c_info.err.on_false(
-                        isdigit(new_chr),
+                        std::isdigit(new_chr),
                         "Expected digit, got: '%c' in number '%s'\n", new_chr,
                         next_word.c_str());
 

@@ -9,3 +9,4 @@ lcc
 *.o
 tests/*
 !tests/*.least
+.clang-format

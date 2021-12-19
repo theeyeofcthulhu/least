@@ -16,8 +16,7 @@ all: $(EXE) lib
 
 .PHONY: clean
 clean:
-	rm *.o
-	rm lcc
+	rm $(OBJ) $(EXE) $(ASM_LIB_O)
 
 .PHONY: test
 test:

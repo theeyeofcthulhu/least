@@ -3,10 +3,10 @@
 
 #include <iostream>
 #include <memory>
+#include <vector>
 
-#include "dictionary.h"
-#include "lexer.h"
 #include "util.h"
+#include "lexer.h"
 
 int check_var(std::string var, compile_info &c_info);
 int check_str(std::string str, compile_info &c_info);

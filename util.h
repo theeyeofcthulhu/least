@@ -14,6 +14,8 @@
 class token;
 enum token_type : int;
 
+#define BODY_ID_START 1024
+
 class compile_info {
   public:
     std::vector<std::pair<std::string, bool>> known_vars;
@@ -30,7 +32,7 @@ class compile_info {
     compile_info(std::string pfilename) : filename(pfilename), err(pfilename) {}
 
   private:
-    int body_id = 0;
+    int body_id = BODY_ID_START;
 };
 
 std::vector<std::string> split(std::string str, char delim);
