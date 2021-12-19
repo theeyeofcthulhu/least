@@ -1,32 +1,35 @@
-#include <iostream>
 #include <getopt.h>
+#include <iostream>
 
-#include "util.h"
+#include "ast.h"
 #include "dictionary.h"
 #include "error.h"
 #include "lexer.h"
-#include "ast.h"
+#include "util.h"
 #include "x86_64.h"
 
 #define SHELL_GREEN "\033[0;32m"
-#define SHELL_RED   "\033[0;31m"
+#define SHELL_RED "\033[0;31m"
 #define SHELL_WHITE "\033[0;37m"
 
 #define RED(str) SHELL_RED << str << SHELL_WHITE
 #define GREEN(str) SHELL_GREEN << str << SHELL_WHITE
 
-/* NOTE: https://gcc.gnu.org/onlinedocs/libstdc++/manual/streambufs.html#io.streambuf.buffering
+/* NOTE:
+ * https://gcc.gnu.org/onlinedocs/libstdc++/manual/streambufs.html#io.streambuf.buffering
  * says that std::endl slows buffering by flushing; does this really matter? */
 int main(int argc, char *argv[]) {
     bool run_after_compile = false;
     /* Handle command line input with getopt */
     int flag;
-    while ((flag = getopt(argc, argv, "hr")) != -1){
-        switch (flag){
+    while ((flag = getopt(argc, argv, "hr")) != -1) {
+        switch (flag) {
         case 'h':
             std::cout << "Least Complicated Compiler - lcc\n"
                          "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
-                         "usage: " << argv[0] << " [-hr] FILE\n\n"
+                         "usage: "
+                      << argv[0]
+                      << " [-hr] FILE\n\n"
                          "-h: display this message and exit\n"
                          "-r: run program after compilation\n";
             return 0;
@@ -39,7 +42,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::string filename = argv[argc-1];
+    std::string filename = argv[argc - 1];
 
     compile_info c_info(filename);
 
@@ -52,7 +55,8 @@ int main(int argc, char *argv[]) {
 
     std::string filename_no_ext = filename.substr(0, dot);
 
-    c_info.err.on_false(filename.substr(dot, std::string::npos) == ".least", "File format not recognized\n");
+    c_info.err.on_false(filename.substr(dot, std::string::npos) == ".least",
+                        "File format not recognized\n");
 
     /* Map contents of file into a std::string via mmap */
     std::cout << "[INFO] Input file: " << GREEN(filename) << '\n';
@@ -60,50 +64,58 @@ int main(int argc, char *argv[]) {
 
     /* Lex file into tokens */
     std::cout << "[INFO] Lexing file: " << GREEN(filename) << '\n';
-    std::vector<token*> ts = lex_source(input_source, c_info);
+    std::vector<std::shared_ptr<token>> ts = lex_source(input_source, c_info);
 
     /* Convert tokens to abstract syntax tree */
-    tree_body* ast_root = tokens_to_ast(ts, c_info);
+    std::shared_ptr<tree_body> ast_root = tokens_to_ast(ts, c_info);
 
     std::string dot_filename = filename_no_ext;
     dot_filename.append(".dot");
 
     /* Generate graphviz diagram from abstract syntax tree */
-    std::cout << "[INFO] Generating tree diagram to: " << GREEN(dot_filename) << '\n';
+    std::cout << "[INFO] Generating tree diagram to: " << GREEN(dot_filename)
+              << '\n';
     tree_to_dot(ast_root, dot_filename, c_info);
 
     std::string svg_filename = filename_no_ext;
     svg_filename.append(".svg");
 
     std::string dot_cmd_base = "dot -Tsvg -o ";
-    std::cout << "[CMD] " << dot_cmd_base << RED(svg_filename) << " " << GREEN(dot_filename) << '\n';
+    std::cout << "[CMD] " << dot_cmd_base << RED(svg_filename) << " "
+              << GREEN(dot_filename) << '\n';
 
-    std::string dot_cmd = dot_cmd_base.append(svg_filename).append(" ").append(dot_filename);
+    std::string dot_cmd =
+        dot_cmd_base.append(svg_filename).append(" ").append(dot_filename);
     std::system(dot_cmd.c_str());
 
     std::string asm_filename = filename_no_ext;
     asm_filename.append(".asm");
 
-    std::cout << "[INFO] Generating assembly to " << GREEN(asm_filename) << '\n';
+    std::cout << "[INFO] Generating assembly to " << GREEN(asm_filename)
+              << '\n';
     ast_to_x86_64(ast_root, asm_filename, c_info);
 
     std::string object_filename = filename_no_ext;
     object_filename.append(".o");
 
     std::string nasm_cmd_base = "nasm -g -felf64 -o ";
-    std::cout << "[CMD] " << nasm_cmd_base << RED(object_filename) << " " << GREEN(asm_filename) << '\n';
+    std::cout << "[CMD] " << nasm_cmd_base << RED(object_filename) << " "
+              << GREEN(asm_filename) << '\n';
 
-    std::string nasm_cmd = nasm_cmd_base.append(object_filename).append(" ").append(asm_filename);
+    std::string nasm_cmd =
+        nasm_cmd_base.append(object_filename).append(" ").append(asm_filename);
     std::system(nasm_cmd.c_str());
 
     std::string ld_cmd_base = "ld -o ";
 
-    std::cout << "[CMD] " << ld_cmd_base << RED(filename_no_ext) << " " << GREEN(object_filename);
-    std::string ld_cmd = ld_cmd_base.append(filename_no_ext).append(" ").append(object_filename);
+    std::cout << "[CMD] " << ld_cmd_base << RED(filename_no_ext) << " "
+              << GREEN(object_filename);
+    std::string ld_cmd =
+        ld_cmd_base.append(filename_no_ext).append(" ").append(object_filename);
 
     /* Generate array of all required libs */
-    for(int i = 0; auto lib : c_info.req_libs){
-        if(lib){
+    for (int i = 0; auto lib : c_info.req_libs) {
+        if (lib) {
             std::string new_o = " ";
             new_o.append(library_files[i]);
 
@@ -116,7 +128,7 @@ int main(int argc, char *argv[]) {
 
     std::system(ld_cmd.c_str());
 
-    if(run_after_compile){
+    if (run_after_compile) {
         std::string exe_cmd_base = "./";
         std::string exe_cmd = exe_cmd_base;
         exe_cmd.append(filename_no_ext);
