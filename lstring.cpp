@@ -19,26 +19,28 @@ const std::map<char, std::string> str_tokens = {
 };
 
 /* Check validity of string and insert escape sequences */
-lstring* parse_string(std::string string, int line, compile_info& c_info){
-    lstring* res = new lstring();
+/* Also parse any '[var]' blocks and insert variable tokens */
+t_lstr* parse_string(std::string string, int line, compile_info& c_info){
+    t_lstr* res = new t_lstr(line);
 
     int string_len = string.length();
 
-    int acc = 0;
+    int n_quotes = 0;
 
     std::stringstream ss;
 
     /* Parse string that comes after the instruction */
     for (int i = 0; i < string_len; i++) {
         switch(string[i]){
+            /* Check number of quotes */
             case '"':
             {
-                if(acc == 0)
+                if(n_quotes == 0)
                     c_info.err.on_false((i+1) < string_len, "Reached end of line while parsing first '\"' in string\n");
 
-                acc++;
-                c_info.err.on_true(acc > 2, "Found more than two '\"' while parsing string\n");
-                if(acc == 2)
+                n_quotes++;
+                c_info.err.on_true(n_quotes > 2, "Found more than two '\"' while parsing string\n");
+                if(n_quotes == 2)
                     c_info.err.on_false((i+1) == string_len, "Expected end of string after second quotation\n");
                 break;
             }
@@ -75,7 +77,7 @@ lstring* parse_string(std::string string, int line, compile_info& c_info){
                 std::vector<token*> parsed_inside = lex_source(inside, c_info);
 
                 c_info.err.on_true(parsed_inside.empty(), "Could not parse format parameter to tokens\n");
-                c_info.err.on_true(parsed_inside.size() <= 0 || parsed_inside.size() >= 3, "No or more than one tokens in format parameter\n");
+                c_info.err.on_true(parsed_inside.size() <= 0 || parsed_inside.size() >= 3, "No or more than one token in format parameter\n");
 
                 /* Remove eol from end */
                 parsed_inside.pop_back();
@@ -104,12 +106,15 @@ lstring* parse_string(std::string string, int line, compile_info& c_info){
                 break;
             }
         }
-        c_info.err.on_true(string[i] != '"' && acc == 0,
+        c_info.err.on_true(string[i] != '"' && n_quotes == 0,
                            "First '\"' not at beginning of parsed sequence, instead found '%c'\n", string[i]);
     }
-    c_info.err.on_false(acc == 2, "Did not find two '\"' while parsing string\n");
+    c_info.err.on_false(n_quotes == 2, "Did not find two '\"' while parsing string\n");
 
-    res->ts.push_back(new t_str(line, ss.str()));
+    std::string final_str = ss.str();
+
+    if(!final_str.empty())
+        res->ts.push_back(new t_str(line, final_str));
 
     return res;
 }

@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include <array>
+#include <cassert>
 
 #include "dictionary.h"
 #include "error.h"
@@ -38,6 +39,25 @@ std::string read_source_code(std::string filename, compile_info& c_info);
 std::string get_next_word(std::string str, int index, size_t& spc_idx);
 size_t next_of_type_on_line(std::vector<token*> ts, size_t start, token_type ty);
 
-template<typename T> std::vector<T> slice(std::vector<T> v, int start=0, int end=-1);
+/* Template functions need to be implemented in header files */
+template<typename T>
+std::vector<T> slice(std::vector<T> v, int start=0, int end=-1){
+    int v_len = v.size();
+    int newlen;
+
+    assert(start < end);
+
+    if(end == -1 || end >= v_len)
+        newlen = v_len - start;
+    else
+        newlen = end - start;
+
+    std::vector<T> res(newlen);
+
+    for(int i = 0; i < newlen; i++)
+        res[i] = v[start+i];
+
+    return res;
+}
 
 #endif // UTIL_H_

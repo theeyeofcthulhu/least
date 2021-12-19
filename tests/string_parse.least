@@ -1,4 +1,5 @@
-print "\ttabstop\n"
-print "New\n\nLine\n"
-print "writing '\\'\n"
-print "writing '\"'\n"
+print "\ttabstop\n" ;
+print "New\n\nLine\n" ;
+print "writing '\\'\n" ;
+print "writing '\"'\n" ;
+print "string with     spaces\n" ;

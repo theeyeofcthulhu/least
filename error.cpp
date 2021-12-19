@@ -22,7 +22,7 @@ void error_handler::on_false(bool eval, std::string format, ...){
     error_core(format, format_params);
     va_end(format_params);
 
-    exit(1);
+    std::exit(1);
 }
 
 void error_handler::on_true(bool eval, std::string format, ...){
@@ -35,7 +35,7 @@ void error_handler::on_true(bool eval, std::string format, ...){
     error_core(format, format_params);
     va_end(format_params);
 
-    exit(1);
+    std::exit(1);
 }
 
 void error_handler::error(std::string format, ...){
@@ -45,14 +45,12 @@ void error_handler::error(std::string format, ...){
     error_core(format, format_params);
     va_end(format_params);
 
-    exit(1);
+    std::exit(1);
 }
 
 void error_handler::error_core(std::string format, va_list format_list){
-    if(m_file.empty())
-        std::cerr << "No error file, aborting!" << std::endl;
+    std::cerr << SHELL_RED << "Compiler Error!\n";
 
-    std::cerr << SHELL_RED << "Compiler Error!" << std::endl;
     if(m_line == -1)
         std::cerr << m_file << ": ";
     else

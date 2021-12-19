@@ -109,7 +109,6 @@ std::vector<token*> lex_source(std::string source, compile_info& c_info){
             if(line[j] == ' ')
                 continue;
             if(line[j] == '\"'){
-                //TODO: Strings with multiple spaces
                 std::string united;
                 bool done = false;
                 size_t k;
@@ -126,9 +125,9 @@ std::vector<token*> lex_source(std::string source, compile_info& c_info){
 
                 c_info.err.on_true(united.empty(), "Could not find end of string\n");
 
-                lstring* parsed = parse_string(united, i, c_info);
+                t_lstr* parsed = parse_string(united, i, c_info);
 
-                tokens.push_back(new t_lstr(i, parsed));
+                tokens.push_back(parsed);
 
                 continue;
             }else if(std::isdigit(line[j])){

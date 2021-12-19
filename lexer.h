@@ -93,13 +93,12 @@ private:
 
 class t_lstr : public token {
 public:
-    t_lstr(int line, lstring* lstr) : token(line), m_lstr(lstr)
+    t_lstr(int line) : token(line)
     {}
-    lstring* get_lstr() { return m_lstr; };
+    std::vector<token*> ts;
     token_type get_type() override { return m_type; };
 private:
     static const token_type m_type = TK_LSTR;
-    lstring* m_lstr;
 };
 
 class t_char : public token {

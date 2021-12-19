@@ -222,12 +222,12 @@ tree_cmp* parse_condition(std::vector<token*> ts, size_t& i, compile_info& c_inf
     c_info.err.on_true(operator_i == 1, "Expected constant, variable or arithmetic expression\n");
 
     if(operator_i != -1){
-        left = parse_arit_expr(slice(ts, i, operator_i-1), c_info);
-        right = parse_arit_expr(slice(ts, operator_i, nxt_tkn-1), c_info);
+        left = parse_arit_expr(slice<token*>(ts, i, operator_i-1), c_info);
+        right = parse_arit_expr(slice<token*>(ts, operator_i, nxt_tkn-1), c_info);
 
         res = new tree_cmp(ts[0]->get_line(), left, right, comparator->get_cmp());
     }else{
-        left = parse_arit_expr(slice(ts, i, nxt_tkn-1), c_info);
+        left = parse_arit_expr(slice<token*>(ts, i, nxt_tkn-1), c_info);
         res = new tree_cmp(ts[0]->get_line(), left, nullptr, CMP_OPERATION_ENUM_END);
     }
 
@@ -324,14 +324,14 @@ tree_body* tokens_to_ast(std::vector<token*> tokens, compile_info& c_info){
                                 {
                                     c_info.err.on_true((next_sep - i) > 2, "Excess tokens after string argument\n");
                                     func->args.push_back(new tree_lstr(tokens[i]->get_line(),
-                                                                       dynamic_cast<t_lstr*>(tokens[i])->get_lstr(),
+                                                                       dynamic_cast<t_lstr*>(tokens[i])->ts,
                                                                        c_info));
                                     break;
                                 }
                                 case TK_NUM:
                                 case TK_VAR:
                                 {
-                                    std::vector<token*> slc = slice(tokens, i, next_sep);
+                                    std::vector<token*> slc = slice<token*>(tokens, i, next_sep);
 
                                     func->args.push_back(parse_arit_expr(slc, c_info));
                                     break;
@@ -421,7 +421,7 @@ void tree_to_dot(tree_body* root, std::string fn, compile_info& c_info){
     std::fstream out;
     out.open(fn, std::ios::out);
 
-    out << "digraph AST {" << std::endl;
+    out << "digraph AST {\n";
 
     int node = 0;
 
@@ -429,7 +429,7 @@ void tree_to_dot(tree_body* root, std::string fn, compile_info& c_info){
 
     tree_to_dot_core(dynamic_cast<tree_node*>(root), &node, &tbody_id, 0, out, c_info);
 
-    out << "}" << std::endl;
+    out << "}\n";
 
     out.close();
 }
@@ -440,7 +440,7 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_body* body = dynamic_cast<tree_body*>(root);
             *tbody_id = body->get_body_id();
-            dot << "\tNode_" << *tbody_id << "[label=\"body " << *tbody_id - NODE_ARR_SZ << "\"]" << std::endl;
+            dot << "\tNode_" << *tbody_id << "[label=\"body " << *tbody_id - NODE_ARR_SZ << "\"]\n";
             // dot << "\tNode_%d -> Node_%d [label=\"body %d\"]", *tbody_id, (*node), *tbody_id);
             for(auto child : body->children){
                 tree_to_dot_core(child, node, tbody_id, body->get_body_id(), dot, c_info);
@@ -451,14 +451,14 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_if* t_if = dynamic_cast<tree_if*>(root);
 
-            dot << "\tNode_" << ++(*node) << "[label=\"if\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > if\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << "[label=\"if\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > if\"]\n";
 
             int s_node = *node;
 
             tree_to_dot_core(t_if->condition, node, tbody_id, parent_body_id, dot, c_info);
 
-            dot << "\tNode_" << s_node << " -> Node_" << *tbody_id + 1 << " [label=\"if > body\"]" << std::endl;
+            dot << "\tNode_" << s_node << " -> Node_" << *tbody_id + 1 << " [label=\"if > body\"]\n";
             tree_to_dot_core(t_if->body, node, tbody_id, parent_body_id, dot, c_info);
 
             if(t_if->elif)
@@ -469,9 +469,9 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_else* t_else = dynamic_cast<tree_else*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"else\"]" << std::endl;
-            dot << "\tNode_" << *node << " -> Node_" << *tbody_id + 1 << " [label=\"else > body\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > else\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"else\"]\n";
+            dot << "\tNode_" << *node << " -> Node_" << *tbody_id + 1 << " [label=\"else > body\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > else\"]\n";
             tree_to_dot_core(t_else->body, node, tbody_id, parent_body_id, dot, c_info);
             break;
         }
@@ -479,14 +479,14 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_if* t_elif = dynamic_cast<tree_if*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"elif\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > elif\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"elif\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > elif\"]\n";
 
             int s_node = *node;
 
             tree_to_dot_core(t_elif->condition, node, tbody_id, parent_body_id, dot, c_info);
 
-            dot << "\tNode_" << s_node << " -> Node_" << *tbody_id + 1 << " [label=\"elif > body\"]" << std::endl;
+            dot << "\tNode_" << s_node << " -> Node_" << *tbody_id + 1 << " [label=\"elif > body\"]\n";
             tree_to_dot_core(t_elif->body, node, tbody_id, parent_body_id, dot, c_info);
 
             if(t_elif->elif)
@@ -497,8 +497,8 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_func* func = dynamic_cast<tree_func*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"" << func_str_map.at(func->get_func()) << "\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"func\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"" << func_str_map.at(func->get_func()) << "\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"func\"]\n";
 
             int s_node = *node;
             for(auto arg : func->args){
@@ -510,10 +510,10 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_cmp* cmp = dynamic_cast<tree_cmp*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"cmp\"]" << std::endl;
-            dot << "\tNode_" << *node - 1 << " -> Node_" << *node << " [label=\"cmp\"]" << std::endl;
-            dot << "\tNode_" << ++(*node) << " [label=\"" << ecmptostrcmp(cmp->get_cmp()) << "\"]" << std::endl;
-            dot << "\tNode_" << *node - 1 << " -> Node_" << *node << " [label=\"cond\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"cmp\"]\n";
+            dot << "\tNode_" << *node - 1 << " -> Node_" << *node << " [label=\"cmp\"]\n";
+            dot << "\tNode_" << ++(*node) << " [label=\"" << ecmptostrcmp(cmp->get_cmp()) << "\"]\n";
+            dot << "\tNode_" << *node - 1 << " -> Node_" << *node << " [label=\"cond\"]\n";
 
             int s_node = *node;
 
@@ -526,30 +526,30 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         case T_CONST:
         {
             tree_const* num = dynamic_cast<tree_const*>(root);
-            dot << "\tNode_" << ++(*node) << " [label=\"" << num->get_value() << "\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"const\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"" << num->get_value() << "\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"const\"]\n";
             break;
         }
         case T_VAR:
         {
             tree_var* var = dynamic_cast<tree_var*>(root);
-            dot << "\tNode_" << ++(*node) << " [label=\"" << var->get_var_id() << "\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"var\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"" << var->get_var_id() << "\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"var\"]\n";
             break;
         }
         case T_STR:
         {
             tree_str* string = dynamic_cast<tree_str*>(root);
-            dot << "\tNode_" << ++(*node) << " [label=\"" << string->get_str_id() << "\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"str\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"" << string->get_str_id() << "\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"str\"]\n";
             break;
         }
         case T_ARIT:
         {
             tree_arit* arit = dynamic_cast<tree_arit*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"" << earittostrarit(arit->get_arit()) << "\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"arit\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"" << earittostrarit(arit->get_arit()) << "\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"arit\"]\n";
 
             int s_node = *node;
 
@@ -561,14 +561,14 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_while* t_while = dynamic_cast<tree_while*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"while\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > while\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"while\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"body > while\"]\n";
 
             int s_node = *node;
 
             tree_to_dot_core(t_while->condition, node, tbody_id, parent_body_id, dot, c_info);
 
-            dot << "\tNode_" << s_node << " -> Node_" << *tbody_id + 1 << " [label=\"while > body\"]" << std::endl;
+            dot << "\tNode_" << s_node << " -> Node_" << *tbody_id + 1 << " [label=\"while > body\"]\n";
 
             tree_to_dot_core(t_while->body, node, tbody_id, parent_body_id, dot, c_info);
             break;
@@ -577,8 +577,8 @@ void tree_to_dot_core(tree_node* root, int* node, int* tbody_id, int parent_body
         {
             tree_lstr* lstr = dynamic_cast<tree_lstr*>(root);
 
-            dot << "\tNode_" << ++(*node) << " [label=\"lstring\"]" << std::endl;
-            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"lstring\"]" << std::endl;
+            dot << "\tNode_" << ++(*node) << " [label=\"lstring\"]\n";
+            dot << "\tNode_" << parent_body_id << " -> Node_" << *node << " [label=\"lstring\"]\n";
 
             int s_node = *node;
             for(auto format : lstr->format){

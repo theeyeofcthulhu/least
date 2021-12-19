@@ -175,9 +175,9 @@ public:
 
     std::vector<tree_node*> format;
 
-    tree_lstr(int line, lstring* lstr, compile_info& c_info) : tree_node(line)
+    tree_lstr(int line, std::vector<token*> ts, compile_info& c_info) : tree_node(line)
     {
-        for(auto tk : lstr->ts){
+        for(auto tk : ts){
             switch(tk->get_type()){
                 case TK_STR:
                 {
@@ -198,7 +198,7 @@ public:
                     break;
                 }
                 default:
-                    c_info.err.error("Found wrong token in lstr in tree_lstr constructor: %d\n", tk->get_type());
+                    c_info.err.error("Found invalid token in lstr in tree_lstr constructor: %d\n", tk->get_type());
                     break;
             }
         }
