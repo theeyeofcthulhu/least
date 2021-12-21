@@ -1,26 +1,26 @@
-int inta 1000
-int intb 900
+int inta ; 1000 ;
+int intb ; 900 ;
 
 if intb < inta
-   print "reach1\n"
+   print "reach1\n" ;
 end
 
 if inta < intb
-   print "unreach1\n"
+   print "unreach1\n" ;
 end
 
 if inta == intb
-   print "unreach2\n"
+   print "unreach2\n" ;
 end
 
 if inta != intb
-   print "reach2\n"
+   print "reach2\n" ;
 end
 
 if 2 < intb
-   print "reach3\n"
+   print "reach3\n" ;
 end
 
 if inta > 8000
-   print "unreach3\n"
+   print "unreach3\n" ;
 end

@@ -5,17 +5,16 @@
 #include <string>
 
 #include "ast.h"
-#include "error.h"
 #include "util.h"
 #include "x86_64.h"
 
 #define MAX_DIGITS 32
 
-typedef struct {
+struct cmp_operation {
     ecmp_operation op_enum;
     std::string asm_name;
     std::string opposite_asm_name;
-} cmp_operation;
+};
 
 const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
     {EQUAL, "je", "jne"},   {NOT_EQUAL, "jne", "je"},
@@ -23,27 +22,23 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
     {GREATER, "jg", "jle"}, {GREATER_OR_EQ, "jge", "jl"},
 };
 
-void arithmetic_tree_to_x86_64(std::shared_ptr<tree_node> root, char *reg,
-                               FILE *out, struct compile_info *c_info);
-void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
+void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                         compile_info &c_info, int body_id, int real_end_id);
 
 /* Get an assembly reference to a variable or a constant
  * The returned char* is entered into an array and is free'd
  * at the end */
-std::string asm_from_var_or_const(std::shared_ptr<tree_node> node) {
+std::string asm_from_var_or_const(std::shared_ptr<ast::node> node) {
     std::stringstream var_or_const;
 
-    assert(node->get_type() == T_VAR || node->get_type() == T_CONST);
+    assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_CONST);
 
-    if (node->get_type() == T_VAR) {
-        var_or_const
-            << "qword [rbp - "
-            << (std::dynamic_pointer_cast<tree_var>(node)->get_var_id() + 1) * 8
-            << "]";
-    } else if (node->get_type() == T_CONST) {
-        var_or_const
-            << std::dynamic_pointer_cast<tree_const>(node)->get_value();
+    if (node->get_type() == ast::T_VAR) {
+        var_or_const << "qword [rbp - "
+                     << (ast::safe_cast<ast::var>(node)->get_var_id() + 1) * 8
+                     << "]";
+    } else if (node->get_type() == ast::T_CONST) {
+        var_or_const << ast::safe_cast<ast::n_const>(node)->get_value();
     }
 
     return var_or_const.str();
@@ -58,34 +53,33 @@ void print_mov_if_req(std::string target, std::string source,
 
 /* Parse a tree representing an arithmetic expression into assembly recursively
  */
-void arithmetic_tree_to_x86_64(std::shared_ptr<tree_node> root, std::string reg,
+void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
                                std::fstream &out, compile_info &c_info) {
     /* If we are only a number: mov us into the target and leave */
-    if (root->get_type() == T_VAR || root->get_type() == T_CONST) {
+    if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
         out << "mov " << reg << ", " << asm_from_var_or_const(root) << "\n\n";
         return;
     }
 
-    assert(root->get_type() == T_ARIT);
+    assert(root->get_type() == ast::T_ARIT);
 
-    std::shared_ptr<tree_arit> arit =
-        std::dynamic_pointer_cast<tree_arit>(root);
+    std::shared_ptr<ast::arit> arit = ast::safe_cast<ast::arit>(root);
 
-    assert(arit->left->get_type() == T_ARIT ||
-           arit->left->get_type() == T_CONST ||
-           arit->left->get_type() == T_VAR);
-    assert(arit->right->get_type() == T_ARIT ||
-           arit->right->get_type() == T_CONST ||
-           arit->right->get_type() == T_VAR);
+    assert(arit->left->get_type() == ast::T_ARIT ||
+           arit->left->get_type() == ast::T_CONST ||
+           arit->left->get_type() == ast::T_VAR);
+    assert(arit->right->get_type() == ast::T_ARIT ||
+           arit->right->get_type() == ast::T_CONST ||
+           arit->right->get_type() == ast::T_VAR);
 
     bool value_in_rax = false;
 
     /* If our children are also calculations: recurse */
-    if (arit->left->get_type() == T_ARIT) {
+    if (arit->left->get_type() == ast::T_ARIT) {
         arithmetic_tree_to_x86_64(arit->left, "rax", out, c_info);
         value_in_rax = true;
     }
-    if (arit->right->get_type() == T_ARIT) {
+    if (arit->right->get_type() == ast::T_ARIT) {
         /* Preserve rax */
         if (value_in_rax)
             out << "push rax"
@@ -97,9 +91,11 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<tree_node> root, std::string reg,
     }
 
     /* If our children are numbers: mov them into the target */
-    if (arit->left->get_type() == T_CONST || arit->left->get_type() == T_VAR)
+    if (arit->left->get_type() == ast::T_CONST ||
+        arit->left->get_type() == ast::T_VAR)
         out << "mov rax, " << asm_from_var_or_const(arit->left) << "\n\n";
-    if (arit->right->get_type() == T_CONST || arit->right->get_type() == T_VAR)
+    if (arit->right->get_type() == ast::T_CONST ||
+        arit->right->get_type() == ast::T_VAR)
         out << "mov rcx, " << asm_from_var_or_const(arit->right) << "\n\n";
 
     /* Execute the calculation */
@@ -135,7 +131,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<tree_node> root, std::string reg,
     out << '\n';
 }
 
-void ast_to_x86_64(std::shared_ptr<tree_body> root, std::string fn,
+void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
                    compile_info &c_info) {
     std::fstream out;
     out.open(fn, std::ios::out);
@@ -150,8 +146,8 @@ void ast_to_x86_64(std::shared_ptr<tree_body> root, std::string fn,
                "sub rsp, "
             << (c_info.known_vars.size()) * 8 << '\n';
 
-    ast_to_x86_64_core(std::dynamic_pointer_cast<tree_node>(root), out, c_info,
-                       root->get_body_id(), root->get_body_id());
+    ast_to_x86_64_core(ast::to_base(root), out, c_info, root->get_body_id(),
+                       root->get_body_id());
 
     out << "mov rax, 60\n"
            "xor rdi, rdi\n"
@@ -173,43 +169,44 @@ void ast_to_x86_64(std::shared_ptr<tree_body> root, std::string fn,
     out.close();
 }
 
-void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
+void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                         compile_info &c_info, int body_id, int real_end_id) {
     c_info.err.set_line(root->get_line());
     switch (root->get_type()) {
-    case T_BODY:
+    case ast::T_BODY:
     {
-        std::shared_ptr<tree_body> body =
-            std::dynamic_pointer_cast<tree_body>(root);
+        std::shared_ptr<ast::n_body> body = ast::safe_cast<ast::n_body>(root);
         for (auto child : body->children) {
             ast_to_x86_64_core(child, out, c_info, body->get_body_id(),
                                real_end_id);
         }
         break;
     }
-    case T_IF:
+    case ast::T_IF:
     {
-        std::shared_ptr<tree_if> t_if =
-            std::dynamic_pointer_cast<tree_if>(root);
+        std::shared_ptr<ast::n_if> t_if = ast::safe_cast<ast::n_if>(root);
+
         /* Getting the end label for the whole block
          * we jmp there if one if succeeded and we traversed its block */
-        std::shared_ptr<tree_node> last_if = get_last_if(t_if);
-        if (last_if) {
-            if (last_if->get_type() == T_ELSE) {
-                real_end_id = std::dynamic_pointer_cast<tree_else>(last_if)
-                                  ->body->get_body_id();
-            } else if (last_if->get_type() == T_IF) {
-                real_end_id = std::dynamic_pointer_cast<tree_if>(last_if)
-                                  ->body->get_body_id();
+        if (!t_if->is_elif()) {
+            std::shared_ptr<ast::node> last_if = ast::get_last_if(t_if);
+            if (last_if) {
+                if (last_if->get_type() == ast::T_ELSE) {
+                    real_end_id = ast::safe_cast<ast::n_else>(last_if)
+                                      ->body->get_body_id();
+                } else if (last_if->get_type() == ast::T_IF) {
+                    real_end_id =
+                        ast::safe_cast<ast::n_if>(last_if)->body->get_body_id();
+                }
             }
         }
 
-        out << ";; if\n";
+        out << ";; " << (t_if->is_elif() ? "elif" : "if") << '\n';
         ast_to_x86_64_core(t_if->condition, out, c_info,
                            t_if->body->get_body_id(), real_end_id);
         ast_to_x86_64_core(t_if->body, out, c_info, t_if->body->get_body_id(),
                            real_end_id);
-        /* If we have an elif: jmp there after finishing the block */
+
         if (t_if->elif != nullptr) {
             out << "jmp .end" << real_end_id
                 << "\n\n"
@@ -218,37 +215,15 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
                 << "\n\n";
             ast_to_x86_64_core(t_if->elif, out, c_info,
                                t_if->body->get_body_id(), real_end_id);
-        } else
+        } else {
             out << ".end" << t_if->body->get_body_id() << ":"
                 << "\n\n";
+        }
         break;
     }
-    case T_ELIF:
+    case ast::T_ELSE:
     {
-        std::shared_ptr<tree_if> t_if =
-            std::dynamic_pointer_cast<tree_if>(root);
-
-        out << ";; elif\n";
-        ast_to_x86_64_core(t_if->condition, out, c_info,
-                           t_if->body->get_body_id(), real_end_id);
-        ast_to_x86_64_core(t_if->body, out, c_info, t_if->body->get_body_id(),
-                           real_end_id);
-        /* If we have an elif: jmp there after finishing the block */
-        if (t_if->elif != nullptr) {
-            out << "jmp .end" << real_end_id
-                << "\n"
-                   ".end"
-                << t_if->body->get_body_id() << ":\n\n";
-            ast_to_x86_64_core(t_if->elif, out, c_info,
-                               t_if->body->get_body_id(), real_end_id);
-        } else
-            out << ".end" << t_if->body->get_body_id() << ":\n\n";
-        break;
-    }
-    case T_ELSE:
-    {
-        std::shared_ptr<tree_else> t_else =
-            std::dynamic_pointer_cast<tree_else>(root);
+        std::shared_ptr<ast::n_else> t_else = ast::safe_cast<ast::n_else>(root);
 
         out << ";; else\n";
         ast_to_x86_64_core(t_else->body, out, c_info,
@@ -256,10 +231,10 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
         out << ".end" << t_else->body->get_body_id() << ":\n\n";
         break;
     }
-    case T_WHILE:
+    case ast::T_WHILE:
     {
-        std::shared_ptr<tree_while> t_while =
-            std::dynamic_pointer_cast<tree_while>(root);
+        std::shared_ptr<ast::n_while> t_while =
+            ast::safe_cast<ast::n_while>(root);
 
         out << ";; while\n";
         out << ".entry" << t_while->body->get_body_id() << ":\n\n";
@@ -273,28 +248,26 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
         out << ".end" << t_while->body->get_body_id() << ":\n\n";
         break;
     }
-    case T_FUNC:
+    case ast::T_FUNC:
     {
-        std::shared_ptr<tree_func> t_func =
-            std::dynamic_pointer_cast<tree_func>(root);
+        std::shared_ptr<ast::func> t_func = ast::safe_cast<ast::func>(root);
         switch (t_func->get_func()) {
         case EXIT:
         {
             c_info.err.on_true(t_func->args.size() != 1,
                                "Expected one argument to 'exit'\n");
-            c_info.err.on_false(t_func->args[0]->get_type() == T_VAR ||
-                                    t_func->args[0]->get_type() == T_CONST,
+            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_VAR ||
+                                    t_func->args[0]->get_type() == ast::T_CONST,
                                 "Expected variable or constant\n");
             out << "mov rax, 60\n";
-            if (t_func->args[0]->get_type() == T_VAR) {
-                error_on_undefined(
-                    std::dynamic_pointer_cast<tree_var>(t_func->args[0]),
-                    c_info);
+            if (t_func->args[0]->get_type() == ast::T_VAR) {
+                c_info.error_on_undefined(
+                    ast::safe_cast<ast::var>(t_func->args[0]));
                 out << "mov rdi, " << asm_from_var_or_const(t_func->args[0])
                     << '\n';
-            } else if (t_func->args[0]->get_type() == T_CONST) {
+            } else if (t_func->args[0]->get_type() == ast::T_CONST) {
                 out << "mov rdi, "
-                    << std::dynamic_pointer_cast<tree_const>(t_func->args[0])
+                    << ast::safe_cast<ast::n_const>(t_func->args[0])
                            ->get_value()
                     << '\n';
             }
@@ -305,38 +278,34 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
         {
             c_info.err.on_true(t_func->args.size() != 2,
                                "Expected two arguments to 'int'\n");
-            c_info.err.on_false(t_func->args[0]->get_type() == T_VAR,
+            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_VAR,
                                 "Expected variable\n");
-            c_info.err.on_false(t_func->args[1]->get_type() == T_VAR ||
-                                    t_func->args[1]->get_type() == T_CONST,
+            c_info.err.on_false(t_func->args[1]->get_type() == ast::T_VAR ||
+                                    t_func->args[1]->get_type() == ast::T_CONST,
                                 "Expected variable or constant\n");
-            if (t_func->args[1]->get_type() == T_VAR) {
-                error_on_undefined(
-                    std::dynamic_pointer_cast<tree_var>(t_func->args[1]),
-                    c_info);
+            if (t_func->args[1]->get_type() == ast::T_VAR) {
+                c_info.error_on_undefined(
+                    ast::safe_cast<ast::var>(t_func->args[1]));
             }
             c_info.err.on_true(
                 c_info
-                    .known_vars[std::dynamic_pointer_cast<tree_var>(
-                                    t_func->args[0])
+                    .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
                                     ->get_var_id()]
                     .second,
                 "Redefinition of '%s', use 'set' instead\n",
                 c_info
-                    .known_vars[std::dynamic_pointer_cast<tree_var>(
-                                    t_func->args[0])
+                    .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
                                     ->get_var_id()]
                     .first.c_str());
 
             out << "mov qword [rbp - "
-                << (std::dynamic_pointer_cast<tree_var>(t_func->args[0])
-                        ->get_var_id() +
+                << (ast::safe_cast<ast::var>(t_func->args[0])->get_var_id() +
                     1) *
                        8
                 << "], " << asm_from_var_or_const(t_func->args[1]) << '\n';
 
             c_info
-                .known_vars[std::dynamic_pointer_cast<tree_var>(t_func->args[0])
+                .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
                                 ->get_var_id()]
                 .second = true;
             break;
@@ -345,18 +314,18 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
         {
             c_info.err.on_true(t_func->args.size() != 1,
                                "Expected one argument to 'print'\n");
-            c_info.err.on_false(t_func->args[0]->get_type() == T_LSTR,
+            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_LSTR,
                                 "Expected string\n");
 
-            std::shared_ptr<tree_lstr> ls =
-                std::dynamic_pointer_cast<tree_lstr>(t_func->args[0]);
+            std::shared_ptr<ast::lstr> ls =
+                ast::safe_cast<ast::lstr>(t_func->args[0]);
 
             for (auto format : ls->format) {
                 switch (format->get_type()) {
-                case T_STR:
+                case ast::T_STR:
                 {
-                    std::shared_ptr<tree_str> str =
-                        std::dynamic_pointer_cast<tree_str>(format);
+                    std::shared_ptr<ast::str> str =
+                        ast::safe_cast<ast::str>(format);
 
                     out << "mov rax, 1\n"
                            "mov rdi, 1\n"
@@ -369,8 +338,8 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
                            "syscall\n";
                     break;
                 }
-                case T_VAR:
-                case T_CONST:
+                case ast::T_VAR:
+                case ast::T_CONST:
                 {
                     out << "mov rax, " << asm_from_var_or_const(format)
                         << "\n"
@@ -389,25 +358,24 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
             c_info.err.on_true(t_func->args.size() != 2,
                                "Expected two arguments to 'set'\n");
 
-            c_info.err.on_false(t_func->args[0]->get_type() == T_VAR,
+            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_VAR,
                                 "Expected variable\n");
-            error_on_undefined(
-                std::dynamic_pointer_cast<tree_var>(t_func->args[0]), c_info);
+            c_info.error_on_undefined(
+                ast::safe_cast<ast::var>(t_func->args[0]));
 
             switch (t_func->args[1]->get_type()) {
-            case T_ARIT:
+            case ast::T_ARIT:
                 out << ";; set\n";
                 arithmetic_tree_to_x86_64(t_func->args[1], "r8", out, c_info);
                 out << "mov " << asm_from_var_or_const(t_func->args[0])
                     << ", r8\n";
                 break;
-            case T_VAR:
-                error_on_undefined(
-                    std::dynamic_pointer_cast<tree_var>(t_func->args[1]),
-                    c_info);
+            case ast::T_VAR:
+                c_info.error_on_undefined(
+                    ast::safe_cast<ast::var>(t_func->args[1]));
                 __attribute__((fallthrough)); /* Tell gcc (and you) that we are
                                                  willing to fall through here */
-            case T_CONST:
+            case ast::T_CONST:
                 out << ";; set\n"
                        "mov "
                     << asm_from_var_or_const(t_func->args[0]) << ", "
@@ -426,10 +394,9 @@ void ast_to_x86_64_core(std::shared_ptr<tree_node> root, std::fstream &out,
         out << '\n';
         break;
     }
-    case T_CMP:
+    case ast::T_CMP:
     {
-        std::shared_ptr<tree_cmp> cmp =
-            std::dynamic_pointer_cast<tree_cmp>(root);
+        std::shared_ptr<ast::cmp> cmp = ast::safe_cast<ast::cmp>(root);
 
         arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
         if (cmp->right) {

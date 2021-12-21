@@ -3,7 +3,6 @@
 
 #include "ast.h"
 #include "dictionary.h"
-#include "error.h"
 #include "lexer.h"
 #include "util.h"
 #include "x86_64.h"
@@ -64,10 +63,10 @@ int main(int argc, char *argv[]) {
 
     /* Lex file into tokens */
     std::cout << "[INFO] Lexing file: " << GREEN(filename) << '\n';
-    std::vector<std::shared_ptr<token>> ts = lex_source(input_source, c_info);
+    std::vector<std::shared_ptr<lexer::token>> ts = lexer::do_lex(input_source, c_info);
 
     /* Convert tokens to abstract syntax tree */
-    std::shared_ptr<tree_body> ast_root = tokens_to_ast(ts, c_info);
+    std::shared_ptr<ast::n_body> ast_root = ast::gen_ast(ts, c_info);
 
     std::string dot_filename = filename_no_ext;
     dot_filename.append(".dot");

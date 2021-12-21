@@ -3,10 +3,13 @@
 
 #include <memory>
 
-class tree_body;
+namespace ast {
+class n_body;
+}
+
 class compile_info;
 
-void ast_to_x86_64(std::shared_ptr<tree_body> root, std::string fn,
+void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
                    compile_info &c_info);
 
 #endif // X86_64_H_

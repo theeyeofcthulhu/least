@@ -5,7 +5,7 @@
 #include <utility>
 
 #include "ast.h"
-#include "error.h"
+#include "lexer.h"
 #include "lstring.h"
 
 const std::map<char, std::string> str_tokens = {
@@ -20,9 +20,9 @@ const std::map<char, std::string> str_tokens = {
 
 /* Check validity of string and insert escape sequences */
 /* Also parse any '[var]' blocks and insert variable tokens */
-std::shared_ptr<t_lstr> parse_string(std::string string, int line,
+std::shared_ptr<lexer::lstr> parse_string(std::string string, int line,
                                      compile_info &c_info) {
-    std::shared_ptr<t_lstr> res = std::make_shared<t_lstr>(line);
+    std::shared_ptr<lexer::lstr> res = std::make_shared<lexer::lstr>(line);
 
     int string_len = string.length();
 
@@ -73,7 +73,7 @@ std::shared_ptr<t_lstr> parse_string(std::string string, int line,
             ss.str(std::string());
 
             if (!part.empty())
-                res->ts.push_back(std::make_shared<t_str>(line, part));
+                res->ts.push_back(std::make_shared<lexer::str>(line, part));
 
             std::string string_end = string.substr(i, std::string::npos);
             size_t next_bracket = string_end.find(']');
@@ -86,8 +86,8 @@ std::shared_ptr<t_lstr> parse_string(std::string string, int line,
             c_info.err.on_true(inside.find('[') != std::string::npos,
                                "Found '[' inside format argument");
 
-            std::vector<std::shared_ptr<token>> parsed_inside =
-                lex_source(inside, c_info);
+            std::vector<std::shared_ptr<lexer::token>> parsed_inside =
+                lexer::do_lex(inside, c_info);
 
             c_info.err.on_true(parsed_inside.empty(),
                                "Could not parse format parameter to tokens\n");
@@ -100,8 +100,8 @@ std::shared_ptr<t_lstr> parse_string(std::string string, int line,
 
             for (auto tk : parsed_inside) {
                 c_info.err.on_false(
-                    tk->get_type() == TK_ARIT || tk->get_type() == TK_VAR ||
-                        tk->get_type() == TK_NUM || tk->get_type() == TK_EOL,
+                    tk->get_type() == lexer::TK_ARIT || tk->get_type() == lexer::TK_VAR ||
+                        tk->get_type() == lexer::TK_NUM || tk->get_type() == lexer::TK_EOL,
                     "Only variables, numbers and operators are allowed inside "
                     "a format parameter\n");
                 res->ts.push_back(tk);
@@ -133,7 +133,10 @@ std::shared_ptr<t_lstr> parse_string(std::string string, int line,
     std::string final_str = ss.str();
 
     if (!final_str.empty())
-        res->ts.push_back(std::make_shared<t_str>(line, final_str));
+        res->ts.push_back(std::make_shared<lexer::str>(line, final_str));
+
+    c_info.err.on_true(res->ts.empty(),
+                       "Lstring format has no contents after parse_string\n");
 
     return res;
 }

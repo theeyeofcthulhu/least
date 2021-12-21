@@ -11,6 +11,8 @@
 #include "lstring.h"
 #include "util.h"
 
+namespace lexer {
+
 const std::map<std::string, ekeyword> key_map{
     std::make_pair("print", K_PRINT), std::make_pair("exit", K_EXIT),
     std::make_pair("if", K_IF),       std::make_pair("elif", K_ELIF),
@@ -33,17 +35,13 @@ const std::map<std::string, earit_operation> arit_map{
 };
 
 const std::map<token_type, std::string> token_str_map{
-    std::make_pair(TK_KEY, "key"),   std::make_pair(TK_ARIT, "arit"),
-    std::make_pair(TK_CMP, "cmp"),   std::make_pair(TK_LOG, "log"),
-    std::make_pair(TK_STR, "str"),   std::make_pair(TK_LSTR, "lstr"),
-    std::make_pair(TK_CHAR, "char"), std::make_pair(TK_NUM, "num"),
-    std::make_pair(TK_VAR, "var"),   std::make_pair(TK_SEP, "sep"),
-    std::make_pair(TK_EOL, "eol"),   std::make_pair(TK_INV, "inv"),
+    std::make_pair(lexer::TK_KEY, "key"),   std::make_pair(lexer::TK_ARIT, "arit"),
+    std::make_pair(lexer::TK_CMP, "cmp"),   std::make_pair(lexer::TK_LOG, "log"),
+    std::make_pair(lexer::TK_STR, "str"),   std::make_pair(lexer::TK_LSTR, "lstr"),
+    std::make_pair(lexer::TK_CHAR, "char"), std::make_pair(lexer::TK_NUM, "num"),
+    std::make_pair(lexer::TK_VAR, "var"),   std::make_pair(lexer::TK_SEP, "sep"),
+    std::make_pair(lexer::TK_EOL, "eol"),   std::make_pair(lexer::TK_INV, "inv"),
 };
-
-void debug_token(token *token) {
-    std::cout << token_str_map.at(token->get_type()) << ", ";
-}
 
 void checkbanned(std::string s, compile_info &c_info) {
     for (char c : s)
@@ -53,13 +51,13 @@ void checkbanned(std::string s, compile_info &c_info) {
 }
 
 bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len) {
-    while ((ts[len]->get_type() != TK_SEP) && (ts[len]->get_type() != TK_EOL))
+    while ((ts[len]->get_type() != lexer::TK_SEP) && (ts[len]->get_type() != lexer::TK_EOL))
         len += 1;
 
-    return ts[len]->get_type() == TK_SEP;
+    return ts[len]->get_type() == lexer::TK_SEP;
 }
 
-std::vector<std::shared_ptr<token>> lex_source(std::string source,
+std::vector<std::shared_ptr<token>> do_lex(std::string source,
                                                compile_info &c_info) {
     std::vector<std::shared_ptr<token>> tokens;
 
@@ -98,7 +96,7 @@ std::vector<std::shared_ptr<token>> lex_source(std::string source,
                 c_info.err.on_true(united.empty(),
                                    "Could not find end of string\n");
 
-                std::shared_ptr<t_lstr> parsed =
+                std::shared_ptr<lstr> parsed =
                     parse_string(united, i, c_info);
 
                 tokens.push_back(parsed);
@@ -115,7 +113,7 @@ std::vector<std::shared_ptr<token>> lex_source(std::string source,
                         next_word.c_str());
 
                 tokens.push_back(
-                    std::make_shared<t_num>(i, std::stoi(next_word)));
+                    std::make_shared<num>(i, std::stoi(next_word)));
 
                 j += next_i - 1;
 
@@ -127,24 +125,26 @@ std::vector<std::shared_ptr<token>> lex_source(std::string source,
 
             if (cmp_map.find(next_word) != cmp_map.end())
                 tokens.push_back(
-                    std::make_shared<t_cmp>(i, cmp_map.at(next_word)));
+                    std::make_shared<cmp>(i, cmp_map.at(next_word)));
             else if (key_map.find(next_word) != key_map.end())
                 tokens.push_back(
-                    std::make_shared<t_key>(i, key_map.at(next_word)));
+                    std::make_shared<key>(i, key_map.at(next_word)));
             else if (arit_map.find(next_word) != arit_map.end())
                 tokens.push_back(
-                    std::make_shared<t_arit>(i, arit_map.at(next_word)));
+                    std::make_shared<arit>(i, arit_map.at(next_word)));
             else if (next_word == ";")
-                tokens.push_back(std::make_shared<t_sep>(i));
+                tokens.push_back(std::make_shared<sep>(i));
             else {
                 checkbanned(next_word, c_info);
-                tokens.push_back(std::make_shared<t_var>(i, next_word));
+                tokens.push_back(std::make_shared<var>(i, next_word));
             }
 
             j += next_i - 1;
         }
-        tokens.push_back(std::make_shared<t_eol>(i));
+        tokens.push_back(std::make_shared<eol>(i));
     }
 
     return tokens;
+}
+
 }

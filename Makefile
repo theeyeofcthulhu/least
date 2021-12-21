@@ -28,14 +28,14 @@ lib: $(ASM_LIB_O)
 lib/%.o: lib/%.asm
 	$(AS) $(ASFLAGS) -o $@ $<
 
-lcc.o: util.h dictionary.h error.h lexer.h ast.h x86_64.h
-error.o: error.h
-util.o: util.h error.h lexer.h
-lstring.o: lstring.h error.h
-lexer.o: lexer.h dictionary.h lstring.h util.h error.h lstring.h
-ast.o: util.h lexer.h error.h ast.h x86_64.h
-x86_64.o: error.h x86_64.h ast.h util.h
-dictionary.o: dictionary.h ast.h
+.PHONY: depend
+depend: .depend 
+
+.depend: $(SRC)
+	rm -f "$@"
+	$(CXX) $(CCFLAGS) -MM $^ > "$@"
+
+include .depend
 
 $(EXE): $(OBJ)
 	$(CXX) -o $@ $(OBJ) $(LIBS)
