@@ -11,6 +11,8 @@ end
 
 if inta == intb
    print "unreach2\n" ;
+elif inta == inta
+   print "elif reach2\n" ;
 end
 
 if inta != intb

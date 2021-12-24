@@ -12,7 +12,7 @@
 #include <typeinfo>
 #include <vector>
 
-#include "dictionary.h"
+#include "dictionary.hpp"
 
 class compile_info;
 
@@ -160,9 +160,10 @@ class eol : public token {
     static const token_type m_type = lexer::TK_EOL;
 };
 
-std::vector<std::shared_ptr<token>> do_lex(std::string source,
-                                           compile_info &c_info);
+std::vector<std::shared_ptr<token>>
+do_lex(std::string source, compile_info &c_info, bool no_set_line = false);
 bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len);
+void debug_tokens(std::vector<std::shared_ptr<token>> ts);
 
 const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(key).hash_code(), lexer::TK_KEY),
@@ -180,7 +181,8 @@ const std::map<const size_t, token_type> token_type_enum_map = {
 
 /* Cast token to desired polymorphic subtype
  * Ensures that tk was declared as a type T originally */
-template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<token> tk) {
+template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<token> tk)
+{
     assert(token_type_enum_map.at(typeid(T).hash_code()) == tk->get_type());
     return std::dynamic_pointer_cast<T>(tk);
 }

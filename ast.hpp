@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 
-#include "util.h"
+#include "util.hpp"
 
 namespace lexer {
 class token;
@@ -27,6 +27,8 @@ enum ts_class {
     T_STR,
     T_LSTR,
     T_ARIT,
+    T_NUM_GENERAL, /* Stands for int var, const and arit, i.e. anything that
+                      would be a number */
 };
 
 class node;
@@ -54,7 +56,8 @@ class n_body : public node {
     int get_body_id() { return m_body_id; };
 
     n_body(int line, std::shared_ptr<n_body> t_parent, compile_info &c_info)
-        : node(line), parent(t_parent) {
+        : node(line), parent(t_parent)
+    {
         m_body_id = c_info.get_next_body_id();
     }
 
@@ -76,7 +79,9 @@ class n_if : public node {
     n_if(int line, std::shared_ptr<cmp> t_condition,
          std::shared_ptr<n_body> t_body, bool is_elif)
         : node(line), condition(t_condition), body(t_body), elif (nullptr),
-          m_is_elif(is_elif) {}
+          m_is_elif(is_elif)
+    {
+    }
 
   private:
     static const ts_class m_type = T_IF;
@@ -89,8 +94,9 @@ class n_else : public node {
 
     ts_class get_type() override { return m_type; };
 
-    n_else(int line, std::shared_ptr<n_body> t_body)
-        : node(line), body(t_body) {}
+    n_else(int line, std::shared_ptr<n_body> t_body) : node(line), body(t_body)
+    {
+    }
 
   private:
     static const ts_class m_type = T_ELSE;
@@ -105,7 +111,9 @@ class n_while : public node {
 
     n_while(int line, std::shared_ptr<cmp> t_condition,
             std::shared_ptr<n_body> t_body)
-        : node(line), condition(t_condition), body(t_body) {}
+        : node(line), condition(t_condition), body(t_body)
+    {
+    }
 
   private:
     static const ts_class m_type = T_WHILE;
@@ -134,7 +142,9 @@ class cmp : public node {
 
     cmp(int line, std::shared_ptr<node> t_left, std::shared_ptr<node> t_right,
         ecmp_operation t_cmp)
-        : node(line), left(t_left), right(t_right), m_cmp(t_cmp) {}
+        : node(line), left(t_left), right(t_right), m_cmp(t_cmp)
+    {
+    }
 
   private:
     ecmp_operation m_cmp;
@@ -201,7 +211,9 @@ class arit : public node {
 
     arit(int line, std::shared_ptr<node> t_left, std::shared_ptr<node> t_right,
          earit_operation t_arit)
-        : node(line), left(t_left), right(t_right), m_arit(t_arit) {}
+        : node(line), left(t_left), right(t_right), m_arit(t_arit)
+    {
+    }
 
   private:
     earit_operation m_arit;
@@ -211,8 +223,9 @@ class arit : public node {
 std::shared_ptr<node> get_last_if(std::shared_ptr<n_if> if_node);
 void tree_to_dot(std::shared_ptr<n_body> root, std::string fn,
                  compile_info &c_info);
-std::shared_ptr<n_body> gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens,
-                                compile_info &c_info);
+std::shared_ptr<n_body>
+gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens,
+        compile_info &c_info);
 
 const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(node).hash_code(), T_BASE),
@@ -231,14 +244,23 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
 
 /* Cast tree_node to desired polymorphic subtype
  * Ensures that tk was declared as a type T originally */
-template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<node> nd) {
+template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<node> nd)
+{
     assert(tree_type_enum_map.at(typeid(T).hash_code()) == nd->get_type());
     return std::dynamic_pointer_cast<T>(nd);
 }
 
-template <typename T> std::shared_ptr<node> to_base(std::shared_ptr<T> nd) {
+template <typename T> std::shared_ptr<node> to_base(std::shared_ptr<T> nd)
+{
     return std::dynamic_pointer_cast<node>(nd);
 }
+
+void check_correct_function_call(
+    std::string name, std::vector<std::shared_ptr<node>> args, size_t arg_len,
+    std::vector<ts_class> types, compile_info &c_info,
+    std::vector<var_type> info = std::vector<var_type>(),
+    std::vector<std::pair<size_t, var_type>> define =
+        std::vector<std::pair<size_t, var_type>>());
 
 } // namespace ast
 

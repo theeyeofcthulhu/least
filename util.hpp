@@ -8,8 +8,8 @@
 #include <utility>
 #include <vector>
 
-#include "dictionary.h"
-#include "error.h"
+#include "dictionary.hpp"
+#include "error.hpp"
 
 namespace ast {
 class var;
@@ -18,13 +18,19 @@ class var;
 namespace lexer {
 class token;
 enum token_type : int;
-}
+} // namespace lexer
 
 #define BODY_ID_START 1024
 
+struct var_info {
+    std::string name;
+    var_type type;
+    bool defined;
+};
+
 class compile_info {
   public:
-    std::vector<std::pair<std::string, bool>> known_vars;
+    std::vector<var_info> known_vars;
     std::vector<std::string> known_string;
 
     std::array<bool, LIB_ENUM_END> req_libs = {0};
@@ -40,6 +46,7 @@ class compile_info {
     int check_var(std::string var);
     int check_str(std::string str);
     void error_on_undefined(std::shared_ptr<ast::var> var_id);
+    void error_on_wrong_type(std::shared_ptr<ast::var> var_id, var_type tp);
 
   private:
     int body_id = BODY_ID_START;
@@ -53,7 +60,8 @@ size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::token>> ts,
 
 /* Template functions need to be implemented in header files */
 template <typename T>
-std::vector<T> slice(std::vector<T> v, int start = 0, int end = -1) {
+std::vector<T> slice(std::vector<T> v, int start = 0, int end = -1)
+{
     int v_len = v.size();
     int newlen;
 

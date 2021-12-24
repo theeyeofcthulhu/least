@@ -1,11 +1,11 @@
 #include <getopt.h>
 #include <iostream>
 
-#include "ast.h"
-#include "dictionary.h"
-#include "lexer.h"
-#include "util.h"
-#include "x86_64.h"
+#include "ast.hpp"
+#include "dictionary.hpp"
+#include "lexer.hpp"
+#include "util.hpp"
+#include "x86_64.hpp"
 
 #define SHELL_GREEN "\033[0;32m"
 #define SHELL_RED "\033[0;31m"
@@ -14,10 +14,10 @@
 #define RED(str) SHELL_RED << str << SHELL_WHITE
 #define GREEN(str) SHELL_GREEN << str << SHELL_WHITE
 
-/* NOTE:
- * https://gcc.gnu.org/onlinedocs/libstdc++/manual/streambufs.html#io.streambuf.buffering
- * says that std::endl slows buffering by flushing; does this really matter? */
-int main(int argc, char *argv[]) {
+/* TODO: exit 1 + ; crashes with segfault */
+/* TODO: observe blocks when looking at variable definitions */
+int main(int argc, char *argv[])
+{
     bool run_after_compile = false;
     /* Handle command line input with getopt */
     int flag;
@@ -63,7 +63,8 @@ int main(int argc, char *argv[]) {
 
     /* Lex file into tokens */
     std::cout << "[INFO] Lexing file: " << GREEN(filename) << '\n';
-    std::vector<std::shared_ptr<lexer::token>> ts = lexer::do_lex(input_source, c_info);
+    std::vector<std::shared_ptr<lexer::token>> ts =
+        lexer::do_lex(input_source, c_info);
 
     /* Convert tokens to abstract syntax tree */
     std::shared_ptr<ast::n_body> ast_root = ast::gen_ast(ts, c_info);
@@ -113,15 +114,14 @@ int main(int argc, char *argv[]) {
         ld_cmd_base.append(filename_no_ext).append(" ").append(object_filename);
 
     /* Generate array of all required libs */
-    for (int i = 0; auto lib : c_info.req_libs) {
-        if (lib) {
+    for (size_t i = 0; i < c_info.req_libs.size(); i++) {
+        if (c_info.req_libs[i]) {
             std::string new_o = " ";
             new_o.append(library_files[i]);
 
             std::cout << new_o;
             ld_cmd.append(new_o);
         }
-        i++;
     }
     std::cout << '\n';
 

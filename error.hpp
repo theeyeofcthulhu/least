@@ -1,6 +1,7 @@
 #ifndef ERROR_H_
 #define ERROR_H_
 
+#include <iostream>
 #include <string>
 
 class error_handler {

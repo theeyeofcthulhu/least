@@ -1,26 +1,28 @@
 #ifndef DICTIONARY_H_
 #define DICTIONARY_H_
 
+#include <map>
 #include <string>
 
-typedef enum {
+enum efunc {
     PRINT,
     EXIT,
     READ,
     SET,
     PUTCHAR,
     INT,
-} efunc;
+    STR,
+};
 
-typedef enum {
+enum econditional {
     IF,
     ELIF,
     ELSE,
     NO_CONDITIONAL,
-} econditional;
+};
 
 /* Structure for organizing comparison operations */
-typedef enum {
+enum ecmp_operation {
     EQUAL,
     NOT_EQUAL,
     LESS,
@@ -28,25 +30,25 @@ typedef enum {
     GREATER,
     GREATER_OR_EQ,
     CMP_OPERATION_ENUM_END,
-} ecmp_operation;
+};
 
 /* Structure for organizing arithmetic operations */
-typedef enum {
+enum earit_operation {
     ADD,
     SUB,
     MOD,
     DIV,
     MUL,
     ARIT_OPERATION_ENUM_END,
-} earit_operation;
+};
 
-typedef enum {
+enum elogical_operation {
     AND,
     OR,
     LOGICAL_OPS_END,
-} elogical_operation;
+};
 
-typedef enum {
+enum ekeyword {
     K_PRINT,
     K_EXIT,
     K_IF,
@@ -60,7 +62,7 @@ typedef enum {
     K_SET,
     K_PUTCHAR,
     K_NOKEY,
-} ekeyword;
+};
 
 enum LIBRARY_FILES {
     LIB_UPRINT,
@@ -68,6 +70,13 @@ enum LIBRARY_FILES {
     LIB_ENUM_END,
 };
 
+enum var_type {
+    V_INT,
+    V_STR,
+    V_UNSURE,
+};
+
 extern std::string library_files[LIB_ENUM_END];
+extern std::map<var_type, std::string> var_type_str_map;
 
 #endif // DICTIONARY_H_

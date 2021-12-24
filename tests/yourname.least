@@ -1,6 +1,6 @@
-print "Your name?\n"
+print "Your name?\n" ;
 
-str name
-read name
+str name ;
+read name ;
 
-fprint "Hello, [!name]!\n"
+print "Hello, [name]!\n" ;

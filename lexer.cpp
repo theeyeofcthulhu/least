@@ -5,11 +5,11 @@
 #include <string>
 #include <vector>
 
-#include "dictionary.h"
-#include "error.h"
-#include "lexer.h"
-#include "lstring.h"
-#include "util.h"
+#include "dictionary.hpp"
+#include "error.hpp"
+#include "lexer.hpp"
+#include "lstring.hpp"
+#include "util.hpp"
 
 namespace lexer {
 
@@ -35,30 +35,50 @@ const std::map<std::string, earit_operation> arit_map{
 };
 
 const std::map<token_type, std::string> token_str_map{
-    std::make_pair(lexer::TK_KEY, "key"),   std::make_pair(lexer::TK_ARIT, "arit"),
-    std::make_pair(lexer::TK_CMP, "cmp"),   std::make_pair(lexer::TK_LOG, "log"),
-    std::make_pair(lexer::TK_STR, "str"),   std::make_pair(lexer::TK_LSTR, "lstr"),
-    std::make_pair(lexer::TK_CHAR, "char"), std::make_pair(lexer::TK_NUM, "num"),
-    std::make_pair(lexer::TK_VAR, "var"),   std::make_pair(lexer::TK_SEP, "sep"),
-    std::make_pair(lexer::TK_EOL, "eol"),   std::make_pair(lexer::TK_INV, "inv"),
+    std::make_pair(lexer::TK_KEY, "key"),
+    std::make_pair(lexer::TK_ARIT, "arit"),
+    std::make_pair(lexer::TK_CMP, "cmp"),
+    std::make_pair(lexer::TK_LOG, "log"),
+    std::make_pair(lexer::TK_STR, "str"),
+    std::make_pair(lexer::TK_LSTR, "lstr"),
+    std::make_pair(lexer::TK_CHAR, "char"),
+    std::make_pair(lexer::TK_NUM, "num"),
+    std::make_pair(lexer::TK_VAR, "var"),
+    std::make_pair(lexer::TK_SEP, "sep"),
+    std::make_pair(lexer::TK_EOL, "eol"),
+    std::make_pair(lexer::TK_INV, "inv"),
 };
 
-void checkbanned(std::string s, compile_info &c_info) {
+void checkbanned(std::string s, compile_info &c_info)
+{
     for (char c : s)
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
                            "Invalid character in variable name: '%s'\n",
                            s.c_str());
 }
 
-bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len) {
-    while ((ts[len]->get_type() != lexer::TK_SEP) && (ts[len]->get_type() != lexer::TK_EOL))
+bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len)
+{
+    while ((ts[len]->get_type() != lexer::TK_SEP) &&
+           (ts[len]->get_type() != lexer::TK_EOL))
         len += 1;
 
     return ts[len]->get_type() == lexer::TK_SEP;
 }
 
-std::vector<std::shared_ptr<token>> do_lex(std::string source,
-                                               compile_info &c_info) {
+void debug_tokens(std::vector<std::shared_ptr<token>> ts)
+{
+    std::cout << "----- DEBUG INFO FOR TOKENS -----\n";
+    for (auto tk : ts) {
+        std::cout << tk->get_line() << ": " << token_str_map.at(tk->get_type())
+                  << '\n';
+    }
+    std::cout << "---------------------------------\n";
+}
+
+std::vector<std::shared_ptr<token>>
+do_lex(std::string source, compile_info &c_info, bool no_set_line)
+{
     std::vector<std::shared_ptr<token>> tokens;
 
     auto lines = split(source, '\n');
@@ -68,7 +88,11 @@ std::vector<std::shared_ptr<token>> do_lex(std::string source,
         if (line.empty())
             continue;
 
-        c_info.err.set_line(i);
+        /* Caller can optionally provide no_set_line; this disables setting the
+         * line on the error object when only calling to extract tokens from a
+         * single line */
+        if (!no_set_line)
+            c_info.err.set_line(i);
 
         auto words = split(line, ' ');
         c_info.err.on_true(words.empty(), "Could not split line into words\n");
@@ -96,8 +120,7 @@ std::vector<std::shared_ptr<token>> do_lex(std::string source,
                 c_info.err.on_true(united.empty(),
                                    "Could not find end of string\n");
 
-                std::shared_ptr<lstr> parsed =
-                    parse_string(united, i, c_info);
+                std::shared_ptr<lstr> parsed = parse_string(united, i, c_info);
 
                 tokens.push_back(parsed);
 
@@ -147,4 +170,4 @@ std::vector<std::shared_ptr<token>> do_lex(std::string source,
     return tokens;
 }
 
-}
+} // namespace lexer

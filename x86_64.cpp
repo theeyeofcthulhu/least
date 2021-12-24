@@ -1,14 +1,17 @@
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <string>
 
-#include "ast.h"
-#include "util.h"
-#include "x86_64.h"
+#include "ast.hpp"
+#include "util.hpp"
+#include "x86_64.hpp"
 
 #define MAX_DIGITS 32
+#define STR_RESERVED_SIZE 128
 
 struct cmp_operation {
     ecmp_operation op_enum;
@@ -25,18 +28,21 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
 void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                         compile_info &c_info, int body_id, int real_end_id);
 
-/* Get an assembly reference to a variable or a constant
- * The returned char* is entered into an array and is free'd
- * at the end */
-std::string asm_from_var_or_const(std::shared_ptr<ast::node> node) {
+/* Get an assembly reference to a numeric variable or a constant
+ * ensures variable is a number */
+std::string asm_from_var_or_const(std::shared_ptr<ast::node> node,
+                                  compile_info &c_info)
+{
     std::stringstream var_or_const;
 
     assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_CONST);
-
     if (node->get_type() == ast::T_VAR) {
-        var_or_const << "qword [rbp - "
-                     << (ast::safe_cast<ast::var>(node)->get_var_id() + 1) * 8
-                     << "]";
+        auto t_var = ast::safe_cast<ast::var>(node);
+
+        c_info.error_on_undefined(t_var);
+        c_info.error_on_wrong_type(t_var, V_INT);
+
+        var_or_const << "qword [rbp - " << (t_var->get_var_id() + 1) * 8 << "]";
     } else if (node->get_type() == ast::T_CONST) {
         var_or_const << ast::safe_cast<ast::n_const>(node)->get_value();
     }
@@ -45,8 +51,8 @@ std::string asm_from_var_or_const(std::shared_ptr<ast::node> node) {
 }
 
 /* Print assembly mov from source to target if they are not equal */
-void print_mov_if_req(std::string target, std::string source,
-                      std::fstream &out) {
+void print_mov_if_req(std::string target, std::string source, std::fstream &out)
+{
     if (!(target == source))
         out << "mov " << target << ", " << source << '\n';
 }
@@ -54,10 +60,12 @@ void print_mov_if_req(std::string target, std::string source,
 /* Parse a tree representing an arithmetic expression into assembly recursively
  */
 void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
-                               std::fstream &out, compile_info &c_info) {
+                               std::fstream &out, compile_info &c_info)
+{
     /* If we are only a number: mov us into the target and leave */
     if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
-        out << "mov " << reg << ", " << asm_from_var_or_const(root) << "\n\n";
+        out << "mov " << reg << ", " << asm_from_var_or_const(root, c_info)
+            << "\n\n";
         return;
     }
 
@@ -93,10 +101,12 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
     /* If our children are numbers: mov them into the target */
     if (arit->left->get_type() == ast::T_CONST ||
         arit->left->get_type() == ast::T_VAR)
-        out << "mov rax, " << asm_from_var_or_const(arit->left) << "\n\n";
+        out << "mov rax, " << asm_from_var_or_const(arit->left, c_info)
+            << "\n\n";
     if (arit->right->get_type() == ast::T_CONST ||
         arit->right->get_type() == ast::T_VAR)
-        out << "mov rcx, " << asm_from_var_or_const(arit->right) << "\n\n";
+        out << "mov rcx, " << asm_from_var_or_const(arit->right, c_info)
+            << "\n\n";
 
     /* Execute the calculation */
     switch (arit->get_arit()) {
@@ -131,8 +141,28 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
     out << '\n';
 }
 
+void number_in_register(std::shared_ptr<ast::node> nd, std::string reg,
+                        std::fstream &out, compile_info &c_info)
+{
+    assert(nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_VAR ||
+           nd->get_type() == ast::T_CONST);
+
+    switch (nd->get_type()) {
+    case ast::T_ARIT:
+        arithmetic_tree_to_x86_64(nd, reg, out, c_info);
+        break;
+    case ast::T_VAR:
+    case ast::T_CONST:
+        print_mov_if_req(reg, asm_from_var_or_const(nd, c_info), out);
+        break;
+    default:
+        c_info.err.error("UNREACHABLE: Unexpected node_type\n");
+    }
+}
+
 void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
-                   compile_info &c_info) {
+                   compile_info &c_info)
+{
     std::fstream out;
     out.open(fn, std::ios::out);
 
@@ -161,6 +191,26 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
             << i << "Len: equ $ - str" << i << "\n\n";
     }
 
+    auto is_str = [](var_info v) { return v.type == V_STR; };
+    if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(),
+                     is_str) != c_info.known_vars.end()) {
+        out << "section .bss\n";
+        for (size_t i = 0; i < c_info.known_vars.size(); i++) {
+            auto v = c_info.known_vars[i];
+            if (v.type == V_STR) {
+                out << "strvar" << i << ": resq " << STR_RESERVED_SIZE
+                    << "\n"
+                       "strvar"
+                    << i << "len: resq 1\n";
+            }
+        }
+    }
+
+    if (!c_info.known_vars.empty()) {
+        for (size_t i = 0; i < c_info.known_vars.size(); i++) {
+        }
+    }
+
     if (c_info.req_libs[LIB_UPRINT])
         out << "extern uprint\n";
     if (c_info.req_libs[LIB_PUTCHAR])
@@ -170,7 +220,8 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
 }
 
 void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
-                        compile_info &c_info, int body_id, int real_end_id) {
+                        compile_info &c_info, int body_id, int real_end_id)
+{
     c_info.err.set_line(root->get_line());
     switch (root->get_type()) {
     case ast::T_BODY:
@@ -254,68 +305,45 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         switch (t_func->get_func()) {
         case EXIT:
         {
-            c_info.err.on_true(t_func->args.size() != 1,
-                               "Expected one argument to 'exit'\n");
-            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_VAR ||
-                                    t_func->args[0]->get_type() == ast::T_CONST,
-                                "Expected variable or constant\n");
+            ast::check_correct_function_call("exit", t_func->args, 1,
+                                             {ast::T_NUM_GENERAL}, c_info);
             out << "mov rax, 60\n";
-            if (t_func->args[0]->get_type() == ast::T_VAR) {
-                c_info.error_on_undefined(
-                    ast::safe_cast<ast::var>(t_func->args[0]));
-                out << "mov rdi, " << asm_from_var_or_const(t_func->args[0])
-                    << '\n';
-            } else if (t_func->args[0]->get_type() == ast::T_CONST) {
-                out << "mov rdi, "
-                    << ast::safe_cast<ast::n_const>(t_func->args[0])
-                           ->get_value()
-                    << '\n';
-            }
+            number_in_register(t_func->args[0], "rdi", out, c_info);
             out << "syscall\n";
             break;
         }
-        case INT:
+        case STR:
         {
-            c_info.err.on_true(t_func->args.size() != 2,
-                               "Expected two arguments to 'int'\n");
-            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_VAR,
-                                "Expected variable\n");
-            c_info.err.on_false(t_func->args[1]->get_type() == ast::T_VAR ||
-                                    t_func->args[1]->get_type() == ast::T_CONST,
-                                "Expected variable or constant\n");
-            if (t_func->args[1]->get_type() == ast::T_VAR) {
-                c_info.error_on_undefined(
-                    ast::safe_cast<ast::var>(t_func->args[1]));
-            }
-            c_info.err.on_true(
-                c_info
-                    .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
-                                    ->get_var_id()]
-                    .second,
-                "Redefinition of '%s', use 'set' instead\n",
-                c_info
-                    .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
-                                    ->get_var_id()]
-                    .first.c_str());
-
-            out << "mov qword [rbp - "
-                << (ast::safe_cast<ast::var>(t_func->args[0])->get_var_id() +
-                    1) *
-                       8
-                << "], " << asm_from_var_or_const(t_func->args[1]) << '\n';
+            ast::check_correct_function_call("str", t_func->args, 1,
+                                             {ast::T_VAR}, c_info, {V_STR},
+                                             {{0, V_STR}});
 
             c_info
                 .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
                                 ->get_var_id()]
-                .second = true;
+                .type = V_STR;
+            break;
+        }
+        case INT:
+        {
+            ast::check_correct_function_call("int", t_func->args, 2,
+                                             {ast::T_VAR, ast::T_NUM_GENERAL},
+                                             c_info, {V_INT}, {{0, V_INT}});
+
+            c_info
+                .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
+                                ->get_var_id()]
+                .type = V_INT;
+
+            number_in_register(t_func->args[1], "rax", out, c_info);
+            print_mov_if_req(asm_from_var_or_const(t_func->args[0], c_info),
+                             "rax", out);
             break;
         }
         case PRINT:
         {
-            c_info.err.on_true(t_func->args.size() != 1,
-                               "Expected one argument to 'print'\n");
-            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_LSTR,
-                                "Expected string\n");
+            ast::check_correct_function_call("print", t_func->args, 1,
+                                             {ast::T_LSTR}, c_info);
 
             std::shared_ptr<ast::lstr> ls =
                 ast::safe_cast<ast::lstr>(t_func->args[0]);
@@ -339,9 +367,39 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                     break;
                 }
                 case ast::T_VAR:
+                {
+                    auto the_var = ast::safe_cast<ast::var>(format);
+                    auto the_var_info =
+                        c_info.known_vars[the_var->get_var_id()];
+
+                    c_info.error_on_undefined(the_var);
+
+                    if (the_var_info.type == V_INT) {
+                        out << "mov rax, "
+                            << asm_from_var_or_const(format, c_info)
+                            << "\n"
+                               "call uprint\n";
+                        c_info.req_libs[LIB_UPRINT] = true;
+                    } else if (the_var_info.type == V_STR) {
+                        out << "mov rax, 1\n"
+                               "mov rdi, 1\n"
+                               "mov rsi, strvar"
+                            << the_var->get_var_id()
+                            << "\n"
+                               "mov rdx, strvar"
+                            << the_var->get_var_id()
+                            << "len\n"
+                               "syscall\n";
+                    } else {
+                        assert(
+                            false &&
+                            "Defined variable not assigned type, unreachable");
+                    }
+                    break;
+                }
                 case ast::T_CONST:
                 {
-                    out << "mov rax, " << asm_from_var_or_const(format)
+                    out << "mov rax, " << asm_from_var_or_const(format, c_info)
                         << "\n"
                            "call uprint\n";
                     c_info.req_libs[LIB_UPRINT] = true;
@@ -355,39 +413,42 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         }
         case SET:
         {
-            c_info.err.on_true(t_func->args.size() != 2,
-                               "Expected two arguments to 'set'\n");
+            ast::check_correct_function_call("set", t_func->args, 2,
+                                             {ast::T_VAR, ast::T_NUM_GENERAL},
+                                             c_info, {V_INT});
 
-            c_info.err.on_false(t_func->args[0]->get_type() == ast::T_VAR,
-                                "Expected variable\n");
-            c_info.error_on_undefined(
-                ast::safe_cast<ast::var>(t_func->args[0]));
+            number_in_register(t_func->args[1], "rax", out, c_info);
+            print_mov_if_req(asm_from_var_or_const(t_func->args[0], c_info),
+                             "rax", out);
+            break;
+        }
+        case READ:
+        {
+            auto t_var = ast::safe_cast<ast::var>(t_func->args[0]);
 
-            switch (t_func->args[1]->get_type()) {
-            case ast::T_ARIT:
-                out << ";; set\n";
-                arithmetic_tree_to_x86_64(t_func->args[1], "r8", out, c_info);
-                out << "mov " << asm_from_var_or_const(t_func->args[0])
-                    << ", r8\n";
-                break;
-            case ast::T_VAR:
-                c_info.error_on_undefined(
-                    ast::safe_cast<ast::var>(t_func->args[1]));
-                __attribute__((fallthrough)); /* Tell gcc (and you) that we are
-                                                 willing to fall through here */
-            case ast::T_CONST:
-                out << ";; set\n"
-                       "mov "
-                    << asm_from_var_or_const(t_func->args[0]) << ", "
-                    << asm_from_var_or_const(t_func->args[1]) << '\n';
-                break;
-            default:
-                c_info.err.error("Unexpected argument to set\n");
-            }
+            ast::check_correct_function_call("read", t_func->args, 1,
+                                             {ast::T_VAR}, c_info, {V_STR});
+
+            out << ";; read\n"
+                   "xor rax, rax\n"
+                   "xor rdi, rdi\n"
+                   "mov rsi, strvar"
+                << t_var->get_var_id()
+                << "\n"
+                   "mov rdx, "
+                << STR_RESERVED_SIZE
+                << "\n"
+                   "syscall\n"
+                   "dec rax\n"
+                   "mov [strvar"
+                << t_var->get_var_id()
+                << "len], rax\n" /* Move return value of read, i.e., length of
+                                    input into the length variable*/
+                   "mov byte [rsi + rax], 0\n"; /* Clear newline at end of input
+                                                 */
             break;
         }
         case PUTCHAR:
-        case READ:
             c_info.err.error("TODO: unimplemented\n");
             break;
         }
