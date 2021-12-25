@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 
-enum efunc {
+enum func_id {
     PRINT,
     EXIT,
     READ,
@@ -14,7 +14,7 @@ enum efunc {
     STR,
 };
 
-enum econditional {
+enum conditional {
     IF,
     ELIF,
     ELSE,
@@ -22,7 +22,7 @@ enum econditional {
 };
 
 /* Structure for organizing comparison operations */
-enum ecmp_operation {
+enum cmp_op {
     EQUAL,
     NOT_EQUAL,
     LESS,
@@ -33,7 +33,7 @@ enum ecmp_operation {
 };
 
 /* Structure for organizing arithmetic operations */
-enum earit_operation {
+enum arit_op {
     ADD,
     SUB,
     MOD,
@@ -42,13 +42,13 @@ enum earit_operation {
     ARIT_OPERATION_ENUM_END,
 };
 
-enum elogical_operation {
+enum log_op {
     AND,
     OR,
     LOGICAL_OPS_END,
 };
 
-enum ekeyword {
+enum keyword {
     K_PRINT,
     K_EXIT,
     K_IF,

@@ -140,16 +140,16 @@ class cmp : public node {
     std::shared_ptr<node> right;
 
     ts_class get_type() override { return m_type; };
-    ecmp_operation get_cmp() { return m_cmp; };
+    cmp_op get_cmp() { return m_cmp; };
 
     cmp(int line, std::shared_ptr<node> t_left, std::shared_ptr<node> t_right,
-        ecmp_operation t_cmp)
+        cmp_op t_cmp)
         : node(line), left(t_left), right(t_right), m_cmp(t_cmp)
     {
     }
 
   private:
-    ecmp_operation m_cmp;
+    cmp_op m_cmp;
     static const ts_class m_type = T_CMP;
 };
 
@@ -158,12 +158,12 @@ class func : public node {
     std::vector<std::shared_ptr<node>> args;
 
     ts_class get_type() override { return m_type; };
-    efunc get_func() { return m_func; };
+    func_id get_func() { return m_func; };
 
-    func(int line, efunc t_func) : node(line), m_func(t_func) {}
+    func(int line, func_id t_func) : node(line), m_func(t_func) {}
 
   private:
-    efunc m_func;
+    func_id m_func;
     static const ts_class m_type = T_FUNC;
 };
 
@@ -211,16 +211,16 @@ class arit : public node {
     std::shared_ptr<node> right;
 
     ts_class get_type() override { return m_type; };
-    earit_operation get_arit() { return m_arit; };
+    arit_op get_arit() { return m_arit; };
 
     arit(int line, std::shared_ptr<node> t_left, std::shared_ptr<node> t_right,
-         earit_operation t_arit)
+         arit_op t_arit)
         : node(line), left(t_left), right(t_right), m_arit(t_arit)
     {
     }
 
   private:
-    earit_operation m_arit;
+    arit_op m_arit;
     static const ts_class m_type = T_ARIT;
 };
 

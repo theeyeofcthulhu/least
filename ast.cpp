@@ -16,7 +16,7 @@ void tree_to_dot_core(std::shared_ptr<ast::node> root, int &node, int &tbody_id,
                       int parent_body_id, std::fstream &dot,
                       compile_info &c_info);
 
-const std::map<ekeyword, efunc> key_func_map = {
+const std::map<keyword, func_id> key_func_map = {
     std::make_pair(K_PRINT, PRINT),     std::make_pair(K_EXIT, EXIT),
     std::make_pair(K_READ, READ),       std::make_pair(K_SET, SET),
     std::make_pair(K_PUTCHAR, PUTCHAR), std::make_pair(K_INT, INT),
@@ -25,20 +25,20 @@ const std::map<ekeyword, efunc> key_func_map = {
 
 /* Maps for converting enum values to strings */
 
-const std::map<efunc, std::string> func_str_map = {
+const std::map<func_id, std::string> func_str_map = {
     std::make_pair(PRINT, "print"),     std::make_pair(EXIT, "exit"),
     std::make_pair(READ, "read"),       std::make_pair(SET, "set"),
     std::make_pair(PUTCHAR, "putchar"), std::make_pair(INT, "int"),
     std::make_pair(STR, "str"),
 };
 
-const std::map<ecmp_operation, std::string> cmp_str_map = {
+const std::map<cmp_op, std::string> cmp_str_map = {
     std::make_pair(EQUAL, "=="),         std::make_pair(GREATER, ">"),
     std::make_pair(GREATER_OR_EQ, ">="), std::make_pair(LESS, "<"),
     std::make_pair(LESS_OR_EQ, "<="),    std::make_pair(NOT_EQUAL, "!="),
 };
 
-const std::map<earit_operation, std::string> arit_str_map = {
+const std::map<arit_op, std::string> arit_str_map = {
     std::make_pair(ADD, "+"), std::make_pair(DIV, "/"),
     std::make_pair(MOD, "%"), std::make_pair(MUL, "*"),
     std::make_pair(SUB, "-"),
@@ -190,7 +190,7 @@ node_from_var_or_const(std::shared_ptr<lexer::token> tk, compile_info &c_info)
     return res;
 }
 
-constexpr bool has_precedence(earit_operation op)
+constexpr bool has_precedence(arit_op op)
 {
     return op == DIV || op == MUL || op == MOD;
 }
@@ -203,7 +203,7 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::token>> ts,
 {
     std::vector<std::shared_ptr<node>> s2;
 
-    earit_operation last_op = ARIT_OPERATION_ENUM_END;
+    arit_op last_op = ARIT_OPERATION_ENUM_END;
 
     int len = ts.size();
 
@@ -212,7 +212,7 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::token>> ts,
     for (int i = 0; i < len; i++) {
         /* If we have '/' or '*' next and are not currently an operator:
          * continue because we belong to that operator */
-        earit_operation next_op = ARIT_OPERATION_ENUM_END;
+        arit_op next_op = ARIT_OPERATION_ENUM_END;
         for (int j = i + 1; j < len; j++) {
             if (ts[j]->get_type() == lexer::TK_ARIT) {
                 next_op = lexer::safe_cast<lexer::arit>(ts[j])->get_op();

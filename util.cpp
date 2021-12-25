@@ -1,5 +1,3 @@
-#include <cassert>
-#include <cstdio>
 #include <fcntl.h>
 #include <fstream>
 #include <iostream>
@@ -61,14 +59,15 @@ std::string read_source_code(std::string filename, compile_info &c_info)
     c_info.err.on_true(c_res == MAP_FAILED, "Failed to map file '%s'\n",
                        filename.c_str());
 
-    std::string result = c_res;
+    std::string result(c_res, input_size);
 
+    munmap(c_res, file_stat.st_size);
     close(input_file);
 
     return result;
 }
 
-/* Get the index of the next token of type 'ty' on line.
+/* Get the index of the next token of type 'ty' on line starting from start.
  * Return ts.size() on failure. */
 size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::token>> ts,
                             size_t start, lexer::token_type ty)

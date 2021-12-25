@@ -1,7 +1,5 @@
 #include "dictionary.hpp"
 
-#include "ast.hpp"
-
 std::string library_files[LIB_ENUM_END] = {
     "lib/uprint.o",
     "lib/putchar.o",

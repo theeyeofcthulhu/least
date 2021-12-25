@@ -14,7 +14,7 @@
 #define STR_RESERVED_SIZE 128
 
 struct cmp_operation {
-    ecmp_operation op_enum;
+    cmp_op op_enum;
     std::string asm_name;
     std::string opposite_asm_name;
 };
@@ -30,7 +30,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
 
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
-std::string asm_from_var_or_const(std::shared_ptr<ast::node> node,
+std::string asm_from_int_or_const(std::shared_ptr<ast::node> node,
                                   compile_info &c_info)
 {
     std::stringstream var_or_const;
@@ -65,7 +65,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
 {
     /* If we are only a number: mov us into the target and leave */
     if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
-        out << "mov " << reg << ", " << asm_from_var_or_const(root, c_info)
+        out << "mov " << reg << ", " << asm_from_int_or_const(root, c_info)
             << "\n";
         return;
     }
@@ -99,13 +99,15 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
                 << "\n";
     }
 
-    /* If our children are numbers: mov them into the target */
+    /* If our children are numbers: mov them into the target
+     * Only check for this the second time around because the numbers
+     * could get overwritten if we moved before doing another calculation */
     if (arit->left->get_type() == ast::T_CONST ||
         arit->left->get_type() == ast::T_VAR)
-        out << "mov rax, " << asm_from_var_or_const(arit->left, c_info) << "\n";
+        out << "mov rax, " << asm_from_int_or_const(arit->left, c_info) << "\n";
     if (arit->right->get_type() == ast::T_CONST ||
         arit->right->get_type() == ast::T_VAR)
-        out << "mov rcx, " << asm_from_var_or_const(arit->right, c_info)
+        out << "mov rcx, " << asm_from_int_or_const(arit->right, c_info)
             << "\n";
 
     /* Execute the calculation */
@@ -139,6 +141,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
     }
 }
 
+/* Move a tree_node, which evaluates to a number into a register */
 void number_in_register(std::shared_ptr<ast::node> nd, std::string reg,
                         std::fstream &out, compile_info &c_info)
 {
@@ -151,7 +154,7 @@ void number_in_register(std::shared_ptr<ast::node> nd, std::string reg,
         break;
     case ast::T_VAR:
     case ast::T_CONST:
-        print_mov_if_req(reg, asm_from_var_or_const(nd, c_info), out);
+        print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
         break;
     default:
         c_info.err.error("UNREACHABLE: Unexpected node_type\n");
@@ -189,6 +192,7 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
             << i << "Len: equ $ - str" << i << "\n";
     }
 
+    /* Reserved string variables */
     auto is_str = [](var_info v) { return v.type == V_STR; };
     if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(),
                      is_str) != c_info.known_vars.end()) {
@@ -201,11 +205,6 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
                        "strvar"
                     << i << "len: resq 1\n";
             }
-        }
-    }
-
-    if (!c_info.known_vars.empty()) {
-        for (size_t i = 0; i < c_info.known_vars.size(); i++) {
         }
     }
 
@@ -312,14 +311,10 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         }
         case STR:
         {
+            /* check_correct_function_call defines the variable */
             ast::check_correct_function_call("str", t_func->args, 1,
                                              {ast::T_VAR}, c_info, {V_STR},
                                              {{0, V_STR}});
-
-            c_info
-                .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
-                                ->get_var_id()]
-                .type = V_STR;
             break;
         }
         case INT:
@@ -328,13 +323,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
                                              c_info, {V_INT}, {{0, V_INT}});
 
-            c_info
-                .known_vars[ast::safe_cast<ast::var>(t_func->args[0])
-                                ->get_var_id()]
-                .type = V_INT;
-
             number_in_register(t_func->args[1],
-                               asm_from_var_or_const(t_func->args[0], c_info),
+                               asm_from_int_or_const(t_func->args[0], c_info),
                                out, c_info);
             break;
         }
@@ -374,7 +364,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
 
                     if (the_var_info.type == V_INT) {
                         out << "mov rax, "
-                            << asm_from_var_or_const(format, c_info)
+                            << asm_from_int_or_const(format, c_info)
                             << "\n"
                                "call uprint\n";
                         c_info.req_libs[LIB_UPRINT] = true;
@@ -397,7 +387,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                 }
                 case ast::T_CONST:
                 {
-                    out << "mov rax, " << asm_from_var_or_const(format, c_info)
+                    out << "mov rax, " << asm_from_int_or_const(format, c_info)
                         << "\n"
                            "call uprint\n";
                     c_info.req_libs[LIB_UPRINT] = true;
@@ -416,7 +406,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
                                              c_info, {V_INT});
 
-            number_in_register(t_func->args[1], asm_from_var_or_const(t_func->args[0], c_info), out, c_info);
+            number_in_register(t_func->args[1],
+                               asm_from_int_or_const(t_func->args[0], c_info),
+                               out, c_info);
             break;
         }
         case READ:
@@ -455,21 +447,20 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     {
         std::shared_ptr<ast::cmp> cmp = ast::safe_cast<ast::cmp>(root);
         std::array<std::string, 2> regs;
-        ecmp_operation op;
+        cmp_op op;
 
-        if (cmp->left->is_var_or_const()) {
-            regs[0] = asm_from_var_or_const(cmp->left, c_info);
+        /* Cannot use immediate value as first operand to 'cmp' */
+        if (cmp->left->get_type() == ast::T_VAR) {
+            regs[0] = asm_from_int_or_const(cmp->left, c_info);
         } else {
             arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
             regs[0] = "r8";
         }
 
         if (cmp->right) {
-            /* Cannot use a memory location as the second operand to 'cmp'
-             * only directly cmp if encountered const */
-            if(cmp->right->get_type() == ast::T_CONST){
-                regs[1] = asm_from_var_or_const(cmp->right, c_info);
-            }else{
+            if (cmp->right->is_var_or_const()) {
+                regs[1] = asm_from_int_or_const(cmp->right, c_info);
+            } else {
                 arithmetic_tree_to_x86_64(cmp->right, "r9", out, c_info);
                 regs[1] = "r9";
             }
@@ -480,6 +471,24 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             regs[1] = "1";
             op = EQUAL;
         }
+        /* Why the opposite jump of what we are doing?
+         * lets say:
+         * if 2 == 2
+         *     ....
+         * end
+         * we don't want to do:
+         * cmp 2, 2
+         * je beginning of if block
+         * jmp end of if block
+         * beginning
+         * ....
+         * end
+         *
+         * just:
+         * cmp 2, 2
+         * jne end of if block
+         * ....
+         * end */
         out << "cmp " << regs[0] << ", " << regs[1] << "\n"
             << cmp_operation_structs[op].opposite_asm_name << " .end" << body_id
             << '\n';

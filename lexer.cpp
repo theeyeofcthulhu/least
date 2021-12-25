@@ -13,7 +13,7 @@
 
 namespace lexer {
 
-const std::map<std::string, ekeyword> key_map{
+const std::map<std::string, keyword> key_map{
     std::make_pair("print", K_PRINT), std::make_pair("exit", K_EXIT),
     std::make_pair("if", K_IF),       std::make_pair("elif", K_ELIF),
     std::make_pair("else", K_ELSE),   std::make_pair("while", K_WHILE),
@@ -22,13 +22,13 @@ const std::map<std::string, ekeyword> key_map{
     std::make_pair("set", K_SET),     std::make_pair("putchar", K_PUTCHAR),
 };
 
-const std::map<std::string, ecmp_operation> cmp_map{
+const std::map<std::string, cmp_op> cmp_map{
     std::make_pair("==", EQUAL),  std::make_pair("!=", NOT_EQUAL),
     std::make_pair("<", LESS),    std::make_pair("<=", LESS_OR_EQ),
     std::make_pair(">", GREATER), std::make_pair(">=", GREATER_OR_EQ),
 };
 
-const std::map<std::string, earit_operation> arit_map{
+const std::map<std::string, arit_op> arit_map{
     std::make_pair("+", ADD), std::make_pair("-", SUB),
     std::make_pair("%", MOD), std::make_pair("/", DIV),
     std::make_pair("*", MUL),

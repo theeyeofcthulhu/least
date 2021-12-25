@@ -46,46 +46,46 @@ class token {
 
 class key : public token {
   public:
-    key(int line, ekeyword t_key) : token(line), m_key(t_key) {}
-    ekeyword get_key() { return m_key; };
+    key(int line, keyword t_key) : token(line), m_key(t_key) {}
+    keyword get_key() { return m_key; };
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_KEY;
-    ekeyword m_key;
+    keyword m_key;
 };
 
 class arit : public token {
   public:
-    arit(int line, earit_operation op) : token(line), m_op(op) {}
-    earit_operation get_op() { return m_op; };
+    arit(int line, arit_op op) : token(line), m_op(op) {}
+    arit_op get_op() { return m_op; };
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_ARIT;
-    earit_operation m_op;
+    arit_op m_op;
 };
 
 class cmp : public token {
   public:
-    cmp(int line, ecmp_operation t_cmp) : token(line), m_cmp(t_cmp) {}
-    ecmp_operation get_cmp() { return m_cmp; };
+    cmp(int line, cmp_op t_cmp) : token(line), m_cmp(t_cmp) {}
+    cmp_op get_cmp() { return m_cmp; };
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_CMP;
-    ecmp_operation m_cmp;
+    cmp_op m_cmp;
 };
 
 class log : public token {
   public:
-    log(int line, elogical_operation t_log) : token(line), m_log(t_log) {}
-    elogical_operation get_log() { return m_log; };
+    log(int line, log_op t_log) : token(line), m_log(t_log) {}
+    log_op get_log() { return m_log; };
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_LOG;
-    elogical_operation m_log;
+    log_op m_log;
 };
 
 class str : public token {
