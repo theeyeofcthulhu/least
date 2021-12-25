@@ -10,5 +10,5 @@ while i < 100
     else
         print "[i]\n" ;
     end
-    set i ; i + 1 ;
+    add i ; 1 ;
 end

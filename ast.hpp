@@ -266,6 +266,11 @@ void check_correct_function_call(
     std::vector<std::pair<size_t, var_type>> define =
         std::vector<std::pair<size_t, var_type>>());
 
+inline constexpr bool has_precedence(arit_op op)
+{
+    return op == DIV || op == MUL || op == MOD;
+}
+
 } // namespace ast
 
 #endif /* AST_H_ */

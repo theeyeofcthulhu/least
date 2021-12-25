@@ -20,6 +20,7 @@ const std::map<std::string, keyword> key_map{
     std::make_pair("end", K_END),     std::make_pair("int", K_INT),
     std::make_pair("str", K_STR),     std::make_pair("read", K_READ),
     std::make_pair("set", K_SET),     std::make_pair("putchar", K_PUTCHAR),
+    std::make_pair("add", K_ADD),
 };
 
 const std::map<std::string, cmp_op> cmp_map{
@@ -146,18 +147,18 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
             size_t next_i;
             auto next_word = get_next_word(line, j, next_i);
 
-            if (cmp_map.find(next_word) != cmp_map.end())
+            if (cmp_map.find(next_word) != cmp_map.end()) {
                 tokens.push_back(
                     std::make_shared<cmp>(i, cmp_map.at(next_word)));
-            else if (key_map.find(next_word) != key_map.end())
+            } else if (key_map.find(next_word) != key_map.end()) {
                 tokens.push_back(
                     std::make_shared<key>(i, key_map.at(next_word)));
-            else if (arit_map.find(next_word) != arit_map.end())
+            } else if (arit_map.find(next_word) != arit_map.end()) {
                 tokens.push_back(
                     std::make_shared<arit>(i, arit_map.at(next_word)));
-            else if (next_word == ";")
+            } else if (next_word == ";") {
                 tokens.push_back(std::make_shared<sep>(i));
-            else {
+            } else {
                 checkbanned(next_word, c_info);
                 tokens.push_back(std::make_shared<var>(i, next_word));
             }

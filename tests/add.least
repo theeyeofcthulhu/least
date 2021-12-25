@@ -1,0 +1,8 @@
+int a ; 4 ;
+
+print "a: [a]\n" ;
+
+int b ; 2 ;
+add a ; b ;
+
+print "a: [a]\n" ;

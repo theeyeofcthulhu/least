@@ -74,6 +74,11 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
 
     std::shared_ptr<ast::arit> arit = ast::safe_cast<ast::arit>(root);
 
+    bool rcx_can_be_immediate = !ast::has_precedence(
+        arit->get_arit()); /* Only 'add' and 'sub' accept immediate values as
+                              the second operand */
+    std::string second_value = "rcx";
+
     assert(arit->left->get_type() == ast::T_ARIT ||
            arit->left->get_type() == ast::T_CONST ||
            arit->left->get_type() == ast::T_VAR);
@@ -91,48 +96,66 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
     if (arit->right->get_type() == ast::T_ARIT) {
         /* Preserve rax */
         if (value_in_rax)
-            out << "push rax"
-                << "\n";
+            out << "push rax\n";
         arithmetic_tree_to_x86_64(arit->right, "rcx", out, c_info);
         if (value_in_rax)
-            out << "pop rax"
-                << "\n";
+            out << "pop rax\n";
     }
 
     /* If our children are numbers: mov them into the target
      * Only check for this the second time around because the numbers
      * could get overwritten if we moved before doing another calculation */
     if (arit->left->get_type() == ast::T_CONST ||
-        arit->left->get_type() == ast::T_VAR)
+        arit->left->get_type() == ast::T_VAR) {
         out << "mov rax, " << asm_from_int_or_const(arit->left, c_info) << "\n";
-    if (arit->right->get_type() == ast::T_CONST ||
-        arit->right->get_type() == ast::T_VAR)
+    }
+
+    switch (arit->right->get_type()) {
+    case ast::T_CONST:
+    {
+        if (rcx_can_be_immediate) {
+            second_value = asm_from_int_or_const(arit->right, c_info);
+            break;
+        }
+        __attribute__((fallthrough)); /* If rcx can't be immediate: do the same
+                                         as you would for var */
+    }
+    case ast::T_VAR:
+    {
         out << "mov rcx, " << asm_from_int_or_const(arit->right, c_info)
             << "\n";
+        break;
+    }
+    default:
+        break;
+    }
 
     /* Execute the calculation */
     switch (arit->get_arit()) {
     case ADD:
-        out << "add rax, rcx\n";
+        out << "add rax, " << second_value << "\n";
         print_mov_if_req(reg, "rax", out);
         break;
     case SUB:
-        out << "sub rax, rcx\n";
+        out << "sub rax, " << second_value << "\n";
         print_mov_if_req(reg, "rax", out);
         break;
     case DIV:
         out << "xor rdx, rdx\n"
-               "div rcx\n";
+               "div "
+            << second_value << "\n";
         print_mov_if_req(reg, "rax", out);
         break;
     case MOD:
         out << "xor rdx, rdx\n"
-               "div rcx\n";
+               "div "
+            << second_value << "\n";
         print_mov_if_req(reg, "rdx", out);
         break;
     case MUL:
         out << "xor rdx, rdx\n"
-               "mul rcx\n";
+               "mul "
+            << second_value << "\n";
         print_mov_if_req(reg, "rax", out);
         break;
     case ARIT_OPERATION_ENUM_END:
@@ -300,7 +323,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     {
         std::shared_ptr<ast::func> t_func = ast::safe_cast<ast::func>(root);
         switch (t_func->get_func()) {
-        case EXIT:
+        case F_EXIT:
         {
             ast::check_correct_function_call("exit", t_func->args, 1,
                                              {ast::T_NUM_GENERAL}, c_info);
@@ -309,7 +332,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             out << "syscall\n";
             break;
         }
-        case STR:
+        case F_STR:
         {
             /* check_correct_function_call defines the variable */
             ast::check_correct_function_call("str", t_func->args, 1,
@@ -317,7 +340,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                              {{0, V_STR}});
             break;
         }
-        case INT:
+        case F_INT:
         {
             ast::check_correct_function_call("int", t_func->args, 2,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
@@ -328,7 +351,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                out, c_info);
             break;
         }
-        case PRINT:
+        case F_PRINT:
         {
             ast::check_correct_function_call("print", t_func->args, 1,
                                              {ast::T_LSTR}, c_info);
@@ -362,13 +385,18 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
 
                     c_info.error_on_undefined(the_var);
 
-                    if (the_var_info.type == V_INT) {
+                    switch (the_var_info.type) {
+                    case V_INT:
+                    {
                         out << "mov rax, "
                             << asm_from_int_or_const(format, c_info)
                             << "\n"
                                "call uprint\n";
                         c_info.req_libs[LIB_UPRINT] = true;
-                    } else if (the_var_info.type == V_STR) {
+                        break;
+                    }
+                    case V_STR:
+                    {
                         out << "mov rax, 1\n"
                                "mov rdi, 1\n"
                                "mov rsi, strvar"
@@ -378,10 +406,15 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                             << the_var->get_var_id()
                             << "len\n"
                                "syscall\n";
-                    } else {
+                        break;
+                    }
+                    default:
+                    {
                         assert(
                             false &&
                             "Defined variable not assigned type, unreachable");
+                        break;
+                    }
                     }
                     break;
                 }
@@ -395,12 +428,13 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                 }
                 default:
                     c_info.err.error("Unexpected format token in string\n");
+                    break;
                 }
             }
             break;
         }
         /* TODO: implement an increment/decrement function */
-        case SET:
+        case F_SET:
         {
             ast::check_correct_function_call("set", t_func->args, 2,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
@@ -411,7 +445,24 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                out, c_info);
             break;
         }
-        case READ:
+        case F_ADD:
+        {
+            ast::check_correct_function_call("add", t_func->args, 2,
+                                             {ast::T_VAR, ast::T_NUM_GENERAL},
+                                             c_info, {V_INT});
+
+            if (t_func->args[1]->get_type() == ast::T_CONST) {
+                out << "add " << asm_from_int_or_const(t_func->args[0], c_info)
+                    << ", " << asm_from_int_or_const(t_func->args[1], c_info)
+                    << "\n";
+            } else {
+                number_in_register(t_func->args[1], "rax", out, c_info);
+                out << "add " << asm_from_int_or_const(t_func->args[0], c_info)
+                    << ", rax\n";
+            }
+            break;
+        }
+        case F_READ:
         {
             auto t_var = ast::safe_cast<ast::var>(t_func->args[0]);
 
@@ -437,7 +488,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                                  */
             break;
         }
-        case PUTCHAR:
+        case F_PUTCHAR:
             c_info.err.error("TODO: unimplemented\n");
             break;
         }

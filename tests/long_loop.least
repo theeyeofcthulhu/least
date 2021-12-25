@@ -1,0 +1,7 @@
+int i ; 0 ;
+while i < 1000000
+    if i % 33 == 0
+        print "[i]: yes\n" ;
+    end
+    set i ; i + 1 ;
+end

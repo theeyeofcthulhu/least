@@ -17,19 +17,19 @@ void tree_to_dot_core(std::shared_ptr<ast::node> root, int &node, int &tbody_id,
                       compile_info &c_info);
 
 const std::map<keyword, func_id> key_func_map = {
-    std::make_pair(K_PRINT, PRINT),     std::make_pair(K_EXIT, EXIT),
-    std::make_pair(K_READ, READ),       std::make_pair(K_SET, SET),
-    std::make_pair(K_PUTCHAR, PUTCHAR), std::make_pair(K_INT, INT),
-    std::make_pair(K_STR, STR),
+    std::make_pair(K_PRINT, F_PRINT),     std::make_pair(K_EXIT, F_EXIT),
+    std::make_pair(K_READ, F_READ),       std::make_pair(K_SET, F_SET),
+    std::make_pair(K_PUTCHAR, F_PUTCHAR), std::make_pair(K_INT, F_INT),
+    std::make_pair(K_STR, F_STR),         std::make_pair(K_ADD, F_ADD),
 };
 
 /* Maps for converting enum values to strings */
 
 const std::map<func_id, std::string> func_str_map = {
-    std::make_pair(PRINT, "print"),     std::make_pair(EXIT, "exit"),
-    std::make_pair(READ, "read"),       std::make_pair(SET, "set"),
-    std::make_pair(PUTCHAR, "putchar"), std::make_pair(INT, "int"),
-    std::make_pair(STR, "str"),
+    std::make_pair(F_PRINT, "print"),     std::make_pair(F_EXIT, "exit"),
+    std::make_pair(F_READ, "read"),       std::make_pair(F_SET, "set"),
+    std::make_pair(F_PUTCHAR, "putchar"), std::make_pair(F_INT, "int"),
+    std::make_pair(F_STR, "str"),         std::make_pair(F_ADD, "add"),
 };
 
 const std::map<cmp_op, std::string> cmp_str_map = {
@@ -188,11 +188,6 @@ node_from_var_or_const(std::shared_ptr<lexer::token> tk, compile_info &c_info)
     }
 
     return res;
-}
-
-constexpr bool has_precedence(arit_op op)
-{
-    return op == DIV || op == MUL || op == MOD;
 }
 
 /* Parse arithmetic expression respecting precedence */
@@ -454,6 +449,7 @@ gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens, compile_info &c_info)
             case K_EXIT:
             case K_READ:
             case K_SET:
+            case K_ADD:
             case K_PUTCHAR:
             case K_INT:
             case K_STR:
@@ -463,7 +459,7 @@ gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens, compile_info &c_info)
                 root->children.push_back(new_func);
 
                 switch (new_func->get_func()) {
-                case PUTCHAR:
+                case F_PUTCHAR:
                     c_info.req_libs[LIB_PUTCHAR] = true;
                     break;
                 default:

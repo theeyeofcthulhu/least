@@ -5,13 +5,14 @@
 #include <string>
 
 enum func_id {
-    PRINT,
-    EXIT,
-    READ,
-    SET,
-    PUTCHAR,
-    INT,
-    STR,
+    F_PRINT,
+    F_EXIT,
+    F_READ,
+    F_SET,
+    F_ADD,
+    F_PUTCHAR,
+    F_INT,
+    F_STR,
 };
 
 enum conditional {
@@ -60,6 +61,7 @@ enum keyword {
     K_STR,
     K_READ,
     K_SET,
+    K_ADD,
     K_PUTCHAR,
     K_NOKEY,
 };
