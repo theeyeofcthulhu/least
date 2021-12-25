@@ -38,6 +38,7 @@ class node {
   public:
     int get_line() { return m_line; };
     virtual ts_class get_type() { return m_type; };
+    virtual bool is_var_or_const() const { return false; };
 
     node(int line) : m_line(line) {}
 
@@ -124,6 +125,7 @@ class n_const : public node {
     int get_value() { return m_value; };
 
     ts_class get_type() override { return m_type; };
+    bool is_var_or_const() const override { return true; };
 
     n_const(int line, int value) : node(line), m_value(value) {}
 
@@ -168,6 +170,8 @@ class func : public node {
 class var : public node {
   public:
     ts_class get_type() override { return m_type; };
+    bool is_var_or_const() const override { return true; };
+
     int get_var_id() { return m_var_id; };
 
     var(int line, int var_id) : node(line), m_var_id(var_id) {}

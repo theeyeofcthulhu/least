@@ -1,27 +1,25 @@
-int a 400
-set a a + 300
+int a ; 400 ;
+set a ; a + 300 ;
 
-fprint "Expecting 700, got: [a]\n"
+print "Expecting 700, got: [a]\n" ;
 
-int c 0
-int b 20
-set c a + b
-fprint "Added [a] and [b] to form: [c]\n"
+int b ; 20 ;
+int c ; a + b ;
+print "Added [a] and [b] to form: [c]\n" ;
 
-int x 0
-set x 100 % 3
-fprint "Mod:\n"
-fprint "[x]\n"
-set x 100 % 5
-fprint "[x]\n"
+int x ; 100 % 3 ;
+print "Mod:\n" ;
+print "[x]\n" ;
+set x ; 100 % 5 ;
+print "[x]\n" ;
 
-int div 1000
-int dive 20
+int div ; 1000 ;
+int dive ; 20 ;
 
-fprint "Dividing [div] by [dive]"
-set div div / dive
-fprint " to get: [div]\n"
+print "Dividing [div] by [dive]" ;
+set div ; div / dive ;
+print " to get: [div]\n" ;
 
-int d 400
-set d d - 100
-fprint "Expecting 300, got: [d]\n"
+int d ; 400 ;
+set d ; d - 100 ;
+print "Expecting 300, got: [d]\n" ;
