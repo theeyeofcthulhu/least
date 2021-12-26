@@ -195,10 +195,12 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
            "section .text\n"
            "_start:\n";
 
-    if (!c_info.known_vars.empty())
+    /* Allocate space var variables on stack */
+    if (!c_info.known_vars.empty()) {
         out << "mov rbp, rsp\n"
                "sub rsp, "
             << (c_info.known_vars.size()) * 8 << '\n';
+    }
 
     ast_to_x86_64_core(ast::to_base(root), out, c_info, root->get_body_id(),
                        root->get_body_id());
@@ -223,7 +225,7 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
         for (size_t i = 0; i < c_info.known_vars.size(); i++) {
             auto v = c_info.known_vars[i];
             if (v.type == V_STR) {
-                out << "strvar" << i << ": resq " << STR_RESERVED_SIZE
+                out << "strvar" << i << ": resb " << STR_RESERVED_SIZE
                     << "\n"
                        "strvar"
                     << i << "len: resq 1\n";
@@ -282,13 +284,11 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             out << "jmp .end" << real_end_id
                 << "\n"
                    ".end"
-                << t_if->body->get_body_id() << ":"
-                << "\n";
+                << t_if->body->get_body_id() << ":\n";
             ast_to_x86_64_core(t_if->elif, out, c_info,
                                t_if->body->get_body_id(), real_end_id);
         } else {
-            out << ".end" << t_if->body->get_body_id() << ":"
-                << "\n";
+            out << ".end" << t_if->body->get_body_id() << ":\n";
         }
         break;
     }
@@ -327,9 +327,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         {
             ast::check_correct_function_call("exit", t_func->args, 1,
                                              {ast::T_NUM_GENERAL}, c_info);
-            out << "mov rax, 60\n";
             number_in_register(t_func->args[0], "rdi", out, c_info);
-            out << "syscall\n";
+            out << "mov rax, 60\n"
+                   "syscall\n";
             break;
         }
         case F_STR:
