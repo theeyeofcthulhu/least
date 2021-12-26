@@ -1,0 +1,5 @@
+int i ; 100 ;
+print "i: [i]\n" ;
+
+sub i ; 31 ;
+print "i: [i]\n" ;
