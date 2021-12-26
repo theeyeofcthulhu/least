@@ -21,16 +21,10 @@ const std::map<keyword, func_id> key_func_map = {
     std::make_pair(K_READ, F_READ),       std::make_pair(K_SET, F_SET),
     std::make_pair(K_PUTCHAR, F_PUTCHAR), std::make_pair(K_INT, F_INT),
     std::make_pair(K_STR, F_STR),         std::make_pair(K_ADD, F_ADD),
+    std::make_pair(K_SUB, F_SUB),
 };
 
 /* Maps for converting enum values to strings */
-
-const std::map<func_id, std::string> func_str_map = {
-    std::make_pair(F_PRINT, "print"),     std::make_pair(F_EXIT, "exit"),
-    std::make_pair(F_READ, "read"),       std::make_pair(F_SET, "set"),
-    std::make_pair(F_PUTCHAR, "putchar"), std::make_pair(F_INT, "int"),
-    std::make_pair(F_STR, "str"),         std::make_pair(F_ADD, "add"),
-};
 
 const std::map<cmp_op, std::string> cmp_str_map = {
     std::make_pair(EQUAL, "=="),         std::make_pair(GREATER, ">"),
@@ -469,6 +463,7 @@ gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens, compile_info &c_info)
             case K_READ:
             case K_SET:
             case K_ADD:
+            case K_SUB:
             case K_PUTCHAR:
             case K_INT:
             case K_STR:
@@ -546,6 +541,7 @@ gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens, compile_info &c_info)
                     }
                 }
                 break;
+            default:
             case K_NOKEY:
                 c_info.err.error("Invalid instruction\n");
                 break;

@@ -14,7 +14,6 @@
 #define RED(str) SHELL_RED << str << SHELL_WHITE
 #define GREEN(str) SHELL_GREEN << str << SHELL_WHITE
 
-/* TODO: exit 1 + ; crashes with segfault */
 /* TODO: observe blocks when looking at variable definitions */
 int main(int argc, char *argv[])
 {

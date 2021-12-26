@@ -10,6 +10,7 @@ enum func_id {
     F_READ,
     F_SET,
     F_ADD,
+    F_SUB,
     F_PUTCHAR,
     F_INT,
     F_STR,
@@ -30,8 +31,7 @@ enum cmp_op {
     LESS_OR_EQ,
     GREATER,
     GREATER_OR_EQ,
-    CMP_OPERATION_ENUM_END,
-};
+    CMP_OPERATION_ENUM_END,};
 
 /* Structure for organizing arithmetic operations */
 enum arit_op {
@@ -62,6 +62,7 @@ enum keyword {
     K_READ,
     K_SET,
     K_ADD,
+    K_SUB,
     K_PUTCHAR,
     K_NOKEY,
 };
@@ -78,7 +79,8 @@ enum var_type {
     V_UNSURE,
 };
 
-extern std::string library_files[LIB_ENUM_END];
-extern std::map<var_type, std::string> var_type_str_map;
+extern const std::string library_files[LIB_ENUM_END];
+extern const std::map<var_type, std::string> var_type_str_map;
+extern const std::map<func_id, std::string> func_str_map;
 
 #endif // DICTIONARY_H_

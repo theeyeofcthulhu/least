@@ -59,7 +59,6 @@ void print_mov_if_req(std::string target, std::string source, std::fstream &out)
 
 /* Parse a tree representing an arithmetic expression into assembly recursively
  */
-/* TODO: simplify using immediate values for add and sub */
 void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
                                std::fstream &out, compile_info &c_info)
 {
@@ -322,10 +321,14 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     case ast::T_FUNC:
     {
         std::shared_ptr<ast::func> t_func = ast::safe_cast<ast::func>(root);
+
+        const std::string func_name = func_str_map.at(t_func->get_func());
+        out << ";; " << func_name << '\n';
+
         switch (t_func->get_func()) {
         case F_EXIT:
         {
-            ast::check_correct_function_call("exit", t_func->args, 1,
+            ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_NUM_GENERAL}, c_info);
             number_in_register(t_func->args[0], "rdi", out, c_info);
             out << "mov rax, 60\n"
@@ -335,14 +338,14 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         case F_STR:
         {
             /* check_correct_function_call defines the variable */
-            ast::check_correct_function_call("str", t_func->args, 1,
+            ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_VAR}, c_info, {V_STR},
                                              {{0, V_STR}});
             break;
         }
         case F_INT:
         {
-            ast::check_correct_function_call("int", t_func->args, 2,
+            ast::check_correct_function_call(func_name, t_func->args, 2,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
                                              c_info, {V_INT}, {{0, V_INT}});
 
@@ -353,7 +356,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         }
         case F_PRINT:
         {
-            ast::check_correct_function_call("print", t_func->args, 1,
+            ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_LSTR}, c_info);
 
             std::shared_ptr<ast::lstr> ls =
@@ -433,10 +436,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             }
             break;
         }
-        /* TODO: implement an increment/decrement function */
         case F_SET:
         {
-            ast::check_correct_function_call("set", t_func->args, 2,
+            ast::check_correct_function_call(func_name, t_func->args, 2,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
                                              c_info, {V_INT});
 
@@ -446,18 +448,19 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             break;
         }
         case F_ADD:
+        case F_SUB:
         {
-            ast::check_correct_function_call("add", t_func->args, 2,
+            ast::check_correct_function_call(func_name, t_func->args, 2,
                                              {ast::T_VAR, ast::T_NUM_GENERAL},
                                              c_info, {V_INT});
 
             if (t_func->args[1]->get_type() == ast::T_CONST) {
-                out << "add " << asm_from_int_or_const(t_func->args[0], c_info)
+                out << func_name << " " << asm_from_int_or_const(t_func->args[0], c_info) /* In this case func name ('add' or 'sub') is actually the correct instruction */
                     << ", " << asm_from_int_or_const(t_func->args[1], c_info)
                     << "\n";
             } else {
                 number_in_register(t_func->args[1], "rax", out, c_info);
-                out << "add " << asm_from_int_or_const(t_func->args[0], c_info)
+                out << func_name << " " << asm_from_int_or_const(t_func->args[0], c_info)
                     << ", rax\n";
             }
             break;
@@ -466,7 +469,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         {
             auto t_var = ast::safe_cast<ast::var>(t_func->args[0]);
 
-            ast::check_correct_function_call("read", t_func->args, 1,
+            ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_VAR}, c_info, {V_STR});
 
             out << ";; read\n"
@@ -488,6 +491,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                                  */
             break;
         }
+        default:
         case F_PUTCHAR:
             c_info.err.error("TODO: unimplemented\n");
             break;
