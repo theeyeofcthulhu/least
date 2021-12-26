@@ -223,10 +223,14 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::token>> ts,
             /* Make new multiplication */
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
-                assert(ts[i - 1]->get_type() == lexer::TK_NUM ||
-                       ts[i - 1]->get_type() == lexer::TK_VAR);
-                assert(ts[i + 1]->get_type() == lexer::TK_NUM ||
-                       ts[i + 1]->get_type() == lexer::TK_VAR);
+                c_info.err.on_false(ts[i - 1]->get_type() == lexer::TK_NUM ||
+                                        ts[i - 1]->get_type() == lexer::TK_VAR,
+                                    "Expected number before '%s' operator\n",
+                                    arit_str_map.at(op->get_op()).c_str());
+                c_info.err.on_false(ts[i + 1]->get_type() == lexer::TK_NUM ||
+                                        ts[i + 1]->get_type() == lexer::TK_VAR,
+                                    "Expected number after '%s' operator\n",
+                                    arit_str_map.at(op->get_op()).c_str());
 
                 if (has_precedence(last_op)) {
                     /* If we follow another multiplication:
@@ -268,6 +272,10 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::token>> ts,
     std::shared_ptr<arit> root = nullptr;
     std::shared_ptr<arit> current = nullptr;
 
+    /* In s2, we now have an array of nodes which are either:
+     * a number, an empty plus or minus node, or a complete
+     * multiplication division. Now we make a tree out of that. */
+
     /* Parse everything into a tree */
     for (size_t i = 0; i < s2.size(); i++) {
         if (s2[i]->get_type() == T_ARIT) {
@@ -287,7 +295,18 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::token>> ts,
                 }
 
                 if (i + 1 >= s2.size() - 1) {
+                    /* If we are the last thing: set our own right to the next
+                     * number */
+                    c_info.err.on_true(
+                        i + 1 > s2.size() - 1,
+                        "Expected number after operand '%s'\n",
+                        arit_str_map.at(cur_arit->get_arit()).c_str());
                     current->right = s2[i + 1];
+                } else if (s2[i + 1]->get_type() == T_ARIT) {
+                    std::shared_ptr<arit> next_arit =
+                        safe_cast<arit>(s2[i + 1]);
+                    c_info.err.on_false(has_precedence(next_arit->get_arit()),
+                                        "+/- followed by another +/-\n");
                 }
             }
         }
