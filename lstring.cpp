@@ -15,9 +15,19 @@ const std::map<char, std::string> str_tokens = {
     std::make_pair('t', "\",0x9,\""),   /* Tabstop */
     std::make_pair('\\', "\\"),         /* The character '\' */
     std::make_pair('\"', "\",0x22,\""), /* The character '"' */
-    std::make_pair('\\', "\",0x27,\""), /* The character "'" */
+    std::make_pair('\'', "\",0x27,\""), /* The character "'" */
     std::make_pair('[', "\",0x5B,\""),  /* The character '[' */
     std::make_pair(']', "\",0x5D,\""),  /* The character ']' */
+};
+
+const std::map<char, char> str_tokens_char = {
+    std::make_pair('n', '\n'),  /* Newline */
+    std::make_pair('t', '\t'),  /* Tabstop */
+    std::make_pair('\\', '\\'), /* The character '\' */
+    std::make_pair('\"', '\"'), /* The character '"' */
+    std::make_pair('\'', '\''), /* The character ''' */
+    std::make_pair('[', '['),   /* The character '[' */
+    std::make_pair(']', ']'),   /* The character ']' */
 };
 
 /* Check validity of string and insert escape sequences */
@@ -29,51 +39,35 @@ std::shared_ptr<lstr> parse_string(std::string string, int line,
 
     int string_len = string.length();
 
-    int n_quotes = 0;
+    c_info.err.on_false(string_len > 2, "String is empty\n");
+    assert(string[0] == '\"' && string[string_len - 1] == '\"');
 
     std::stringstream ss;
 
     /* Parse string that comes after the instruction */
-    for (int i = 0; i < string_len; i++) {
+    for (int i = 1; i < string_len - 1; i++) {
         switch (string[i]) {
         /* Check number of quotes */
-        case '"':
-        {
-            if (n_quotes == 0)
-                c_info.err.on_false(
-                    (i + 1) < string_len,
-                    "Reached end of line while parsing first '\"' in string\n");
-
-            n_quotes++;
-            c_info.err.on_true(
-                n_quotes > 2,
-                "Found more than two '\"' while parsing string\n");
-            if (n_quotes == 2)
-                c_info.err.on_false(
-                    (i + 1) == string_len,
-                    "Expected end of string after second quotation\n");
-            break;
-        }
         case '\\':
         {
             i++;
             c_info.err.on_true(
                 i >= string_len - 1,
                 "Reached end of line while trying to parse escape sequence\n");
-            auto expanded = str_tokens.find(string[i]);
 
-            c_info.err.on_true(expanded == str_tokens.end(),
-                               "Could not parse escape sequence: '\\%c'",
-                               string[i]);
-
-            ss << str_tokens.at(string[i]);
+            try {
+                ss << str_tokens.at(string[i]);
+            } catch (std::out_of_range &e) {
+                c_info.err.error("Could not parse escape sequence: '\\%c'\n",
+                                 string[i]);
+            }
             break;
         }
         /* We found a format parameter: parse the tokens in it */
         case '[':
         {
             std::string part = ss.str();
-            ss.str(std::string());
+            ss.str(std::string()); /* Clear stringstream */
 
             if (!part.empty())
                 res->ts.push_back(std::make_shared<str>(line, part));
@@ -125,23 +119,47 @@ std::shared_ptr<lstr> parse_string(std::string string, int line,
             break;
         }
         }
-        c_info.err.on_true(string[i] != '"' && n_quotes == 0,
-                           "First '\"' not at beginning of parsed sequence, "
-                           "instead found '%c'\n",
-                           string[i]);
     }
-    c_info.err.on_false(n_quotes == 2,
-                        "Did not find two '\"' while parsing string\n");
-
     std::string final_str = ss.str();
 
     if (!final_str.empty())
         res->ts.push_back(std::make_shared<str>(line, final_str));
 
     c_info.err.on_true(res->ts.empty(),
-                       "Lstring format has no contents after parse_string\n");
+                       "lstring format has no contents after parse_string\n");
 
     return res;
+}
+
+std::shared_ptr<num> parse_char(std::string string, int line,
+                                   compile_info &c_info)
+{
+    char parsed_char;
+
+    int string_len = string.length();
+
+    c_info.err.on_false(string_len == 3 || string_len == 4,
+                       "Could not parse string '%s' as character constant\n",
+                       string.c_str());
+
+    assert(string[0] == '\'' && string[string_len-1] == '\'');
+
+    if(string[1] == '\\') {
+        c_info.err.on_false(string_len == 4, "Expected another character after '\\'\n");
+        try {
+            parsed_char = str_tokens_char.at(string[2]);
+        } catch (std::out_of_range &e) {
+            c_info.err.error("Could not parse escape sequence '\\%c'\n", string[2]);
+        }
+    } else {
+        c_info.err.on_false(string_len == 3,
+                            "Too many symbols in character constant %s\n",
+                            string.c_str());
+
+        parsed_char = string[1];
+    }
+
+    return std::make_shared<num>(line, (int)parsed_char);
 }
 
 } // namespace lexer

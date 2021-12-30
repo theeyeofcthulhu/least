@@ -11,6 +11,9 @@
 #include "lstring.hpp"
 #include "util.hpp"
 
+/* TODO: better alertion of wrong termination of function calls, along the lines of
+ * error: function calls must be terminated with a ';' */
+
 namespace lexer {
 
 const std::map<std::string, keyword> key_map{
@@ -99,14 +102,17 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
         c_info.err.on_true(words.empty(), "Could not split line into words\n");
 
         for (size_t j = 0; j < line.length(); j++) {
-            if (line[j] == ' ')
+            if (line[j] == ' ') {
                 continue;
-            if (line[j] == '\"') {
+            } else if (line[j] == '\"' || line[j] == '\'') {
+                /* Parse string literal or character constant */
+
+                char quote = line[j];
                 std::string united;
 
                 size_t k;
                 for (k = j + 1; k < line.length(); k++) {
-                    if (line[k] == '\"' && line[k - 1] != '\\') {
+                    if (line[k] == quote && line[k - 1] != '\\') {
                         if (k + 1 < line.length())
                             c_info.err.on_false(
                                 std::isspace(line[k + 1]),
@@ -119,9 +125,14 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
                 j = k; /* Advance current char to end of string */
 
                 c_info.err.on_true(united.empty(),
-                                   "Could not find end of string\n");
+                                   "Could not find end of string or character constant\n");
 
-                std::shared_ptr<lstr> parsed = parse_string(united, i, c_info);
+                std::shared_ptr<token> parsed;
+
+                if(quote == '\"')
+                    parsed = parse_string(united, i, c_info);
+                else if (quote == '\'')
+                    parsed = parse_char(united, i, c_info);
 
                 tokens.push_back(parsed);
 

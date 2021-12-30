@@ -109,17 +109,6 @@ class lstr : public token {
     static const token_type m_type = lexer::TK_LSTR;
 };
 
-class t_char : public token {
-  public:
-    t_char(int line, char the_char) : token(line), m_the_char(the_char) {}
-    char get_char() { return m_the_char; };
-    token_type get_type() override { return m_type; };
-
-  private:
-    static const token_type m_type = lexer::TK_CHAR;
-    char m_the_char;
-};
-
 class num : public token {
   public:
     num(int line, int t_num) : token(line), m_num(t_num) {}
@@ -172,7 +161,6 @@ const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(log).hash_code(), lexer::TK_LOG),
     std::make_pair(typeid(str).hash_code(), lexer::TK_STR),
     std::make_pair(typeid(lstr).hash_code(), lexer::TK_LSTR),
-    std::make_pair(typeid(t_char).hash_code(), lexer::TK_CHAR),
     std::make_pair(typeid(num).hash_code(), lexer::TK_NUM),
     std::make_pair(typeid(var).hash_code(), lexer::TK_VAR),
     std::make_pair(typeid(sep).hash_code(), lexer::TK_SEP),

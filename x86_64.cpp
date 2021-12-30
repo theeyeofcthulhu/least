@@ -467,13 +467,12 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         }
         case F_READ:
         {
-            auto t_var = ast::safe_cast<ast::var>(t_func->args[0]);
-
             ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_VAR}, c_info, {V_STR});
 
-            out << ";; read\n"
-                   "xor rax, rax\n"
+            auto t_var = ast::safe_cast<ast::var>(t_func->args[0]);
+
+            out << "xor rax, rax\n"
                    "xor rdi, rdi\n"
                    "mov rsi, strvar"
                 << t_var->get_var_id()
@@ -491,8 +490,19 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                                                  */
             break;
         }
-        default:
         case F_PUTCHAR:
+        {
+            ast::check_correct_function_call(func_name, t_func->args, 1,
+                                             {ast::T_NUM_GENERAL}, c_info);
+
+            c_info.req_libs[LIB_PUTCHAR] = true;
+
+            number_in_register(t_func->args[0], "rax", out, c_info);
+            out << "call putchar\n";
+
+            break;
+        }
+        default:
             c_info.err.error("TODO: unimplemented\n");
             break;
         }

@@ -1,5 +1,5 @@
 int a ; 30 ;
 int b ; 33 ;
 
-fprint "[b] Integer a is [a], it should be [30]!\n" ;
-fprint "Escaped \[Brackets\]\n" ;
+print "[b] Integer a is [a], it should be [30]!\n" ;
+print "Escaped \[Brackets\]\n" ;

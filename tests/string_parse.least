@@ -3,3 +3,5 @@ print "New\n\nLine\n" ;
 print "writing '\\'\n" ;
 print "writing '\"'\n" ;
 print "string with     spaces\n" ;
+int a ; 5 ;
+print "printing int: [a]\n" ;
