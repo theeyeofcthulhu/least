@@ -141,6 +141,10 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
                 size_t next_i;
                 auto next_word = get_next_word(line, j, next_i);
 
+                /* TODO: do the whole conversion manually, don't
+                 * check if every character is a digit and then call stoi()
+                 * (stoi() doesn't throw on something like 2312ddfdf, so we need
+                 * to have a whole thing...) */
                 for (auto new_chr : next_word)
                     c_info.err.on_false(
                         std::isdigit(new_chr),
