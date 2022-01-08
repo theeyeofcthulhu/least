@@ -50,8 +50,18 @@ class compile_info {
     int body_id = BODY_ID_START;
 };
 
+class Filename {
+public:
+    std::string extension(const std::string& ext);
+    std::string base() { return m_filename; };
+    Filename(const std::string& fn);
+private:
+    std::string m_filename;
+    std::string m_noext;
+};
+
 std::vector<std::string> split(std::string str, char delim);
-std::string read_source_code(std::string filename, compile_info &c_info);
+std::string read_source_code(std::string filename, CompileInfo &c_info);
 std::string get_next_word(std::string str, int index, size_t &spc_idx);
 size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::token>> ts,
                             size_t start, lexer::token_type ty);

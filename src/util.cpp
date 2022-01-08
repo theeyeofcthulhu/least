@@ -123,3 +123,21 @@ void compile_info::error_on_wrong_type(std::shared_ptr<ast::var> var_id,
                  known_vars[var_id->get_var_id()].name.c_str(),
                  var_type_str_map.at(tp).c_str());
 }
+
+filename::filename(const std::string& fn) : m_filename(fn)
+{
+    size_t dot = fn.find_last_of('.');
+    if(dot == std::string::npos)
+        std::cout << "TODO: handle files without dots\n";
+
+    m_noext = fn.substr(0, dot);
+}
+
+std::string filename::extension(const std::string& ext)
+{
+    if(ext.empty())
+        return m_noext;
+
+    std::string result = m_noext;
+    return result.append(ext);
+}
