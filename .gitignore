@@ -11,3 +11,4 @@ tests/*
 !tests/*.least
 .clang-format
 .depend
+build
