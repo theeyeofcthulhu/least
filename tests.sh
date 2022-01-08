@@ -37,7 +37,7 @@ fi
 
 FAIL=false
 
-make
+./build.sh
 
 echo -e "\nCompiling tests\n"
 
@@ -74,6 +74,8 @@ done
 
 if (( ${FAIL} == 1 )); then
     echo -e "\n${SHELL_RED}Some or all tests failed ${SHELL_WHITE}"
+    exit 1
 else
     echo -e "\n${SHELL_GREEN}All tests succeeded ${SHELL_WHITE}"
+    exit 0
 fi

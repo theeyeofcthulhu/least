@@ -232,10 +232,8 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
         }
     }
 
-    if (c_info.req_libs[LIB_UPRINT])
-        out << "extern uprint\n";
-    if (c_info.req_libs[LIB_PUTCHAR])
-        out << "extern putchar\n";
+    out << "extern uprint\n";
+    out << "extern putchar\n";
 
     out.close();
 }
@@ -395,7 +393,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                             << asm_from_int_or_const(format, c_info)
                             << "\n"
                                "call uprint\n";
-                        c_info.req_libs[LIB_UPRINT] = true;
                         break;
                     }
                     case V_STR:
@@ -426,7 +423,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                     out << "mov rax, " << asm_from_int_or_const(format, c_info)
                         << "\n"
                            "call uprint\n";
-                    c_info.req_libs[LIB_UPRINT] = true;
                     break;
                 }
                 default:
@@ -494,8 +490,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
         {
             ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_NUM_GENERAL}, c_info);
-
-            c_info.req_libs[LIB_PUTCHAR] = true;
 
             number_in_register(t_func->args[0], "rax", out, c_info);
             out << "call putchar\n";

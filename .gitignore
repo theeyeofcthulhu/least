@@ -5,6 +5,7 @@ tmp/
 vgcore*
 .ccls-cache
 lib/*.o
+lib/*.a
 lcc
 *.o
 tests/*

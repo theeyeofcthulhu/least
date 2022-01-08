@@ -14,3 +14,4 @@ ninja
 
 cd ..
 cp -v build/lcc .
+cp -v build/libstdleast.a lib/

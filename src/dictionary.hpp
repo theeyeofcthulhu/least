@@ -67,19 +67,12 @@ enum keyword {
     K_NOKEY,
 };
 
-enum LIBRARY_FILES {
-    LIB_UPRINT,
-    LIB_PUTCHAR,
-    LIB_ENUM_END,
-};
-
 enum var_type {
     V_INT,
     V_STR,
     V_UNSURE,
 };
 
-extern const std::string library_files[LIB_ENUM_END];
 extern const std::map<var_type, std::string> var_type_str_map;
 extern const std::map<func_id, std::string> func_str_map;
 

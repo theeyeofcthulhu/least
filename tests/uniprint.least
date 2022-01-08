@@ -1,4 +1,5 @@
 int a ; 5 ;
+int b ; 7 ;
 
 print "value of a: [a] !!! [b]!\n" ;
 print "just a string\n" ;

@@ -14,6 +14,8 @@
 #define RED(str) SHELL_RED << str << SHELL_WHITE
 #define GREEN(str) SHELL_GREEN << str << SHELL_WHITE
 
+#define LIBSTDLEAST "lib/libstdleast.a"
+
 /* TODO: observe blocks when looking at variable definitions */
 int main(int argc, char *argv[])
 {
@@ -108,21 +110,12 @@ int main(int argc, char *argv[])
     std::string ld_cmd_base = "ld -o ";
 
     std::cout << "[CMD] " << ld_cmd_base << RED(filename_no_ext) << " "
-              << GREEN(object_filename);
-    std::string ld_cmd =
-        ld_cmd_base.append(filename_no_ext).append(" ").append(object_filename);
-
-    /* Generate array of all required libs */
-    for (size_t i = 0; i < c_info.req_libs.size(); i++) {
-        if (c_info.req_libs[i]) {
-            std::string new_o = " ";
-            new_o.append(library_files[i]);
-
-            std::cout << new_o;
-            ld_cmd.append(new_o);
-        }
-    }
-    std::cout << '\n';
+              << GREEN(object_filename) << " " << LIBSTDLEAST << '\n';
+    std::string ld_cmd = ld_cmd_base.append(filename_no_ext)
+                             .append(" ")
+                             .append(object_filename)
+                             .append(" ")
+                             .append(LIBSTDLEAST);
 
     std::system(ld_cmd.c_str());
 

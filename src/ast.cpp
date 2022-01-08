@@ -472,14 +472,6 @@ gen_ast(std::vector<std::shared_ptr<lexer::token>> tokens, compile_info &c_info)
                     key->get_line(), key_func_map.at(key->get_key()));
                 root->children.push_back(new_func);
 
-                switch (new_func->get_func()) {
-                case F_PUTCHAR:
-                    c_info.req_libs[LIB_PUTCHAR] = true;
-                    break;
-                default:
-                    break;
-                }
-
                 i += 1;
 
                 size_t next_sep;

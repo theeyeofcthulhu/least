@@ -33,8 +33,6 @@ class compile_info {
     std::vector<var_info> known_vars;
     std::vector<std::string> known_string;
 
-    std::array<bool, LIB_ENUM_END> req_libs = {0};
-
     std::string filename;
 
     error_handler err;
