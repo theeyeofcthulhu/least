@@ -42,7 +42,7 @@ std::vector<std::string> split(std::string str, char delim)
 }
 
 /* Memory map a file and return the contents */
-std::string read_source_code(std::string filename, compile_info &c_info)
+std::string read_source_code(std::string filename, CompileInfo &c_info)
 {
     int input_file = open(filename.c_str(), O_RDONLY);
     c_info.err.on_true(input_file < 0, "Could not open file '%s'\n",
@@ -69,7 +69,7 @@ std::string read_source_code(std::string filename, compile_info &c_info)
 
 /* Get the index of the next token of type 'ty' on line starting from start.
  * Return ts.size() on failure. */
-size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::token>> ts,
+size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::Token>> ts,
                             size_t start, lexer::token_type ty)
 {
     for (size_t i = start; i < ts.size(); i++) {
@@ -85,7 +85,7 @@ size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::token>> ts,
 
 /* If a var is defined: return its index
  * else:                add a new variable to c_info's known_vars */
-int compile_info::check_var(std::string var)
+int CompileInfo::check_var(std::string var)
 {
     for (size_t i = 0; i < known_vars.size(); i++)
         if (var == known_vars[i].name)
@@ -97,7 +97,7 @@ int compile_info::check_var(std::string var)
 }
 
 /* Same as check_var but with string */
-int compile_info::check_str(std::string str)
+int CompileInfo::check_str(std::string str)
 {
     for (size_t i = 0; i < known_string.size(); i++)
         if (str == known_string[i])
@@ -108,14 +108,14 @@ int compile_info::check_str(std::string str)
     return known_string.size() - 1;
 }
 
-void compile_info::error_on_undefined(std::shared_ptr<ast::var> var_id)
+void CompileInfo::error_on_undefined(std::shared_ptr<ast::Var> var_id)
 {
     err.on_false(known_vars[var_id->get_var_id()].defined,
                  "Variable '%s' is undefined at this time\n",
                  known_vars[var_id->get_var_id()].name.c_str());
 }
 
-void compile_info::error_on_wrong_type(std::shared_ptr<ast::var> var_id,
+void CompileInfo::error_on_wrong_type(std::shared_ptr<ast::Var> var_id,
                                        var_type tp)
 {
     err.on_false(known_vars[var_id->get_var_id()].type == tp,
@@ -124,7 +124,7 @@ void compile_info::error_on_wrong_type(std::shared_ptr<ast::var> var_id,
                  var_type_str_map.at(tp).c_str());
 }
 
-filename::filename(const std::string& fn) : m_filename(fn)
+Filename::Filename(const std::string& fn) : m_filename(fn)
 {
     size_t dot = fn.find_last_of('.');
     if(dot == std::string::npos)
@@ -133,7 +133,7 @@ filename::filename(const std::string& fn) : m_filename(fn)
     m_noext = fn.substr(0, dot);
 }
 
-std::string filename::extension(const std::string& ext)
+std::string Filename::extension(const std::string& ext)
 {
     if(ext.empty())
         return m_noext;

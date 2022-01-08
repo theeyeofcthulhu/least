@@ -14,7 +14,7 @@
 
 #include "dictionary.hpp"
 
-class compile_info;
+class CompileInfo;
 
 namespace lexer {
 
@@ -33,9 +33,9 @@ enum token_type : int {
     TK_INV,
 };
 
-class token {
+class Token {
   public:
-    token(int line) : m_line(line) {}
+    Token(int line) : m_line(line) {}
     int get_line() { return m_line; };
     virtual token_type get_type() { return m_type; };
 
@@ -44,9 +44,9 @@ class token {
     int m_line{0};
 };
 
-class key : public token {
+class Key : public Token {
   public:
-    key(int line, keyword t_key) : token(line), m_key(t_key) {}
+    Key(int line, keyword t_key) : Token(line), m_key(t_key) {}
     keyword get_key() { return m_key; };
     token_type get_type() override { return m_type; };
 
@@ -55,9 +55,9 @@ class key : public token {
     keyword m_key;
 };
 
-class arit : public token {
+class Arit : public Token {
   public:
-    arit(int line, arit_op op) : token(line), m_op(op) {}
+    Arit(int line, arit_op op) : Token(line), m_op(op) {}
     arit_op get_op() { return m_op; };
     token_type get_type() override { return m_type; };
 
@@ -66,9 +66,9 @@ class arit : public token {
     arit_op m_op;
 };
 
-class cmp : public token {
+class Cmp : public Token {
   public:
-    cmp(int line, cmp_op t_cmp) : token(line), m_cmp(t_cmp) {}
+    Cmp(int line, cmp_op t_cmp) : Token(line), m_cmp(t_cmp) {}
     cmp_op get_cmp() { return m_cmp; };
     token_type get_type() override { return m_type; };
 
@@ -77,9 +77,9 @@ class cmp : public token {
     cmp_op m_cmp;
 };
 
-class log : public token {
+class Log : public Token {
   public:
-    log(int line, log_op t_log) : token(line), m_log(t_log) {}
+    Log(int line, log_op t_log) : Token(line), m_log(t_log) {}
     log_op get_log() { return m_log; };
     token_type get_type() override { return m_type; };
 
@@ -88,9 +88,9 @@ class log : public token {
     log_op m_log;
 };
 
-class str : public token {
+class Str : public Token {
   public:
-    str(int line, std::string t_str) : token(line), m_str(t_str) {}
+    Str(int line, std::string t_str) : Token(line), m_str(t_str) {}
     std::string get_str() { return m_str; };
     token_type get_type() override { return m_type; };
 
@@ -99,19 +99,19 @@ class str : public token {
     std::string m_str;
 };
 
-class lstr : public token {
+class Lstr : public Token {
   public:
-    lstr(int line) : token(line) {}
-    std::vector<std::shared_ptr<token>> ts;
+    Lstr(int line) : Token(line) {}
+    std::vector<std::shared_ptr<Token>> ts;
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_LSTR;
 };
 
-class num : public token {
+class Num : public Token {
   public:
-    num(int line, int t_num) : token(line), m_num(t_num) {}
+    Num(int line, int t_num) : Token(line), m_num(t_num) {}
     int get_num() { return m_num; };
     token_type get_type() override { return m_type; };
 
@@ -120,9 +120,9 @@ class num : public token {
     int m_num;
 };
 
-class var : public token {
+class Var : public Token {
   public:
-    var(int line, std::string name) : token(line), m_name(name) {}
+    Var(int line, std::string name) : Token(line), m_name(name) {}
     std::string get_name() { return m_name; };
     token_type get_type() override { return m_type; };
 
@@ -131,45 +131,45 @@ class var : public token {
     std::string m_name;
 };
 
-class sep : public token {
+class Sep : public Token {
   public:
-    sep(int line) : token(line) {}
+    Sep(int line) : Token(line) {}
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_SEP;
 };
 
-class eol : public token {
+class Eol : public Token {
   public:
-    eol(int line) : token(line) {}
+    Eol(int line) : Token(line) {}
     token_type get_type() override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_EOL;
 };
 
-std::vector<std::shared_ptr<token>>
-do_lex(std::string source, compile_info &c_info, bool no_set_line = false);
-bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len);
-void debug_tokens(std::vector<std::shared_ptr<token>> ts);
+std::vector<std::shared_ptr<Token>>
+do_lex(std::string source, CompileInfo &c_info, bool no_set_line = false);
+bool has_next_arg(std::vector<std::shared_ptr<Token>> ts, size_t &len);
+void debug_tokens(std::vector<std::shared_ptr<Token>> ts);
 
 const std::map<const size_t, token_type> token_type_enum_map = {
-    std::make_pair(typeid(key).hash_code(), lexer::TK_KEY),
-    std::make_pair(typeid(arit).hash_code(), lexer::TK_ARIT),
-    std::make_pair(typeid(cmp).hash_code(), lexer::TK_CMP),
-    std::make_pair(typeid(log).hash_code(), lexer::TK_LOG),
-    std::make_pair(typeid(str).hash_code(), lexer::TK_STR),
-    std::make_pair(typeid(lstr).hash_code(), lexer::TK_LSTR),
-    std::make_pair(typeid(num).hash_code(), lexer::TK_NUM),
-    std::make_pair(typeid(var).hash_code(), lexer::TK_VAR),
-    std::make_pair(typeid(sep).hash_code(), lexer::TK_SEP),
-    std::make_pair(typeid(eol).hash_code(), lexer::TK_EOL),
+    std::make_pair(typeid(Key).hash_code(), lexer::TK_KEY),
+    std::make_pair(typeid(Arit).hash_code(), lexer::TK_ARIT),
+    std::make_pair(typeid(Cmp).hash_code(), lexer::TK_CMP),
+    std::make_pair(typeid(Log).hash_code(), lexer::TK_LOG),
+    std::make_pair(typeid(Str).hash_code(), lexer::TK_STR),
+    std::make_pair(typeid(Lstr).hash_code(), lexer::TK_LSTR),
+    std::make_pair(typeid(Num).hash_code(), lexer::TK_NUM),
+    std::make_pair(typeid(Var).hash_code(), lexer::TK_VAR),
+    std::make_pair(typeid(Sep).hash_code(), lexer::TK_SEP),
+    std::make_pair(typeid(Eol).hash_code(), lexer::TK_EOL),
 };
 
 /* Cast token to desired polymorphic subtype
  * Ensures that tk was declared as a type T originally */
-template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<token> tk)
+template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<Token> tk)
 {
     assert(token_type_enum_map.at(typeid(T).hash_code()) == tk->get_type());
     return std::dynamic_pointer_cast<T>(tk);

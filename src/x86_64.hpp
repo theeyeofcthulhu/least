@@ -4,12 +4,12 @@
 #include <memory>
 
 namespace ast {
-class n_body;
+class Body;
 }
 
-class compile_info;
+class CompileInfo;
 
-void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
-                   compile_info &c_info);
+void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string fn,
+                   CompileInfo &c_info);
 
 #endif // X86_64_H_

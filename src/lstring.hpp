@@ -5,17 +5,17 @@
 #include <memory>
 #include <string>
 
-class compile_info;
+class CompileInfo;
 
 namespace lexer {
 
-class lstr;
-class num;
+class Lstr;
+class Num;
 
-std::shared_ptr<lstr> parse_string(std::string string, int line,
-                                          compile_info &c_info);
-std::shared_ptr<num> parse_char(std::string string, int line,
-                                   compile_info &c_info);
+std::shared_ptr<Lstr> parse_string(std::string string, int line,
+                                          CompileInfo &c_info);
+std::shared_ptr<Num> parse_char(std::string string, int line,
+                                   CompileInfo &c_info);
 } // namespace lexer
 
 #endif // LSTRING_H_

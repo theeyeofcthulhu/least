@@ -25,26 +25,26 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
     {GREATER, "jg", "jle"}, {GREATER_OR_EQ, "jge", "jl"},
 };
 
-void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
-                        compile_info &c_info, int body_id, int real_end_id);
+void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
+                        CompileInfo &c_info, int body_id, int real_end_id);
 
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
-std::string asm_from_int_or_const(std::shared_ptr<ast::node> node,
-                                  compile_info &c_info)
+std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node,
+                                  CompileInfo &c_info)
 {
     std::stringstream var_or_const;
 
     assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_CONST);
     if (node->get_type() == ast::T_VAR) {
-        auto t_var = ast::safe_cast<ast::var>(node);
+        auto t_var = ast::safe_cast<ast::Var>(node);
 
         c_info.error_on_undefined(t_var);
         c_info.error_on_wrong_type(t_var, V_INT);
 
         var_or_const << "qword [rbp - " << (t_var->get_var_id() + 1) * 8 << "]";
     } else if (node->get_type() == ast::T_CONST) {
-        var_or_const << ast::safe_cast<ast::n_const>(node)->get_value();
+        var_or_const << ast::safe_cast<ast::Const>(node)->get_value();
     }
 
     return var_or_const.str();
@@ -59,8 +59,8 @@ void print_mov_if_req(std::string target, std::string source, std::fstream &out)
 
 /* Parse a tree representing an arithmetic expression into assembly recursively
  */
-void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
-                               std::fstream &out, compile_info &c_info)
+void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, std::string reg,
+                               std::fstream &out, CompileInfo &c_info)
 {
     /* If we are only a number: mov us into the target and leave */
     if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
@@ -71,7 +71,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
 
     assert(root->get_type() == ast::T_ARIT);
 
-    std::shared_ptr<ast::arit> arit = ast::safe_cast<ast::arit>(root);
+    std::shared_ptr<ast::Arit> arit = ast::safe_cast<ast::Arit>(root);
 
     bool rcx_can_be_immediate = !ast::has_precedence(
         arit->get_arit()); /* Only 'add' and 'sub' accept immediate values as
@@ -164,8 +164,8 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::node> root, std::string reg,
 }
 
 /* Move a tree_node, which evaluates to a number into a register */
-void number_in_register(std::shared_ptr<ast::node> nd, std::string reg,
-                        std::fstream &out, compile_info &c_info)
+void number_in_register(std::shared_ptr<ast::Node> nd, std::string reg,
+                        std::fstream &out, CompileInfo &c_info)
 {
     assert(nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_VAR ||
            nd->get_type() == ast::T_CONST);
@@ -183,8 +183,8 @@ void number_in_register(std::shared_ptr<ast::node> nd, std::string reg,
     }
 }
 
-void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
-                   compile_info &c_info)
+void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string fn,
+                   CompileInfo &c_info)
 {
     std::fstream out;
     out.open(fn, std::ios::out);
@@ -217,7 +217,7 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
     }
 
     /* Reserved string variables */
-    auto is_str = [](var_info v) { return v.type == V_STR; };
+    auto is_str = [](VarInfo v) { return v.type == V_STR; };
     if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(),
                      is_str) != c_info.known_vars.end()) {
         out << "section .bss\n";
@@ -238,14 +238,14 @@ void ast_to_x86_64(std::shared_ptr<ast::n_body> root, std::string fn,
     out.close();
 }
 
-void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
-                        compile_info &c_info, int body_id, int real_end_id)
+void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
+                        CompileInfo &c_info, int body_id, int real_end_id)
 {
     c_info.err.set_line(root->get_line());
     switch (root->get_type()) {
     case ast::T_BODY:
     {
-        std::shared_ptr<ast::n_body> body = ast::safe_cast<ast::n_body>(root);
+        std::shared_ptr<ast::Body> body = ast::safe_cast<ast::Body>(root);
         for (auto child : body->children) {
             ast_to_x86_64_core(child, out, c_info, body->get_body_id(),
                                real_end_id);
@@ -254,19 +254,19 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     }
     case ast::T_IF:
     {
-        std::shared_ptr<ast::n_if> t_if = ast::safe_cast<ast::n_if>(root);
+        std::shared_ptr<ast::If> t_if = ast::safe_cast<ast::If>(root);
 
         /* Getting the end label for the whole block
          * we jmp there if one if succeeded and we traversed its block */
         if (!t_if->is_elif()) {
-            std::shared_ptr<ast::node> last_if = ast::get_last_if(t_if);
+            std::shared_ptr<ast::Node> last_if = ast::get_last_if(t_if);
             if (last_if) {
                 if (last_if->get_type() == ast::T_ELSE) {
-                    real_end_id = ast::safe_cast<ast::n_else>(last_if)
+                    real_end_id = ast::safe_cast<ast::Else>(last_if)
                                       ->body->get_body_id();
                 } else if (last_if->get_type() == ast::T_IF) {
                     real_end_id =
-                        ast::safe_cast<ast::n_if>(last_if)->body->get_body_id();
+                        ast::safe_cast<ast::If>(last_if)->body->get_body_id();
                 }
             }
         }
@@ -291,7 +291,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     }
     case ast::T_ELSE:
     {
-        std::shared_ptr<ast::n_else> t_else = ast::safe_cast<ast::n_else>(root);
+        std::shared_ptr<ast::Else> t_else = ast::safe_cast<ast::Else>(root);
 
         out << ";; else\n";
         ast_to_x86_64_core(t_else->body, out, c_info,
@@ -301,8 +301,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     }
     case ast::T_WHILE:
     {
-        std::shared_ptr<ast::n_while> t_while =
-            ast::safe_cast<ast::n_while>(root);
+        std::shared_ptr<ast::While> t_while =
+            ast::safe_cast<ast::While>(root);
 
         out << ";; while\n";
         out << ".entry" << t_while->body->get_body_id() << ":\n";
@@ -318,7 +318,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     }
     case ast::T_FUNC:
     {
-        std::shared_ptr<ast::func> t_func = ast::safe_cast<ast::func>(root);
+        std::shared_ptr<ast::Func> t_func = ast::safe_cast<ast::Func>(root);
 
         const std::string func_name = func_str_map.at(t_func->get_func());
         out << ";; " << func_name << '\n';
@@ -357,15 +357,15 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_LSTR}, c_info);
 
-            std::shared_ptr<ast::lstr> ls =
-                ast::safe_cast<ast::lstr>(t_func->args[0]);
+            std::shared_ptr<ast::Lstr> ls =
+                ast::safe_cast<ast::Lstr>(t_func->args[0]);
 
             for (auto format : ls->format) {
                 switch (format->get_type()) {
                 case ast::T_STR:
                 {
-                    std::shared_ptr<ast::str> str =
-                        ast::safe_cast<ast::str>(format);
+                    std::shared_ptr<ast::Str> str =
+                        ast::safe_cast<ast::Str>(format);
 
                     out << "mov rax, 1\n"
                            "mov rdi, 1\n"
@@ -380,7 +380,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
                 }
                 case ast::T_VAR:
                 {
-                    auto the_var = ast::safe_cast<ast::var>(format);
+                    auto the_var = ast::safe_cast<ast::Var>(format);
                     auto the_var_info =
                         c_info.known_vars[the_var->get_var_id()];
 
@@ -466,7 +466,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
             ast::check_correct_function_call(func_name, t_func->args, 1,
                                              {ast::T_VAR}, c_info, {V_STR});
 
-            auto t_var = ast::safe_cast<ast::var>(t_func->args[0]);
+            auto t_var = ast::safe_cast<ast::Var>(t_func->args[0]);
 
             out << "xor rax, rax\n"
                    "xor rdi, rdi\n"
@@ -504,7 +504,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::node> root, std::fstream &out,
     }
     case ast::T_CMP:
     {
-        std::shared_ptr<ast::cmp> cmp = ast::safe_cast<ast::cmp>(root);
+        std::shared_ptr<ast::Cmp> cmp = ast::safe_cast<ast::Cmp>(root);
         std::array<std::string, 2> regs;
         cmp_op op;
 

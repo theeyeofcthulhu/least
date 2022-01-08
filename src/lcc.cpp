@@ -42,8 +42,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    filename fn(argv[argc - 1]);
-    compile_info c_info(fn.base());
+    Filename fn(argv[argc - 1]);
+    CompileInfo c_info(fn.base());
 
     c_info.err.on_false(argc >= 2, "No input file provided\n");
 
@@ -55,11 +55,11 @@ int main(int argc, char *argv[])
 
     /* Lex file into tokens */
     std::cout << "[INFO] Lexing file: " << GREEN(fn.base()) << '\n';
-    std::vector<std::shared_ptr<lexer::token>> ts =
+    std::vector<std::shared_ptr<lexer::Token>> ts =
         lexer::do_lex(input_source, c_info);
 
     /* Convert tokens to abstract syntax tree */
-    std::shared_ptr<ast::n_body> ast_root = ast::gen_ast(ts, c_info);
+    std::shared_ptr<ast::Body> ast_root = ast::gen_ast(ts, c_info);
 
     std::string dot_filename = fn.extension(".dot");
 

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-class error_handler {
+class ErrorHandler {
   public:
     void on_false(bool eval, std::string format, ...);
     void on_true(bool eval, std::string format, ...);
@@ -12,7 +12,7 @@ class error_handler {
     void set_file(std::string file) { m_file = file; };
     void set_line(int line) { m_line = line; };
 
-    error_handler(std::string file) : m_file(file) {}
+    ErrorHandler(std::string file) : m_file(file) {}
 
   private:
     std::string m_file;

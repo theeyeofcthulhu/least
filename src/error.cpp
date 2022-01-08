@@ -12,7 +12,7 @@
  * if something is unwanted; compiler_error just
  * exits no matter what */
 
-void error_handler::on_false(bool eval, std::string format, ...)
+void ErrorHandler::on_false(bool eval, std::string format, ...)
 {
     if (eval)
         return;
@@ -26,7 +26,7 @@ void error_handler::on_false(bool eval, std::string format, ...)
     std::exit(1);
 }
 
-void error_handler::on_true(bool eval, std::string format, ...)
+void ErrorHandler::on_true(bool eval, std::string format, ...)
 {
     if (!eval)
         return;
@@ -40,7 +40,7 @@ void error_handler::on_true(bool eval, std::string format, ...)
     std::exit(1);
 }
 
-void error_handler::error(std::string format, ...)
+void ErrorHandler::error(std::string format, ...)
 {
     va_list format_params;
 
@@ -51,7 +51,7 @@ void error_handler::error(std::string format, ...)
     std::exit(1);
 }
 
-void error_handler::error_core(std::string format, va_list format_list)
+void ErrorHandler::error_core(std::string format, va_list format_list)
 {
     std::cerr << SHELL_RED << "Compiler Error!\n";
 

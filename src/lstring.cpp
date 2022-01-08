@@ -32,10 +32,10 @@ const std::map<char, char> str_tokens_char = {
 
 /* Check validity of string and insert escape sequences */
 /* Also parse any '[var]' blocks and insert variable tokens */
-std::shared_ptr<lstr> parse_string(std::string string, int line,
-                                   compile_info &c_info)
+std::shared_ptr<Lstr> parse_string(std::string string, int line,
+                                   CompileInfo &c_info)
 {
-    std::shared_ptr<lstr> res = std::make_shared<lstr>(line);
+    std::shared_ptr<Lstr> res = std::make_shared<Lstr>(line);
 
     int string_len = string.length();
 
@@ -70,7 +70,7 @@ std::shared_ptr<lstr> parse_string(std::string string, int line,
             ss.str(std::string()); /* Clear stringstream */
 
             if (!part.empty())
-                res->ts.push_back(std::make_shared<str>(line, part));
+                res->ts.push_back(std::make_shared<Str>(line, part));
 
             std::string string_end = string.substr(i, std::string::npos);
             size_t next_bracket = string_end.find(']');
@@ -83,7 +83,7 @@ std::shared_ptr<lstr> parse_string(std::string string, int line,
             c_info.err.on_true(inside.find('[') != std::string::npos,
                                "Found '[' inside format argument");
 
-            std::vector<std::shared_ptr<token>> parsed_inside =
+            std::vector<std::shared_ptr<Token>> parsed_inside =
                 do_lex(inside, c_info, true);
 
             c_info.err.on_true(parsed_inside.empty(),
@@ -123,7 +123,7 @@ std::shared_ptr<lstr> parse_string(std::string string, int line,
     std::string final_str = ss.str();
 
     if (!final_str.empty())
-        res->ts.push_back(std::make_shared<str>(line, final_str));
+        res->ts.push_back(std::make_shared<Str>(line, final_str));
 
     c_info.err.on_true(res->ts.empty(),
                        "lstring format has no contents after parse_string\n");
@@ -131,8 +131,8 @@ std::shared_ptr<lstr> parse_string(std::string string, int line,
     return res;
 }
 
-std::shared_ptr<num> parse_char(std::string string, int line,
-                                   compile_info &c_info)
+std::shared_ptr<Num> parse_char(std::string string, int line,
+                                   CompileInfo &c_info)
 {
     char parsed_char;
 
@@ -159,7 +159,7 @@ std::shared_ptr<num> parse_char(std::string string, int line,
         parsed_char = string[1];
     }
 
-    return std::make_shared<num>(line, (int)parsed_char);
+    return std::make_shared<Num>(line, (int)parsed_char);
 }
 
 } // namespace lexer

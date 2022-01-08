@@ -53,7 +53,7 @@ const std::map<token_type, std::string> token_str_map{
     std::make_pair(lexer::TK_INV, "inv"),
 };
 
-void checkbanned(std::string s, compile_info &c_info)
+void checkbanned(std::string s, CompileInfo &c_info)
 {
     for (char c : s)
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
@@ -61,7 +61,7 @@ void checkbanned(std::string s, compile_info &c_info)
                            s.c_str());
 }
 
-bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len)
+bool has_next_arg(std::vector<std::shared_ptr<Token>> ts, size_t &len)
 {
     while ((ts[len]->get_type() != lexer::TK_SEP) &&
            (ts[len]->get_type() != lexer::TK_EOL))
@@ -70,7 +70,7 @@ bool has_next_arg(std::vector<std::shared_ptr<token>> ts, size_t &len)
     return ts[len]->get_type() == lexer::TK_SEP;
 }
 
-void debug_tokens(std::vector<std::shared_ptr<token>> ts)
+void debug_tokens(std::vector<std::shared_ptr<Token>> ts)
 {
     std::cout << "----- DEBUG INFO FOR TOKENS -----\n";
     for (auto tk : ts) {
@@ -80,10 +80,10 @@ void debug_tokens(std::vector<std::shared_ptr<token>> ts)
     std::cout << "---------------------------------\n";
 }
 
-std::vector<std::shared_ptr<token>>
-do_lex(std::string source, compile_info &c_info, bool no_set_line)
+std::vector<std::shared_ptr<Token>>
+do_lex(std::string source, CompileInfo &c_info, bool no_set_line)
 {
-    std::vector<std::shared_ptr<token>> tokens;
+    std::vector<std::shared_ptr<Token>> tokens;
 
     auto lines = split(source, '\n');
 
@@ -127,7 +127,7 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
                 c_info.err.on_true(united.empty(),
                                    "Could not find end of string or character constant\n");
 
-                std::shared_ptr<token> parsed;
+                std::shared_ptr<Token> parsed;
 
                 if(quote == '\"')
                     parsed = parse_string(united, i, c_info);
@@ -152,7 +152,7 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
                         next_word.c_str());
 
                 tokens.push_back(
-                    std::make_shared<num>(i, std::stoi(next_word)));
+                    std::make_shared<Num>(i, std::stoi(next_word)));
 
                 j += next_i - 1;
 
@@ -164,23 +164,23 @@ do_lex(std::string source, compile_info &c_info, bool no_set_line)
 
             if (cmp_map.find(next_word) != cmp_map.end()) {
                 tokens.push_back(
-                    std::make_shared<cmp>(i, cmp_map.at(next_word)));
+                    std::make_shared<Cmp>(i, cmp_map.at(next_word)));
             } else if (key_map.find(next_word) != key_map.end()) {
                 tokens.push_back(
-                    std::make_shared<key>(i, key_map.at(next_word)));
+                    std::make_shared<Key>(i, key_map.at(next_word)));
             } else if (arit_map.find(next_word) != arit_map.end()) {
                 tokens.push_back(
-                    std::make_shared<arit>(i, arit_map.at(next_word)));
+                    std::make_shared<Arit>(i, arit_map.at(next_word)));
             } else if (next_word == ";") {
-                tokens.push_back(std::make_shared<sep>(i));
+                tokens.push_back(std::make_shared<Sep>(i));
             } else {
                 checkbanned(next_word, c_info);
-                tokens.push_back(std::make_shared<var>(i, next_word));
+                tokens.push_back(std::make_shared<Var>(i, next_word));
             }
 
             j += next_i - 1;
         }
-        tokens.push_back(std::make_shared<eol>(i));
+        tokens.push_back(std::make_shared<Eol>(i));
     }
 
     return tokens;
