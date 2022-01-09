@@ -521,7 +521,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         }
 
         if (cmp->right) {
-            if (cmp->right->is_var_or_const()) {
+            if (cmp->right->get_type() == ast::T_CONST) {
                 regs[1] = asm_from_int_or_const(cmp->right, c_info);
             } else {
                 arithmetic_tree_to_x86_64(cmp->right, "r9", out, c_info);
