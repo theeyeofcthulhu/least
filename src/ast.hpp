@@ -5,8 +5,11 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <cassert>
 
-#include "util.hpp"
+#include "dictionary.hpp"
+
+class CompileInfo;
 
 namespace lexer {
 class Token;
@@ -31,7 +34,6 @@ enum ts_class {
                       would be a number */
 };
 
-class Node;
 class Cmp;
 
 class Node {
@@ -56,11 +58,7 @@ class Body : public Node {
     ts_class get_type() const override { return m_type; };
     int get_body_id() const { return m_body_id; };
 
-    Body(int line, std::shared_ptr<Body> t_parent, CompileInfo &c_info)
-        : Node(line), parent(t_parent)
-    {
-        m_body_id = c_info.get_next_body_id();
-    }
+    Body(int line, std::shared_ptr<Body> t_parent, CompileInfo &c_info);
 
   private:
     static const ts_class m_type = T_BODY;

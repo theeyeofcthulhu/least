@@ -7,6 +7,7 @@
 #include "ast.hpp"
 #include "lexer.hpp"
 #include "lstring.hpp"
+#include "util.hpp"
 
 namespace lexer {
 

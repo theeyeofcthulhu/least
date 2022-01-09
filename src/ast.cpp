@@ -38,6 +38,12 @@ const std::map<arit_op, std::string> arit_str_map = {
     std::make_pair(SUB, "-"),
 };
 
+Body::Body(int line, std::shared_ptr<Body> t_parent, CompileInfo &c_info)
+    : Node(line), parent(t_parent)
+{
+    m_body_id = c_info.get_next_body_id();
+}
+
 Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>> &ts,
     CompileInfo &c_info)
     : Node(line)
