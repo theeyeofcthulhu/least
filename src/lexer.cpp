@@ -38,6 +38,10 @@ const std::map<std::string, arit_op> arit_map{
     std::make_pair("*", MUL),
 };
 
+const std::map<std::string, log_op> log_map{
+    std::make_pair("&&", AND), std::make_pair("||", OR),
+};
+
 const std::map<token_type, std::string> token_str_map{
     std::make_pair(lexer::TK_KEY, "key"),
     std::make_pair(lexer::TK_ARIT, "arit"),
@@ -170,6 +174,9 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
             } else if (arit_map.find(next_word) != arit_map.end()) {
                 tokens.push_back(
                     std::make_shared<Arit>(i, arit_map.at(next_word)));
+            } else if (log_map.find(next_word) != log_map.end()) {
+                tokens.push_back(
+                    std::make_shared<Log>(i, log_map.at(next_word)));
             } else if (next_word == ";") {
                 tokens.push_back(std::make_shared<Sep>(i));
             } else {

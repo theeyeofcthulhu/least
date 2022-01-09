@@ -72,7 +72,7 @@ size_t next_of_type_on_line(const std::vector<std::shared_ptr<lexer::Token>> &ts
                             size_t start, lexer::token_type ty)
 {
     for (size_t i = start; i < ts.size(); i++) {
-        if (ts[i]->get_type() == lexer::TK_EOL) {
+        if (ts[i]->get_type() == lexer::TK_EOL && ty != lexer::TK_EOL) {
             return ts.size();
         } else if (ts[i]->get_type() == ty) {
             return i;

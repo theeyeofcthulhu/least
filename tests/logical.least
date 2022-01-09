@@ -3,7 +3,7 @@ int b ; 20 ;
 if a == 30 && b == 20 && b < a
     print "[a] is 30 and [b] is 20\n" ;
 else
-    print "Unreachable\n"
+    print "Unreachable\n" ;
 end
 
 if a == 20 || b == 20 && a == 30

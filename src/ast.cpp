@@ -15,6 +15,12 @@ namespace ast {
 void tree_to_dot_core(std::shared_ptr<ast::Node> root, int &node, int &tbody_id,
                       int parent_body_id, std::fstream &dot,
                       CompileInfo &c_info);
+std::shared_ptr<Cmp>
+parse_condition(const std::vector<std::shared_ptr<lexer::Token>> &ts, CompileInfo &c_info);
+
+std::shared_ptr<Node>
+parse_logical(const std::vector<std::shared_ptr<lexer::Token>> &ts, size_t &i,
+              CompileInfo &c_info);
 
 const std::map<keyword, func_id> key_func_map = {
     std::make_pair(K_PRINT, F_PRINT),     std::make_pair(K_EXIT, F_EXIT),
@@ -31,6 +37,11 @@ const std::map<cmp_op, std::string> cmp_str_map = {
     std::make_pair(GREATER_OR_EQ, ">="), std::make_pair(LESS, "<"),
     std::make_pair(LESS_OR_EQ, "<="),    std::make_pair(NOT_EQUAL, "!="),
     std::make_pair(CMP_OPERATION_ENUM_END, "no operation"),
+};
+
+const std::map<log_op, std::string> log_str_map = {
+    std::make_pair(AND, "&&"),         std::make_pair(OR, "||"),
+    std::make_pair(LOGICAL_OPS_END, "no log"),
 };
 
 const std::map<arit_op, std::string> arit_str_map = {
@@ -72,9 +83,7 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>> &ts,
             break;
         }
         default:
-            c_info.err.error("Found invalid token in lstr in tree_lstr "
-                             "constructor: %\n",
-                             tk->get_type());
+            assert(false);
             break;
         }
     }
@@ -188,12 +197,31 @@ node_from_var_or_const(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
     return res;
 }
 
+/* Ensure that the pattern: 'num op num op num ...' is met */
+void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>> &ts,
+                             CompileInfo &c_info)
+{
+    bool expect_operator = false;
+    for (const auto &t : ts) {
+        if (expect_operator) {
+            c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator\n");
+        } else {
+            c_info.err.on_false(t->get_type() == lexer::TK_NUM ||
+                                t->get_type() == lexer::TK_VAR, "Expected variable or constant\n");
+        }
+
+        expect_operator = !expect_operator;
+    }
+}
+
 /* Parse arithmetic expression respecting precedence */
 
 std::shared_ptr<Node>
 parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                 CompileInfo &c_info)
 {
+    ensure_arit_correctness(ts, c_info);
+
     std::vector<std::shared_ptr<Node>> s2;
 
     arit_op last_op = ARIT_OPERATION_ENUM_END;
@@ -313,19 +341,71 @@ parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
     return root;
 }
 
+/* Parse logical expression (a && b || c) starting from i and update
+ * i to end of line */
+std::shared_ptr<Node>
+parse_logical(const std::vector<std::shared_ptr<lexer::Token>> &ts, size_t &i,
+              CompileInfo &c_info)
+{
+    size_t last_i, next_i, eol;
+    last_i = next_i = i;
+
+    eol = next_of_type_on_line(ts, i, lexer::TK_EOL);
+
+    if(next_of_type_on_line(ts, i, lexer::TK_LOG) == ts.size()) {
+        auto res = parse_condition(slice(ts, i, eol), c_info);
+        i = eol - 1;
+
+        return res;
+    }
+
+    std::shared_ptr<Log> res = nullptr;
+    std::shared_ptr<Log> current = nullptr;
+
+    for (; ts[next_i]->get_type() != lexer::TK_EOL; next_i++) {
+        if (ts[next_i]->get_type() == lexer::TK_LOG) {
+            auto log = safe_cast<lexer::Log>(ts[next_i]);
+
+            c_info.err.on_true(ts[next_i+1]->get_type() == lexer::TK_EOL ||
+                               ts[next_i+1]->get_type() == lexer::TK_LOG,
+                               "Expected number after '%'\n", log_str_map.at(log->get_log()));
+            c_info.err.on_true(next_i == i, "'%' not expected at beginning of expression\n",
+                               log_str_map.at(log->get_log()));
+
+            auto left = parse_condition(slice(ts, last_i, next_i), c_info);
+
+            auto next = std::make_shared<Log>(ts[next_i]->get_line(), left, nullptr, log->get_log());
+            if (res == nullptr) {
+                res = next;
+            } else {
+                current->right = next;
+            }
+            current = next;
+
+            last_i = next_i + 1;
+        }
+
+        if (next_of_type_on_line(ts, next_i, lexer::TK_LOG) == ts.size()) {
+            current->right = parse_condition(slice(ts, last_i, eol), c_info);
+            break;
+        }
+    }
+
+    i = eol - 1;
+
+    return res;
+}
+
 /* Parse condition in vector
  * This vector can contain anything, this function only reads from i to the next
  * end of line and updates i towards the end of line */
 std::shared_ptr<Cmp>
-parse_condition(std::vector<std::shared_ptr<lexer::Token>> ts, size_t &i,
-                CompileInfo &c_info)
+parse_condition(const std::vector<std::shared_ptr<lexer::Token>> &ts, CompileInfo &c_info)
 {
     std::shared_ptr<Node> left, right;
 
-    std::shared_ptr<lexer::Token> next;
-
-    int i_to_eol = i;
     int operator_i = -1;
+    size_t i = 0;
 
     std::shared_ptr<lexer::Cmp> comparator = nullptr;
 
@@ -333,33 +413,34 @@ parse_condition(std::vector<std::shared_ptr<lexer::Token>> ts, size_t &i,
 
     /* Iterate to end of line with i_to_eol and save the index of the operator
      * and the operator itself */
-    while ((next = ts[i_to_eol++])->get_type() != lexer::TK_EOL) {
+    for (; i < ts.size(); i++) {
+        auto next = ts[i];
+
         if (next->get_type() == lexer::TK_CMP) {
             c_info.err.on_false(comparator == nullptr, "Found two operators\n");
             comparator = lexer::safe_cast<lexer::Cmp>(next);
-            operator_i = i_to_eol;
+            operator_i = i;
         }
     }
     c_info.err.on_true(
-        operator_i == 1,
+        operator_i == 0,
         "Expected constant, variable or arithmetic expression\n");
 
     if (operator_i != -1) {
-        left = parse_arit_expr(slice(ts, i, operator_i - 1), c_info);
-        right = parse_arit_expr(slice(ts, operator_i, i_to_eol - 1), c_info);
+        left = parse_arit_expr(slice(ts, 0, operator_i), c_info);
 
-        res = std::make_shared<Cmp>(ts[i]->get_line(), left, right,
+        c_info.err.on_true((size_t)operator_i + 1 >= i, "Invalid expression\n");
+        right = parse_arit_expr(slice(ts, operator_i + 1, i), c_info);
+
+        res = std::make_shared<Cmp>(ts[0]->get_line(), left, right,
                                     comparator->get_cmp());
     } else {
         /* Create comparison which is really just one expression, since no
          * comparator was found */
-        left = parse_arit_expr(slice(ts, i, i_to_eol - 1), c_info);
-        res = std::make_shared<Cmp>(ts[i]->get_line(), left, nullptr,
+        left = parse_arit_expr(slice(ts, 0, i), c_info);
+        res = std::make_shared<Cmp>(ts[0]->get_line(), left, nullptr,
                                     CMP_OPERATION_ENUM_END);
     }
-
-    /* Update the 'i'-reference for the caller */
-    i = i_to_eol - 1;
 
     return res;
 }
@@ -371,7 +452,7 @@ parse_condition_to_if(const std::vector<std::shared_ptr<lexer::Token>> &ts, size
                       std::shared_ptr<Body> root, CompileInfo &c_info,
                       bool is_elif)
 {
-    std::shared_ptr<Cmp> condition = parse_condition(ts, i, c_info);
+    std::shared_ptr<Node> condition = parse_logical(ts, i, c_info);
     return std::make_shared<If>(
         ts[i]->get_line(), condition,
         std::make_shared<Body>(ts[i]->get_line(), root, c_info), is_elif);
@@ -382,7 +463,7 @@ parse_condition_to_while(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                          size_t &i, std::shared_ptr<Body> root,
                          CompileInfo &c_info)
 {
-    std::shared_ptr<Cmp> condition = parse_condition(ts, i, c_info);
+    std::shared_ptr<Node> condition = parse_logical(ts, i, c_info);
     return std::make_shared<While>(
         ts[i]->get_line(), condition,
         std::make_shared<Body>(ts[i]->get_line(), root, c_info));
@@ -638,7 +719,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
 
         int s_node = node;
 
-        tree_to_dot_core(t_if->condition, node, tbody_id, parent_body_id, dot,
+        tree_to_dot_core(t_if->condition, node, tbody_id, s_node, dot,
                          c_info);
 
         dot << "\tNode_" << s_node << " -> Node_" << tbody_id + 1
@@ -670,7 +751,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
         std::shared_ptr<Cmp> t_cmp = safe_cast<Cmp>(root);
 
         dot << "\tNode_" << ++node << " [label=\"cmp\"]\n";
-        dot << "\tNode_" << node - 1 << " -> Node_" << node
+        dot << "\tNode_" << parent_body_id << " -> Node_" << node
             << " [label=\"cmp\"]\n";
         dot << "\tNode_" << ++node << " [label=\""
             << cmp_str_map.at(t_cmp->get_cmp()) << "\"]\n";
@@ -683,6 +764,29 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
             tree_to_dot_core(t_cmp->left, node, tbody_id, s_node, dot, c_info);
         if (t_cmp->right)
             tree_to_dot_core(t_cmp->right, node, tbody_id, s_node, dot, c_info);
+        break;
+    }
+    case T_LOG:
+    {
+        std::shared_ptr<Log> log = safe_cast<Log>(root);
+
+        dot << "\tNode_" << ++node << " [label=\"log\"]\n";
+        dot << "\tNode_" << parent_body_id << " -> Node_" << node
+            << " [label=\"log\"]\n";
+        dot << "\tNode_" << ++node << " [label=\""
+            << log_str_map.at(log->get_log()) << "\"]\n";
+        dot << "\tNode_" << node - 1 << " -> Node_" << node
+            << " [label=\"log\"]\n";
+
+        int s_node = node;
+
+        if (log->left) {
+            tree_to_dot_core(log->left, node, tbody_id, s_node, dot, c_info);
+        }
+        if (log->right) {
+            tree_to_dot_core(log->right, node, tbody_id, s_node, dot, c_info);
+        }
+
         break;
     }
     case T_CONST:

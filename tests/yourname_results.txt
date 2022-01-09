@@ -1,2 +1,2 @@
 Your name?
-Hello, !
+Hello, tests.sh!

@@ -24,6 +24,7 @@ enum ts_class {
     T_WHILE,
     T_CONST,
     T_CMP,
+    T_LOG,
     T_FUNC,
     T_VAR,
     T_BODY,
@@ -66,7 +67,7 @@ class Body : public Node {
 
 class If : public Node {
   public:
-    std::shared_ptr<Cmp> condition;
+    std::shared_ptr<Node> condition;
     std::shared_ptr<Body> body;
     std::shared_ptr<Node> elif;
     bool has_elif() const { return elif != nullptr; }
@@ -74,7 +75,7 @@ class If : public Node {
 
     ts_class get_type() const override { return m_type; };
 
-    If(int line, std::shared_ptr<Cmp> t_condition, std::shared_ptr<Body> t_body,
+    If(int line, std::shared_ptr<Node> t_condition, std::shared_ptr<Body> t_body,
        bool is_elif)
         : Node(line), condition(t_condition), body(t_body), elif (nullptr),
           m_is_elif(is_elif)
@@ -100,12 +101,12 @@ class Else : public Node {
 
 class While : public Node {
   public:
-    std::shared_ptr<Cmp> condition;
+    std::shared_ptr<Node> condition;
     std::shared_ptr<Body> body;
 
     ts_class get_type() const override { return m_type; };
 
-    While(int line, std::shared_ptr<Cmp> t_condition,
+    While(int line, std::shared_ptr<Node> t_condition,
           std::shared_ptr<Body> t_body)
         : Node(line), condition(t_condition), body(t_body)
     {
@@ -145,6 +146,25 @@ class Cmp : public Node {
   private:
     cmp_op m_cmp;
     static const ts_class m_type = T_CMP;
+};
+
+class Log : public Node {
+  public:
+    std::shared_ptr<Node> left;
+    std::shared_ptr<Node> right;
+
+    ts_class get_type() const override { return m_type; };
+    log_op get_log() const { return m_log; };
+
+    Log(int line, std::shared_ptr<Node> t_left, std::shared_ptr<Node> t_right,
+        log_op t_log)
+        : Node(line), left(t_left), right(t_right), m_log(t_log)
+    {
+    }
+
+  private:
+    log_op m_log;
+    static const ts_class m_type = T_LOG;
 };
 
 class Func : public Node {
@@ -230,6 +250,7 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(While).hash_code(), T_WHILE),
     std::make_pair(typeid(Const).hash_code(), T_CONST),
     std::make_pair(typeid(Cmp).hash_code(), T_CMP),
+    std::make_pair(typeid(Log).hash_code(), T_LOG),
     std::make_pair(typeid(Func).hash_code(), T_FUNC),
     std::make_pair(typeid(Var).hash_code(), T_VAR),
     std::make_pair(typeid(Body).hash_code(), T_BODY),

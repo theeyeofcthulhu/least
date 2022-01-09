@@ -26,7 +26,8 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
 };
 
 void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
-                        CompileInfo &c_info, int body_id, int real_end_id);
+                        CompileInfo &c_info, int body_id, int real_end_id, bool cmp_log_or=false,
+                        int cond_entry=-1);
 
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
@@ -239,7 +240,8 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, const std::string &fn,
 }
 
 void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
-                        CompileInfo &c_info, int body_id, int real_end_id)
+                        CompileInfo &c_info, int body_id, int real_end_id, bool cmp_log_or,
+                        int cond_entry)
 {
     c_info.err.set_line(root->get_line());
     switch (root->get_type()) {
@@ -401,9 +403,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
                                "mov rsi, strvar"
                             << the_var->get_var_id()
                             << "\n"
-                               "mov rdx, strvar"
+                               "mov rdx, [strvar"
                             << the_var->get_var_id()
-                            << "len\n"
+                            << "len]\n"
                                "syscall\n";
                         break;
                     }
@@ -552,9 +554,49 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
          * jne end of if block
          * ....
          * end */
-        out << "cmp " << regs[0] << ", " << regs[1] << "\n"
-            << cmp_operation_structs[op].opposite_asm_name << " .end" << body_id
-            << '\n';
+
+        if (cmp_log_or) {
+            out << "cmp " << regs[0] << ", " << regs[1] << "\n"
+                << cmp_operation_structs[op].asm_name
+                << " .cond_entry" << cond_entry << '\n';
+        } else {
+            out << "cmp " << regs[0] << ", " << regs[1] << "\n"
+                << cmp_operation_structs[op].opposite_asm_name
+                << " .end" << body_id << '\n';
+        }
+
+        break;
+    }
+    case ast::T_LOG:
+    {
+        auto log = ast::safe_cast<ast::Log>(root);
+
+        bool need_entry = log->get_log() == OR && cond_entry == -1;
+        if (cond_entry == -1 && need_entry) {
+            cond_entry = c_info.get_next_body_id();
+        }
+
+        switch (log->get_log()) {
+        case AND:
+        {
+            ast_to_x86_64_core(log->left, out, c_info, body_id, real_end_id, false, cond_entry);
+            ast_to_x86_64_core(log->right, out, c_info, body_id, real_end_id, false, cond_entry);
+            break;
+        }
+        case OR:
+        {
+            ast_to_x86_64_core(log->left, out, c_info, body_id, real_end_id, true, cond_entry);
+            ast_to_x86_64_core(log->right, out, c_info, body_id, real_end_id, false, cond_entry);
+            break;
+        }
+        default:
+            c_info.err.error("Unexpected tree node\n");
+            break;
+        }
+
+        if (need_entry) {
+            out << ".cond_entry" << cond_entry << ":\n";
+        }
 
         break;
     }
