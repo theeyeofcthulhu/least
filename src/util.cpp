@@ -45,19 +45,18 @@ std::vector<std::string> split(std::string str, char delim)
 std::string read_source_code(std::string filename, CompileInfo &c_info)
 {
     int input_file = open(filename.c_str(), O_RDONLY);
-    c_info.err.on_true(input_file < 0, "Could not open file '%s'\n",
-                       filename.c_str());
+    c_info.err.on_true(input_file < 0, "Could not open file '%'\n", filename);
 
     struct stat file_stat;
     c_info.err.on_true((fstat(input_file, &file_stat)) < 0,
-                       "Could not stat file '%s'\n", filename.c_str());
+                       "Could not stat file '%'\n", filename);
 
     int input_size = file_stat.st_size;
 
     char *c_res = (char *)mmap(nullptr, input_size, PROT_READ, MAP_PRIVATE,
                                input_file, 0);
-    c_info.err.on_true(c_res == MAP_FAILED, "Failed to map file '%s'\n",
-                       filename.c_str());
+    c_info.err.on_true(c_res == MAP_FAILED, "Failed to map file '%'\n",
+                       filename);
 
     std::string result(c_res, input_size);
 
@@ -111,31 +110,31 @@ int CompileInfo::check_str(std::string str)
 void CompileInfo::error_on_undefined(std::shared_ptr<ast::Var> var_id)
 {
     err.on_false(known_vars[var_id->get_var_id()].defined,
-                 "Variable '%s' is undefined at this time\n",
-                 known_vars[var_id->get_var_id()].name.c_str());
+                 "Variable '%' is undefined at this time\n",
+                 known_vars[var_id->get_var_id()].name);
 }
 
 void CompileInfo::error_on_wrong_type(std::shared_ptr<ast::Var> var_id,
-                                       var_type tp)
+                                      var_type tp)
 {
     err.on_false(known_vars[var_id->get_var_id()].type == tp,
-                 "Expected '%s' to be type '%s'\n",
-                 known_vars[var_id->get_var_id()].name.c_str(),
-                 var_type_str_map.at(tp).c_str());
+                 "Expected '%' to be type '%'\n",
+                 known_vars[var_id->get_var_id()].name,
+                 var_type_str_map.at(tp));
 }
 
-Filename::Filename(const std::string& fn) : m_filename(fn)
+Filename::Filename(const std::string &fn) : m_filename(fn)
 {
     size_t dot = fn.find_last_of('.');
-    if(dot == std::string::npos)
+    if (dot == std::string::npos)
         std::cout << "TODO: handle files without dots\n";
 
     m_noext = fn.substr(0, dot);
 }
 
-std::string Filename::extension(const std::string& ext)
+std::string Filename::extension(const std::string &ext)
 {
-    if(ext.empty())
+    if (ext.empty())
         return m_noext;
 
     std::string result = m_noext;

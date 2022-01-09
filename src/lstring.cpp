@@ -58,7 +58,7 @@ std::shared_ptr<Lstr> parse_string(std::string string, int line,
             try {
                 ss << str_tokens.at(string[i]);
             } catch (std::out_of_range &e) {
-                c_info.err.error("Could not parse escape sequence: '\\%c'\n",
+                c_info.err.error("Could not parse escape sequence: '\\%'\n",
                                  string[i]);
             }
             break;
@@ -132,29 +132,31 @@ std::shared_ptr<Lstr> parse_string(std::string string, int line,
 }
 
 std::shared_ptr<Num> parse_char(std::string string, int line,
-                                   CompileInfo &c_info)
+                                CompileInfo &c_info)
 {
     char parsed_char;
 
     int string_len = string.length();
 
     c_info.err.on_false(string_len == 3 || string_len == 4,
-                       "Could not parse string '%s' as character constant\n",
-                       string.c_str());
+                        "Could not parse string '%' as character constant\n",
+                        string);
 
-    assert(string[0] == '\'' && string[string_len-1] == '\'');
+    assert(string[0] == '\'' && string[string_len - 1] == '\'');
 
-    if(string[1] == '\\') {
-        c_info.err.on_false(string_len == 4, "Expected another character after '\\'\n");
+    if (string[1] == '\\') {
+        c_info.err.on_false(string_len == 4,
+                            "Expected another character after '\\'\n");
         try {
             parsed_char = str_tokens_char.at(string[2]);
         } catch (std::out_of_range &e) {
-            c_info.err.error("Could not parse escape sequence '\\%c'\n", string[2]);
+            c_info.err.error("Could not parse escape sequence '\\%'\n",
+                             string[2]);
         }
     } else {
         c_info.err.on_false(string_len == 3,
-                            "Too many symbols in character constant %s\n",
-                            string.c_str());
+                            "Too many symbols in character constant %\n",
+                            string);
 
         parsed_char = string[1];
     }

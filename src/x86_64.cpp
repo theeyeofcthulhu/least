@@ -262,8 +262,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
             std::shared_ptr<ast::Node> last_if = ast::get_last_if(t_if);
             if (last_if) {
                 if (last_if->get_type() == ast::T_ELSE) {
-                    real_end_id = ast::safe_cast<ast::Else>(last_if)
-                                      ->body->get_body_id();
+                    real_end_id =
+                        ast::safe_cast<ast::Else>(last_if)->body->get_body_id();
                 } else if (last_if->get_type() == ast::T_IF) {
                     real_end_id =
                         ast::safe_cast<ast::If>(last_if)->body->get_body_id();
@@ -301,8 +301,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
     }
     case ast::T_WHILE:
     {
-        std::shared_ptr<ast::While> t_while =
-            ast::safe_cast<ast::While>(root);
+        std::shared_ptr<ast::While> t_while = ast::safe_cast<ast::While>(root);
 
         out << ";; while\n";
         out << ".entry" << t_while->body->get_body_id() << ":\n";
@@ -451,12 +450,17 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
                                              c_info, {V_INT});
 
             if (t_func->args[1]->get_type() == ast::T_CONST) {
-                out << func_name << " " << asm_from_int_or_const(t_func->args[0], c_info) /* In this case func name ('add' or 'sub') is actually the correct instruction */
+                out << func_name << " "
+                    << asm_from_int_or_const(
+                           t_func->args[0],
+                           c_info) /* In this case func name ('add' or 'sub') is
+                                      actually the correct instruction */
                     << ", " << asm_from_int_or_const(t_func->args[1], c_info)
                     << "\n";
             } else {
                 number_in_register(t_func->args[1], "rax", out, c_info);
-                out << func_name << " " << asm_from_int_or_const(t_func->args[0], c_info)
+                out << func_name << " "
+                    << asm_from_int_or_const(t_func->args[0], c_info)
                     << ", rax\n";
             }
             break;

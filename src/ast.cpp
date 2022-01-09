@@ -66,7 +66,7 @@ Lstr::Lstr(int line, std::vector<std::shared_ptr<lexer::Token>> ts,
         }
         default:
             c_info.err.error("Found invalid token in lstr in tree_lstr "
-                             "constructor: %d\n",
+                             "constructor: %\n",
                              tk->get_type());
             break;
         }
@@ -87,13 +87,13 @@ void check_correct_function_call(
             assert(d.first < arg_len);
 
             c_info.err.on_false(args[d.first]->get_type() == T_VAR,
-                                "Argument %d to '%s' expected to be variable\n",
-                                d.first, name.c_str());
+                                "Argument % to '%' expected to be variable\n",
+                                d.first, name);
             auto t_var = safe_cast<Var>(args[d.first]);
 
             c_info.err.on_true(c_info.known_vars[t_var->get_var_id()].defined,
-                               "Argument %d to '%s' expected to be undefined\n",
-                               d.first, name.c_str());
+                               "Argument % to '%' expected to be undefined\n",
+                               d.first, name);
             c_info.known_vars[safe_cast<Var>(args[d.first])->get_var_id()]
                 .defined = true;
             c_info.known_vars[safe_cast<Var>(args[d.first])->get_var_id()]
@@ -104,8 +104,8 @@ void check_correct_function_call(
     auto info_it = info.begin();
 
     c_info.err.on_false(args.size() == arg_len,
-                        "Expected %d arguments to function '%s', got %d\n",
-                        arg_len, name.c_str(), args.size());
+                        "Expected % arguments to function '%', got %\n",
+                        arg_len, name, args.size());
     assert(types.size() == arg_len);
 
     for (size_t i = 0; i < args.size(); i++) {
@@ -116,8 +116,7 @@ void check_correct_function_call(
             c_info.err.on_false(
                 arg->get_type() == T_VAR || arg->get_type() == T_CONST ||
                     arg->get_type() == T_ARIT,
-                "Argument %d to '%s' has to evaluate to a number\n", i,
-                name.c_str());
+                "Argument % to '%' has to evaluate to a number\n", i, name);
 
             /* If we are var: check that we are int */
             if (arg->get_type() == T_VAR) {
@@ -126,14 +125,14 @@ void check_correct_function_call(
 
                 c_info.err.on_false(
                     v_info.type == V_INT,
-                    "Argument %d to '%s' has to have type '%s' but has '%s'\n",
-                    i, name.c_str(), var_type_str_map.at(V_INT).c_str(),
-                    var_type_str_map.at(v_info.type).c_str());
+                    "Argument % to '%' has to have type '%' but has '%'\n", i,
+                    name, var_type_str_map.at(V_INT),
+                    var_type_str_map.at(v_info.type));
             }
         } else {
             c_info.err.on_false(arg->get_type() == types[i],
-                                "Argument %d to function '%s' is wrong type\n",
-                                i, name.c_str());
+                                "Argument % to function '%' is wrong type\n", i,
+                                name);
         }
 
         /* If we are a var: check the provided 'info' type information if the
@@ -143,17 +142,16 @@ void check_correct_function_call(
             auto v_info = c_info.known_vars[t_var->get_var_id()];
 
             c_info.err.on_true(info_it == info.end() || info.empty(),
-                               "Could not parse arguments to function '%s'\n",
-                               name.c_str());
+                               "Could not parse arguments to function '%'\n",
+                               name);
 
             c_info.err.on_false(v_info.defined,
-                                "Var '%s' is undefined at this time\n",
-                                v_info.name.c_str());
+                                "Var '%' is undefined at this time\n",
+                                v_info.name);
             c_info.err.on_false(v_info.type == *info_it.base(),
-                                "Var '%s' has type '%s'; expected '%s'\n",
-                                v_info.name.c_str(),
-                                var_type_str_map.at(v_info.type).c_str(),
-                                var_type_str_map.at(*info_it.base()).c_str());
+                                "Var '%' has type '%'; expected '%'\n",
+                                v_info.name, var_type_str_map.at(v_info.type),
+                                var_type_str_map.at(*info_it.base()));
 
             info_it++;
         }
@@ -167,7 +165,7 @@ node_from_var_or_const(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
     c_info.err.on_false(tk->get_type() == lexer::TK_VAR ||
                             tk->get_type() == lexer::TK_NUM,
                         "Trying to convert token, which is not a variable or a "
-                        "number, to a variable or a number: '%d'\n",
+                        "number, to a variable or a number: '%'\n",
                         tk->get_type());
 
     std::shared_ptr<ast::Node> res;
@@ -219,12 +217,12 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::Token>> ts,
                 assert(i > 0 && i + 1 < len);
                 c_info.err.on_false(ts[i - 1]->get_type() == lexer::TK_NUM ||
                                         ts[i - 1]->get_type() == lexer::TK_VAR,
-                                    "Expected number before '%s' operator\n",
-                                    arit_str_map.at(op->get_op()).c_str());
+                                    "Expected number before '%' operator\n",
+                                    arit_str_map.at(op->get_op()));
                 c_info.err.on_false(ts[i + 1]->get_type() == lexer::TK_NUM ||
                                         ts[i + 1]->get_type() == lexer::TK_VAR,
-                                    "Expected number after '%s' operator\n",
-                                    arit_str_map.at(op->get_op()).c_str());
+                                    "Expected number after '%' operator\n",
+                                    arit_str_map.at(op->get_op()));
 
                 if (has_precedence(last_op)) {
                     /* If we follow another multiplication:
@@ -291,10 +289,9 @@ parse_arit_expr(std::vector<std::shared_ptr<lexer::Token>> ts,
                 if (i + 1 >= s2.size() - 1) {
                     /* If we are the last thing: set our own right to the next
                      * number */
-                    c_info.err.on_true(
-                        i + 1 > s2.size() - 1,
-                        "Expected number after operand '%s'\n",
-                        arit_str_map.at(cur_arit->get_arit()).c_str());
+                    c_info.err.on_true(i + 1 > s2.size() - 1,
+                                       "Expected number after operand '%'\n",
+                                       arit_str_map.at(cur_arit->get_arit()));
                     current->right = s2[i + 1];
                 } else if (s2[i + 1]->get_type() == T_ARIT) {
                     std::shared_ptr<Arit> next_arit =
@@ -385,8 +382,8 @@ parse_condition_to_while(std::vector<std::shared_ptr<lexer::Token>> ts,
 }
 
 /* Parse a vector of tokens to an abstract syntax tree */
-std::shared_ptr<Body>
-gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens, CompileInfo &c_info)
+std::shared_ptr<Body> gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens,
+                              CompileInfo &c_info)
 {
     std::shared_ptr<Body> root =
         std::make_shared<Body>(tokens[0]->get_line(), nullptr, c_info);
@@ -439,7 +436,7 @@ gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens, CompileInfo &c_info)
                 std::shared_ptr<Else> new_else = std::make_shared<Else>(
                     tokens[i]->get_line(),
                     std::make_shared<Body>(tokens[i]->get_line(), root,
-                                             c_info));
+                                           c_info));
 
                 current_if->elif = new_else;
 
@@ -499,9 +496,8 @@ gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens, CompileInfo &c_info)
                         break;
                     }
                     default:
-                        c_info.err.error(
-                            "Unexpected argument to function: %d\n",
-                            tokens[i]->get_type());
+                        c_info.err.error("Unexpected argument to function: %\n",
+                                         tokens[i]->get_type());
                         break;
                     }
                     i = next_sep + 1;
@@ -546,12 +542,12 @@ gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens, CompileInfo &c_info)
         {
             auto the_var = lexer::safe_cast<lexer::Var>(tokens[i]);
             c_info.err.error(
-                "Unexpected occurence of word expected to be variable: '%s'\n",
-                the_var->get_name().c_str());
+                "Unexpected occurence of word expected to be variable: '%'\n",
+                the_var->get_name());
             break;
         }
         default:
-            c_info.err.error("Unexpected token with enum value: %d\n",
+            c_info.err.error("Unexpected token with enum value: %\n",
                              tokens[i]->get_type());
             break;
         }
@@ -566,8 +562,7 @@ std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node)
     std::shared_ptr<Node> res = if_node;
 
     for (;; res = safe_cast<If>(res)->elif) {
-        if (res->get_type() == T_ELSE ||
-            safe_cast<If>(res)->elif == nullptr) {
+        if (res->get_type() == T_ELSE || safe_cast<If>(res)->elif == nullptr) {
             return res;
         }
     }

@@ -11,8 +11,8 @@
 #include "lstring.hpp"
 #include "util.hpp"
 
-/* TODO: better alertion of wrong termination of function calls, along the lines of
- * error: function calls must be terminated with a ';' */
+/* TODO: better alertion of wrong termination of function calls, along the lines
+ * of error: function calls must be terminated with a ';' */
 
 namespace lexer {
 
@@ -57,8 +57,7 @@ void checkbanned(std::string s, CompileInfo &c_info)
 {
     for (char c : s)
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
-                           "Invalid character in variable name: '%s'\n",
-                           s.c_str());
+                           "Invalid character in variable name: '%'\n", s);
 }
 
 bool has_next_arg(std::vector<std::shared_ptr<Token>> ts, size_t &len)
@@ -116,20 +115,20 @@ do_lex(std::string source, CompileInfo &c_info, bool no_set_line)
                         if (k + 1 < line.length())
                             c_info.err.on_false(
                                 std::isspace(line[k + 1]),
-                                "Quote not end of word in line: '%s'\n",
-                                line.c_str());
+                                "Quote not end of word in line: '%'\n", line);
                         united = line.substr(j, k - j + 1);
                         break;
                     }
                 }
                 j = k; /* Advance current char to end of string */
 
-                c_info.err.on_true(united.empty(),
-                                   "Could not find end of string or character constant\n");
+                c_info.err.on_true(
+                    united.empty(),
+                    "Could not find end of string or character constant\n");
 
                 std::shared_ptr<Token> parsed;
 
-                if(quote == '\"')
+                if (quote == '\"')
                     parsed = parse_string(united, i, c_info);
                 else if (quote == '\'')
                     parsed = parse_char(united, i, c_info);
@@ -148,8 +147,8 @@ do_lex(std::string source, CompileInfo &c_info, bool no_set_line)
                 for (auto new_chr : next_word)
                     c_info.err.on_false(
                         std::isdigit(new_chr),
-                        "Expected digit, got: '%c' in number '%s'\n", new_chr,
-                        next_word.c_str());
+                        "Expected digit, got: '%' in number '%'\n", new_chr,
+                        next_word);
 
                 tokens.push_back(
                     std::make_shared<Num>(i, std::stoi(next_word)));
