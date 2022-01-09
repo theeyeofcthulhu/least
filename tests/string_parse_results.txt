@@ -4,3 +4,5 @@ New
 Line
 writing '\'
 writing '"'
+string with     spaces
+printing int: 5
