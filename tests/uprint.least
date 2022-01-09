@@ -1,23 +1,16 @@
-uprint 23
-print "\n"
+print "[23]\n" ;
 
-uprint 203
-print "\n"
+print "[203]\n" ;
 
-uprint 30
-print "\n"
+print "[30]\n" ;
 
-int zz 1111
-uprint zz
-print "\n"
+int zz ; 1111 ;
+print "[zz]\n" ;
 
-uprint 3434
-print "\n"
+print "[3434]\n" ;
 
-int b 111111
+int b ; 111111 ;
 
-uprint b
-print "\n"
+print "[b]\n" ;
 
-uprint 000
-print "\n"
+print "[000]\n" ;

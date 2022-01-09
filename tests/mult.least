@@ -1,10 +1,10 @@
-int a 30
+int a ; 30 ;
 
-set a a * 40
-fprint "[a]\n"
+set a ; a * 40 ;
+print "[a]\n" ;
 
 if 2 * 10 == 20
-    print "2 * 10 == 20\n"
+    print "2 * 10 == 20\n" ;
 else
-    print "Unreachable\n"
+    print "Unreachable\n" ;
 end

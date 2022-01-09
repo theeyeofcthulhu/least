@@ -1,20 +1,20 @@
 if 3 < 4
-   print "3 is less than 4\n"
+   print "3 is less than 4\n" ;
 end
 if 3 < 2
-   print "unreachable\n"
+   print "unreachable\n" ;
 end
 
 if 4 > 3
-   print "4 is greater than 3\n"
+   print "4 is greater than 3\n" ;
 end
 if 2 > 2
-   print "unreachable\n"
+   print "unreachable\n" ;
 end
 
 if 4 != 3
-   print "4 is not 3\n"
+   print "4 is not 3\n" ;
 end
 if 3 != 3
-   print "unreachable\n"
+   print "unreachable\n" ;
 end

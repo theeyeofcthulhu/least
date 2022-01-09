@@ -1,40 +1,37 @@
-int inta 2
-int intb 7
+int inta ; 2 ;
+int intb ; 7 ;
 
 if inta < intb
-   uprint inta
-   print " is less than "
-   uprint intb
-   print "\n"
+   print "[inta] is less than [intb]\n" ;
 end
 if inta > intb
-   print "unreachable\n"
+   print "unreachable\n" ;
 end
 
-int intc 8
+int intc ; 8 ;
 
 if 10 > intc
-   print "successfully used numeric constant and variable\n"
+   print "successfully used numeric constant and variable\n" ;
 end
 
-int intd 9
+int intd ; 9 ;
 
 if intd > intc
    if inta != intb
-      print "nested if with int\n"
+      print "nested if with int\n" ;
    end
-   fprint "[intd] is greater than [intc]\n"
+   print "[intd] is greater than [intc]\n" ;
 end
 if intd < intc
-   print "unreachable\n"
+   print "unreachable\n" ;
 end
 
-int inte 1
-int intf 1
+int inte ; 1 ;
+int intf ; 1 ;
 
 if inte == intf
-   fprint "[inte] equals [intf]\n"
+   print "[inte] equals [intf]\n" ;
 end
 if inte != intf
-   print "unreachable\n"
+   print "unreachable\n" ;
 end
