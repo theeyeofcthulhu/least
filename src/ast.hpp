@@ -252,9 +252,12 @@ template <typename T> std::shared_ptr<Node> to_base(std::shared_ptr<T> nd)
 }
 
 void check_correct_function_call(
-    const std::string &name, const std::vector<std::shared_ptr<Node>> &args,
-    size_t arg_len, const std::vector<ts_class> &types, CompileInfo &c_info,
-    const std::vector<var_type> &info = std::vector<var_type>(),
+    const std::string &name,
+    const std::vector<std::shared_ptr<Node>> &args,
+    size_t arg_len, const std::vector<ts_class> &types,
+    CompileInfo &c_info,
+    const std::vector<var_type> &info =
+        std::vector<var_type>(),
     const std::vector<std::pair<size_t, var_type>> &define =
         std::vector<std::pair<size_t, var_type>>());
 

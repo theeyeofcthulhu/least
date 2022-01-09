@@ -115,7 +115,7 @@ void check_correct_function_call(
     assert(types.size() == arg_len);
 
     for (size_t i = 0; i < args.size(); i++) {
-        auto arg = args[i];
+        const auto &arg = args[i];
 
         if (types[i] == T_NUM_GENERAL) {
             /* NUM_GENERAL means that arg has to evaluate to a number */
@@ -129,6 +129,9 @@ void check_correct_function_call(
                 auto t_var = safe_cast<Var>(args[i]);
                 auto v_info = c_info.known_vars[t_var->get_var_id()];
 
+                c_info.err.on_false(v_info.defined,
+                                    "Var '%' is undefined at this time\n",
+                                    v_info.name);
                 c_info.err.on_false(
                     v_info.type == V_INT,
                     "Argument % to '%' has to have type '%' but has '%'\n", i,
@@ -155,7 +158,7 @@ void check_correct_function_call(
                                 "Var '%' is undefined at this time\n",
                                 v_info.name);
             c_info.err.on_false(v_info.type == *info_it.base(),
-                                "Var '%' has type '%'; expected '%'\n",
+                                "Argument % to '%' has to have type '%' but has '%'\n", i,
                                 v_info.name, var_type_str_map.at(v_info.type),
                                 var_type_str_map.at(*info_it.base()));
 
