@@ -31,7 +31,8 @@ enum cmp_op {
     LESS_OR_EQ,
     GREATER,
     GREATER_OR_EQ,
-    CMP_OPERATION_ENUM_END,};
+    CMP_OPERATION_ENUM_END,
+};
 
 /* Structure for organizing arithmetic operations */
 enum arit_op {

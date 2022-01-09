@@ -40,7 +40,6 @@ class Node {
   public:
     int get_line() const { return m_line; };
     virtual ts_class get_type() const { return m_type; };
-    virtual bool is_var_or_const() const { return false; };
 
     Node(int line) : m_line(line) {}
 
@@ -121,7 +120,6 @@ class Const : public Node {
     int get_value() const { return m_value; };
 
     ts_class get_type() const override { return m_type; };
-    bool is_var_or_const() const override { return true; };
 
     Const(int line, int value) : Node(line), m_value(value) {}
 
@@ -166,7 +164,6 @@ class Func : public Node {
 class Var : public Node {
   public:
     ts_class get_type() const override { return m_type; };
-    bool is_var_or_const() const override { return true; };
 
     int get_var_id() const { return m_var_id; };
 
