@@ -32,8 +32,8 @@ const std::map<char, char> str_tokens_char = {
 
 /* Check validity of string and insert escape sequences */
 /* Also parse any '[var]' blocks and insert variable tokens */
-std::shared_ptr<Lstr> parse_string(std::string string, int line,
-                                   CompileInfo &c_info)
+std::shared_ptr<Lstr> parse_string(const std::string &string, int line,
+                                          CompileInfo &c_info)
 {
     std::shared_ptr<Lstr> res = std::make_shared<Lstr>(line);
 
@@ -131,8 +131,8 @@ std::shared_ptr<Lstr> parse_string(std::string string, int line,
     return res;
 }
 
-std::shared_ptr<Num> parse_char(std::string string, int line,
-                                CompileInfo &c_info)
+std::shared_ptr<Num> parse_char(const std::string &string, int line,
+                                   CompileInfo &c_info)
 {
     char parsed_char;
 

@@ -183,7 +183,7 @@ void number_in_register(std::shared_ptr<ast::Node> nd, std::string reg,
     }
 }
 
-void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string fn,
+void ast_to_x86_64(std::shared_ptr<ast::Body> root, const std::string &fn,
                    CompileInfo &c_info)
 {
     std::fstream out;

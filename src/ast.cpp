@@ -38,11 +38,11 @@ const std::map<arit_op, std::string> arit_str_map = {
     std::make_pair(SUB, "-"),
 };
 
-Lstr::Lstr(int line, std::vector<std::shared_ptr<lexer::Token>> ts,
-           CompileInfo &c_info)
+Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>> &ts,
+    CompileInfo &c_info)
     : Node(line)
 {
-    for (auto tk : ts) {
+    for (const auto &tk : ts) {
         switch (tk->get_type()) {
         case lexer::TK_STR:
         {

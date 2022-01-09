@@ -60,7 +60,7 @@ void checkbanned(std::string s, CompileInfo &c_info)
                            "Invalid character in variable name: '%'\n", s);
 }
 
-bool has_next_arg(std::vector<std::shared_ptr<Token>> ts, size_t &len)
+bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len)
 {
     while ((ts[len]->get_type() != lexer::TK_SEP) &&
            (ts[len]->get_type() != lexer::TK_EOL))
@@ -69,7 +69,7 @@ bool has_next_arg(std::vector<std::shared_ptr<Token>> ts, size_t &len)
     return ts[len]->get_type() == lexer::TK_SEP;
 }
 
-void debug_tokens(std::vector<std::shared_ptr<Token>> ts)
+void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts)
 {
     std::cout << "----- DEBUG INFO FOR TOKENS -----\n";
     for (auto tk : ts) {
@@ -80,7 +80,7 @@ void debug_tokens(std::vector<std::shared_ptr<Token>> ts)
 }
 
 std::vector<std::shared_ptr<Token>>
-do_lex(std::string source, CompileInfo &c_info, bool no_set_line)
+do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
 {
     std::vector<std::shared_ptr<Token>> tokens;
 

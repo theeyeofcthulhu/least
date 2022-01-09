@@ -13,3 +13,4 @@ tests/*
 .clang-format
 .depend
 build
+src/.ccls

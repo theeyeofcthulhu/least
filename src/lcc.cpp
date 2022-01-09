@@ -16,6 +16,7 @@
 
 #define LIBSTDLEAST "lib/libstdleast.a"
 
+/* TODO: add more *const* to project */
 /* TODO: observe blocks when looking at variable definitions */
 int main(int argc, char *argv[])
 {

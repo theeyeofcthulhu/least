@@ -13,7 +13,7 @@
 
 /* Get the next word starting from index and store the next space
  * in spc_idx */
-std::string get_next_word(std::string str, int index, size_t &spc_idx)
+std::string get_next_word(const std::string &str, int index, size_t &spc_idx)
 {
     std::string substr = str.substr(index, std::string::npos);
 
@@ -26,7 +26,7 @@ std::string get_next_word(std::string str, int index, size_t &spc_idx)
     return res;
 }
 
-std::vector<std::string> split(std::string str, char delim)
+std::vector<std::string> split(const std::string &str, char delim)
 {
     std::vector<std::string> res;
 
@@ -42,7 +42,7 @@ std::vector<std::string> split(std::string str, char delim)
 }
 
 /* Memory map a file and return the contents */
-std::string read_source_code(std::string filename, CompileInfo &c_info)
+std::string read_source_code(const std::string &filename, CompileInfo &c_info)
 {
     int input_file = open(filename.c_str(), O_RDONLY);
     c_info.err.on_true(input_file < 0, "Could not open file '%'\n", filename);
@@ -68,7 +68,7 @@ std::string read_source_code(std::string filename, CompileInfo &c_info)
 
 /* Get the index of the next token of type 'ty' on line starting from start.
  * Return ts.size() on failure. */
-size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::Token>> ts,
+size_t next_of_type_on_line(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                             size_t start, lexer::token_type ty)
 {
     for (size_t i = start; i < ts.size(); i++) {
@@ -84,7 +84,7 @@ size_t next_of_type_on_line(std::vector<std::shared_ptr<lexer::Token>> ts,
 
 /* If a var is defined: return its index
  * else:                add a new variable to c_info's known_vars */
-int CompileInfo::check_var(std::string var)
+int CompileInfo::check_var(const std::string& var)
 {
     for (size_t i = 0; i < known_vars.size(); i++)
         if (var == known_vars[i].name)
@@ -96,7 +96,7 @@ int CompileInfo::check_var(std::string var)
 }
 
 /* Same as check_var but with string */
-int CompileInfo::check_str(std::string str)
+int CompileInfo::check_str(const std::string& str)
 {
     for (size_t i = 0; i < known_string.size(); i++)
         if (str == known_string[i])

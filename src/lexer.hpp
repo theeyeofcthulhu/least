@@ -36,8 +36,8 @@ enum token_type : int {
 class Token {
   public:
     Token(int line) : m_line(line) {}
-    int get_line() { return m_line; };
-    virtual token_type get_type() { return m_type; };
+    int get_line() const { return m_line; };
+    virtual token_type get_type() const { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_INV;
@@ -47,8 +47,8 @@ class Token {
 class Key : public Token {
   public:
     Key(int line, keyword t_key) : Token(line), m_key(t_key) {}
-    keyword get_key() { return m_key; };
-    token_type get_type() override { return m_type; };
+    keyword get_key() const { return m_key; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_KEY;
@@ -58,8 +58,8 @@ class Key : public Token {
 class Arit : public Token {
   public:
     Arit(int line, arit_op op) : Token(line), m_op(op) {}
-    arit_op get_op() { return m_op; };
-    token_type get_type() override { return m_type; };
+    arit_op get_op() const { return m_op; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_ARIT;
@@ -69,8 +69,8 @@ class Arit : public Token {
 class Cmp : public Token {
   public:
     Cmp(int line, cmp_op t_cmp) : Token(line), m_cmp(t_cmp) {}
-    cmp_op get_cmp() { return m_cmp; };
-    token_type get_type() override { return m_type; };
+    cmp_op get_cmp() const { return m_cmp; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_CMP;
@@ -80,8 +80,8 @@ class Cmp : public Token {
 class Log : public Token {
   public:
     Log(int line, log_op t_log) : Token(line), m_log(t_log) {}
-    log_op get_log() { return m_log; };
-    token_type get_type() override { return m_type; };
+    log_op get_log() const { return m_log; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_LOG;
@@ -90,9 +90,9 @@ class Log : public Token {
 
 class Str : public Token {
   public:
-    Str(int line, std::string t_str) : Token(line), m_str(t_str) {}
-    std::string get_str() { return m_str; };
-    token_type get_type() override { return m_type; };
+    Str(int line, const std::string &t_str) : Token(line), m_str(t_str) {}
+    std::string get_str() const { return m_str; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_STR;
@@ -103,7 +103,7 @@ class Lstr : public Token {
   public:
     Lstr(int line) : Token(line) {}
     std::vector<std::shared_ptr<Token>> ts;
-    token_type get_type() override { return m_type; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_LSTR;
@@ -112,8 +112,8 @@ class Lstr : public Token {
 class Num : public Token {
   public:
     Num(int line, int t_num) : Token(line), m_num(t_num) {}
-    int get_num() { return m_num; };
-    token_type get_type() override { return m_type; };
+    int get_num() const { return m_num; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_NUM;
@@ -122,9 +122,9 @@ class Num : public Token {
 
 class Var : public Token {
   public:
-    Var(int line, std::string name) : Token(line), m_name(name) {}
-    std::string get_name() { return m_name; };
-    token_type get_type() override { return m_type; };
+    Var(int line, const std::string &name) : Token(line), m_name(name) {}
+    std::string get_name() const { return m_name; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_VAR;
@@ -134,7 +134,7 @@ class Var : public Token {
 class Sep : public Token {
   public:
     Sep(int line) : Token(line) {}
-    token_type get_type() override { return m_type; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_SEP;
@@ -143,16 +143,16 @@ class Sep : public Token {
 class Eol : public Token {
   public:
     Eol(int line) : Token(line) {}
-    token_type get_type() override { return m_type; };
+    token_type get_type() const override { return m_type; };
 
   private:
     static const token_type m_type = lexer::TK_EOL;
 };
 
 std::vector<std::shared_ptr<Token>>
-do_lex(std::string source, CompileInfo &c_info, bool no_set_line = false);
-bool has_next_arg(std::vector<std::shared_ptr<Token>> ts, size_t &len);
-void debug_tokens(std::vector<std::shared_ptr<Token>> ts);
+do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line = false);
+bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len);
+void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts);
 
 const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(Key).hash_code(), lexer::TK_KEY),
