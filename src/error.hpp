@@ -78,8 +78,14 @@ void ErrorHandler::error_core(It first, It last)
     for (auto it = first; it != last; it++) {
         switch (*it) {
         case '%':
-            std::cerr << "Too few arguments to error function\n";
-            exit(1);
+            if (*(it + 1) == '%') {
+                std::cerr << '%';
+                it++;
+                break;
+            } else {
+                std::cerr << "Too few arguments to error function\n";
+                exit(1);
+            }
         default:
             std::cerr << *it;
             break;
@@ -93,8 +99,14 @@ void ErrorHandler::error_core(It first, It last, const T& arg, const args&... fa
     for (auto it = first; it != last; it++) {
         switch (*it) {
         case '%':
-            std::cerr << arg;
-            return error_core(++it, last, fargs...);
+            if (*(it + 1) == '%') {
+                std::cerr << '%';
+                it++;
+                break;
+            } else {
+                std::cerr << arg;
+                return error_core(++it, last, fargs...);
+            }
         default:
             std::cerr << *it;
             break;
