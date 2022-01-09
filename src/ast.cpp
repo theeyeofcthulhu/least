@@ -30,6 +30,7 @@ const std::map<cmp_op, std::string> cmp_str_map = {
     std::make_pair(EQUAL, "=="),         std::make_pair(GREATER, ">"),
     std::make_pair(GREATER_OR_EQ, ">="), std::make_pair(LESS, "<"),
     std::make_pair(LESS_OR_EQ, "<="),    std::make_pair(NOT_EQUAL, "!="),
+    std::make_pair(CMP_OPERATION_ENUM_END, "no operation"),
 };
 
 const std::map<arit_op, std::string> arit_str_map = {
@@ -211,6 +212,7 @@ parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                 break;
             }
         }
+        /* We are part of the next operation, since it has precedence */
         if (has_precedence(next_op) && ts[i]->get_type() != lexer::TK_ARIT) {
             continue;
         }
