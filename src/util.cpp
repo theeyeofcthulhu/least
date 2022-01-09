@@ -132,7 +132,7 @@ Filename::Filename(const std::string &fn) : m_filename(fn)
     m_noext = fn.substr(0, dot);
 }
 
-std::string Filename::extension(const std::string &ext)
+std::string Filename::extension(const std::string &ext) const
 {
     if (ext.empty())
         return m_noext;

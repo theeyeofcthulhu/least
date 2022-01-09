@@ -76,14 +76,14 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>> &ts,
 /* Give information about how a correct function call looks like and check for
  * it */
 void check_correct_function_call(
-    std::string name, std::vector<std::shared_ptr<Node>> args, size_t arg_len,
-    std::vector<ts_class> types, CompileInfo &c_info,
-    std::vector<var_type> info, std::vector<std::pair<size_t, var_type>> define)
+    const std::string &name, const std::vector<std::shared_ptr<Node>> &args, size_t arg_len,
+    const std::vector<ts_class> &types, CompileInfo &c_info,
+    const std::vector<var_type> &info, const std::vector<std::pair<size_t, var_type>> &define)
 {
     /* Caller can provide arguments which will be defined by this function
      * We define them so we don't error out later */
     if (!define.empty()) {
-        for (auto d : define) {
+        for (const auto &d : define) {
             assert(d.first < arg_len);
 
             c_info.err.on_false(args[d.first]->get_type() == T_VAR,
@@ -185,7 +185,7 @@ node_from_var_or_const(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
 /* Parse arithmetic expression respecting precedence */
 
 std::shared_ptr<Node>
-parse_arit_expr(std::vector<std::shared_ptr<lexer::Token>> ts,
+parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                 CompileInfo &c_info)
 {
     std::vector<std::shared_ptr<Node>> s2;
@@ -360,7 +360,7 @@ parse_condition(std::vector<std::shared_ptr<lexer::Token>> ts, size_t &i,
 /* Wrappers for parse_condition to create if, elif and while */
 
 std::shared_ptr<If>
-parse_condition_to_if(std::vector<std::shared_ptr<lexer::Token>> ts, size_t &i,
+parse_condition_to_if(const std::vector<std::shared_ptr<lexer::Token>> &ts, size_t &i,
                       std::shared_ptr<Body> root, CompileInfo &c_info,
                       bool is_elif)
 {
@@ -371,7 +371,7 @@ parse_condition_to_if(std::vector<std::shared_ptr<lexer::Token>> ts, size_t &i,
 }
 
 std::shared_ptr<While>
-parse_condition_to_while(std::vector<std::shared_ptr<lexer::Token>> ts,
+parse_condition_to_while(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                          size_t &i, std::shared_ptr<Body> root,
                          CompileInfo &c_info)
 {
@@ -382,7 +382,7 @@ parse_condition_to_while(std::vector<std::shared_ptr<lexer::Token>> ts,
 }
 
 /* Parse a vector of tokens to an abstract syntax tree */
-std::shared_ptr<Body> gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens,
+std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &tokens,
                               CompileInfo &c_info)
 {
     std::shared_ptr<Body> root =
@@ -600,7 +600,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
 
         tbody_id = body->get_body_id();
         dot << "\tNode_" << tbody_id << "[label=\"body " << tbody_id << "\"]\n";
-        for (auto child : body->children) {
+        for (const auto &child : body->children) {
             tree_to_dot_core(child, node, tbody_id, body->get_body_id(), dot,
                              c_info);
         }
@@ -653,7 +653,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
             << " [label=\"func\"]\n";
 
         int s_node = node;
-        for (auto arg : t_func->args) {
+        for (const auto &arg : t_func->args) {
             tree_to_dot_core(arg, node, tbody_id, s_node, dot, c_info);
         }
         break;
@@ -749,7 +749,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
             << " [label=\"lstring\"]\n";
 
         int s_node = node;
-        for (auto format : t_lstr->format) {
+        for (const auto &format : t_lstr->format) {
             tree_to_dot_core(format, node, tbody_id, s_node, dot, c_info);
         }
         break;

@@ -51,7 +51,7 @@ class CompileInfo {
 
 class Filename {
 public:
-    std::string extension(const std::string& ext);
+    std::string extension(const std::string& ext) const;
     std::string base() const { return m_filename; };
     Filename(const std::string& fn);
 private:

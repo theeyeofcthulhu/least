@@ -95,7 +95,7 @@ std::shared_ptr<Lstr> parse_string(const std::string &string, int line,
             /* Remove eol from end */
             parsed_inside.pop_back();
 
-            for (auto tk : parsed_inside) {
+            for (const auto &tk : parsed_inside) {
                 c_info.err.on_false(
                     tk->get_type() == TK_ARIT || tk->get_type() == TK_VAR ||
                         tk->get_type() == TK_NUM || tk->get_type() == TK_EOL,

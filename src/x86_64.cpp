@@ -51,7 +51,7 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node,
 }
 
 /* Print assembly mov from source to target if they are not equal */
-void print_mov_if_req(std::string target, std::string source, std::fstream &out)
+void print_mov_if_req(const std::string &target, const std::string &source, std::fstream &out)
 {
     if (!(target == source))
         out << "mov " << target << ", " << source << '\n';
@@ -59,7 +59,7 @@ void print_mov_if_req(std::string target, std::string source, std::fstream &out)
 
 /* Parse a tree representing an arithmetic expression into assembly recursively
  */
-void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, std::string reg,
+void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, const std::string &reg,
                                std::fstream &out, CompileInfo &c_info)
 {
     /* If we are only a number: mov us into the target and leave */
@@ -164,7 +164,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, std::string reg,
 }
 
 /* Move a tree_node, which evaluates to a number into a register */
-void number_in_register(std::shared_ptr<ast::Node> nd, std::string reg,
+void number_in_register(std::shared_ptr<ast::Node> nd, const std::string &reg,
                         std::fstream &out, CompileInfo &c_info)
 {
     assert(nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_VAR ||
@@ -246,7 +246,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
     case ast::T_BODY:
     {
         std::shared_ptr<ast::Body> body = ast::safe_cast<ast::Body>(root);
-        for (auto child : body->children) {
+        for (const auto &child : body->children) {
             ast_to_x86_64_core(child, out, c_info, body->get_body_id(),
                                real_end_id);
         }
@@ -359,7 +359,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
             std::shared_ptr<ast::Lstr> ls =
                 ast::safe_cast<ast::Lstr>(t_func->args[0]);
 
-            for (auto format : ls->format) {
+            for (const auto &format : ls->format) {
                 switch (format->get_type()) {
                 case ast::T_STR:
                 {

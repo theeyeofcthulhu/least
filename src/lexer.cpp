@@ -53,7 +53,7 @@ const std::map<token_type, std::string> token_str_map{
     std::make_pair(lexer::TK_INV, "inv"),
 };
 
-void checkbanned(std::string s, CompileInfo &c_info)
+void checkbanned(const std::string &s, CompileInfo &c_info)
 {
     for (char c : s)
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
@@ -72,7 +72,7 @@ bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len)
 void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts)
 {
     std::cout << "----- DEBUG INFO FOR TOKENS -----\n";
-    for (auto tk : ts) {
+    for (const auto &tk : ts) {
         std::cout << tk->get_line() << ": " << token_str_map.at(tk->get_type())
                   << '\n';
     }
@@ -106,7 +106,7 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
             } else if (line[j] == '\"' || line[j] == '\'') {
                 /* Parse string literal or character constant */
 
-                char quote = line[j];
+                char quote = line[j]; /* Could be '"' or ''' */
                 std::string united;
 
                 size_t k;

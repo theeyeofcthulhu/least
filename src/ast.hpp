@@ -225,7 +225,7 @@ class Arit : public Node {
 std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node);
 void tree_to_dot(std::shared_ptr<Body> root, std::string fn,
                  CompileInfo &c_info);
-std::shared_ptr<Body> gen_ast(std::vector<std::shared_ptr<lexer::Token>> tokens,
+std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &tokens,
                               CompileInfo &c_info);
 
 const std::map<const size_t, ts_class> tree_type_enum_map = {
@@ -257,10 +257,10 @@ template <typename T> std::shared_ptr<Node> to_base(std::shared_ptr<T> nd)
 }
 
 void check_correct_function_call(
-    std::string name, std::vector<std::shared_ptr<Node>> args, size_t arg_len,
-    std::vector<ts_class> types, CompileInfo &c_info,
-    std::vector<var_type> info = std::vector<var_type>(),
-    std::vector<std::pair<size_t, var_type>> define =
+    const std::string &name, const std::vector<std::shared_ptr<Node>> &args,
+    size_t arg_len, const std::vector<ts_class> &types, CompileInfo &c_info,
+    const std::vector<var_type> &info = std::vector<var_type>(),
+    const std::vector<std::pair<size_t, var_type>> &define =
         std::vector<std::pair<size_t, var_type>>());
 
 inline constexpr bool has_precedence(arit_op op)
