@@ -8,7 +8,7 @@
 
 (eval-and-compile
   (defconst least-keywords
-    '("if" "elif" "else" "end" "print" "read" "exit" "int" "str" "set" "add" "putchar" "while")))
+    '("if" "elif" "else" "end" "print" "read" "exit" "int" "str" "set" "add" "putchar" "while" "break" "continue")))
 
 (defconst least-highlights
   `((,(regexp-opt least-keywords 'symbols) . font-lock-keyword-face)))

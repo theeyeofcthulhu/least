@@ -5,6 +5,7 @@
 #include <iterator>
 #include <sstream>
 #include <string>
+#include <stack>
 
 #include "ast.hpp"
 #include "util.hpp"
@@ -243,6 +244,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
                         CompileInfo &c_info, int body_id, int real_end_id, bool cmp_log_or,
                         int cond_entry)
 {
+    static std::stack<int> while_ends{};
+
     c_info.err.set_line(root->get_line());
     switch (root->get_type()) {
     case ast::T_BODY:
@@ -305,6 +308,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
     {
         std::shared_ptr<ast::While> t_while = ast::safe_cast<ast::While>(root);
 
+        while_ends.push(t_while->body->get_body_id());
+
         out << ";; while\n";
         out << ".entry" << t_while->body->get_body_id() << ":\n";
 
@@ -315,6 +320,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
 
         out << "jmp .entry" << t_while->body->get_body_id() << "\n";
         out << ".end" << t_while->body->get_body_id() << ":\n";
+
+        while_ends.pop();
         break;
     }
     case ast::T_FUNC:
@@ -502,6 +509,19 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
 
             break;
         }
+        case F_BREAK:
+        case F_CONT:
+        {
+            ast::check_correct_function_call(func_name, t_func->args, 0,
+                                             {}, c_info);
+
+            c_info.err.on_true(while_ends.empty(), "'%' outside of loop\n", func_name);
+
+            out << "jmp ." <<
+                (t_func->get_func() == F_BREAK ? "end" : "entry")
+                << while_ends.top() << '\n';
+            break;
+        }
         default:
             c_info.err.error("TODO: unimplemented\n");
             break;
@@ -556,6 +576,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
          * end */
 
         if (cmp_log_or) {
+            /* We are part of an or-condition, meaning that if we conceed,
+             * we immediately go to the beginning of the body */
             out << "cmp " << regs[0] << ", " << regs[1] << "\n"
                 << cmp_operation_structs[op].asm_name
                 << " .cond_entry" << cond_entry << '\n';
@@ -594,6 +616,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
             break;
         }
 
+        /* Is always going to be printed at the end of the whole conditional
+         * block, because the whole tree will be traversed at this point,
+         * even if we were not the first node */
         if (need_entry) {
             out << ".cond_entry" << cond_entry << ":\n";
         }

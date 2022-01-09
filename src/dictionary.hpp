@@ -11,6 +11,8 @@ enum func_id {
     F_SET,
     F_ADD,
     F_SUB,
+    F_BREAK,
+    F_CONT,
     F_PUTCHAR,
     F_INT,
     F_STR,
@@ -64,6 +66,8 @@ enum keyword {
     K_SET,
     K_ADD,
     K_SUB,
+    K_BREAK,
+    K_CONT,
     K_PUTCHAR,
     K_NOKEY,
 };

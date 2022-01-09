@@ -27,7 +27,8 @@ const std::map<keyword, func_id> key_func_map = {
     std::make_pair(K_READ, F_READ),       std::make_pair(K_SET, F_SET),
     std::make_pair(K_PUTCHAR, F_PUTCHAR), std::make_pair(K_INT, F_INT),
     std::make_pair(K_STR, F_STR),         std::make_pair(K_ADD, F_ADD),
-    std::make_pair(K_SUB, F_SUB),
+    std::make_pair(K_SUB, F_SUB),         std::make_pair(K_BREAK, F_BREAK),
+    std::make_pair(K_CONT, F_CONT),
 };
 
 /* Maps for converting enum values to strings */
@@ -552,12 +553,18 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &
             case K_PUTCHAR:
             case K_INT:
             case K_STR:
+            case K_BREAK:
+            case K_CONT:
             {
                 std::shared_ptr<Func> new_func = std::make_shared<Func>(
                     key->get_line(), key_func_map.at(key->get_key()));
                 root->children.push_back(new_func);
 
                 i += 1;
+
+                if (tokens[i]->get_type() == lexer::TK_SEP) {
+                    break;
+                }
 
                 size_t next_sep;
                 while ((next_sep = next_of_type_on_line(

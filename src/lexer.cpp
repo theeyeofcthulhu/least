@@ -24,6 +24,7 @@ const std::map<std::string, keyword> key_map{
     std::make_pair("str", K_STR),     std::make_pair("read", K_READ),
     std::make_pair("set", K_SET),     std::make_pair("putchar", K_PUTCHAR),
     std::make_pair("add", K_ADD),     std::make_pair("sub", K_SUB),
+    std::make_pair("break", K_BREAK),   std::make_pair("continue", K_CONT),
 };
 
 const std::map<std::string, cmp_op> cmp_map{
