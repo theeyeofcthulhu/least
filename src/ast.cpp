@@ -171,11 +171,7 @@ void check_correct_function_call(
 std::shared_ptr<ast::Node>
 node_from_var_or_const(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
 {
-    c_info.err.on_false(tk->get_type() == lexer::TK_VAR ||
-                            tk->get_type() == lexer::TK_NUM,
-                        "Trying to convert token, which is not a variable or a "
-                        "number, to a variable or a number: '%'\n",
-                        tk->get_type());
+    assert(tk->get_type() == lexer::TK_VAR || tk->get_type() == lexer::TK_NUM);
 
     std::shared_ptr<ast::Node> res;
 
