@@ -848,7 +848,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
 
         int s_node = node;
 
-        tree_to_dot_core(t_while->condition, node, tbody_id, parent_body_id,
+        tree_to_dot_core(t_while->condition, node, tbody_id, s_node,
                          dot, c_info);
 
         dot << "\tNode_" << s_node << " -> Node_" << tbody_id + 1
