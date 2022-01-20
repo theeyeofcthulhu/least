@@ -26,6 +26,7 @@ enum ts_class {
     T_CMP,
     T_LOG,
     T_FUNC,
+    T_VFUNC,
     T_VAR,
     T_BODY,
     T_STR,
@@ -181,6 +182,25 @@ class Func : public Node {
     static const ts_class m_type = T_FUNC;
 };
 
+class VFunc : public Node {
+  public:
+    // TODO: args?
+
+    ts_class get_type() const override { return m_type; };
+    value_func_id get_value_func() const { return m_vfunc; };
+    var_type get_return_type() const { return m_return_type; };
+
+    VFunc(int line, value_func_id t_vfunc, var_type t_ret)
+        : Node(line), m_vfunc(t_vfunc), m_return_type(t_ret)
+    {
+    }
+
+  private:
+    value_func_id m_vfunc;
+    var_type m_return_type;
+    static const ts_class m_type = T_VFUNC;
+};
+
 class Var : public Node {
   public:
     ts_class get_type() const override { return m_type; };
@@ -252,6 +272,7 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(Cmp).hash_code(), T_CMP),
     std::make_pair(typeid(Log).hash_code(), T_LOG),
     std::make_pair(typeid(Func).hash_code(), T_FUNC),
+    std::make_pair(typeid(VFunc).hash_code(), T_VFUNC),
     std::make_pair(typeid(Var).hash_code(), T_VAR),
     std::make_pair(typeid(Body).hash_code(), T_BODY),
     std::make_pair(typeid(Str).hash_code(), T_STR),
@@ -263,7 +284,12 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
  * Ensures that tk was declared as a type T originally */
 template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<Node> nd)
 {
-    assert(tree_type_enum_map.at(typeid(T).hash_code()) == nd->get_type());
+    try {
+        assert(tree_type_enum_map.at(typeid(T).hash_code()) == nd->get_type());
+    } catch (std::out_of_range &e) {
+        std::cerr << "Type '" << typeid(T).name() << "' not in map in ast::safe_cast()\n";
+        std::exit(1);
+    }
     return std::dynamic_pointer_cast<T>(nd);
 }
 

@@ -29,6 +29,11 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
 void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
                         CompileInfo &c_info, int body_id, int real_end_id, bool cmp_log_or=false,
                         int cond_entry=-1);
+void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
+                        const std::string &reg, std::fstream &out,
+                        CompileInfo &c_info);
+void number_in_register(std::shared_ptr<ast::Node> nd, const std::string &reg,
+                        std::fstream &out, CompileInfo &c_info);
 
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
@@ -55,7 +60,7 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node,
 /* Print assembly mov from source to target if they are not equal */
 void print_mov_if_req(const std::string &target, const std::string &source, std::fstream &out)
 {
-    if (!(target == source))
+    if (target != source)
         out << "mov " << target << ", " << source << '\n';
 }
 
@@ -82,9 +87,11 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, const std::strin
 
     assert(arit->left->get_type() == ast::T_ARIT ||
            arit->left->get_type() == ast::T_CONST ||
+           arit->left->get_type() == ast::T_VFUNC ||
            arit->left->get_type() == ast::T_VAR);
     assert(arit->right->get_type() == ast::T_ARIT ||
            arit->right->get_type() == ast::T_CONST ||
+           arit->right->get_type() == ast::T_VFUNC ||
            arit->right->get_type() == ast::T_VAR);
 
     bool value_in_rax = false;
@@ -107,8 +114,11 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, const std::strin
      * Only check for this the second time around because the numbers
      * could get overwritten if we moved before doing another calculation */
     if (arit->left->get_type() == ast::T_CONST ||
-        arit->left->get_type() == ast::T_VAR) {
-        out << "mov rax, " << asm_from_int_or_const(arit->left, c_info) << "\n";
+        arit->left->get_type() == ast::T_VAR ||
+        arit->left->get_type() == ast::T_VFUNC) {
+        number_in_register(arit->left, "rax", out, c_info);
+
+        value_in_rax = true;
     }
 
     switch (arit->right->get_type()) {
@@ -125,6 +135,15 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, const std::strin
     {
         out << "mov rcx, " << asm_from_int_or_const(arit->right, c_info)
             << "\n";
+        break;
+    }
+    case ast::T_VFUNC:
+    {
+        if (value_in_rax)
+            out << "push rax\n";
+        print_vfunc_in_reg(ast::safe_cast<ast::VFunc>(arit->right), "rcx", out, c_info);
+        if (value_in_rax)
+            out << "pop rax\n";
         break;
     }
     default:
@@ -165,12 +184,38 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root, const std::strin
     }
 }
 
+void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd, const std::string &reg, std::fstream &out, CompileInfo &c_info)
+{
+    auto vfunc = vfunc_nd->get_value_func();
+
+    switch (vfunc) {
+    case VF_TIME:
+    {
+        out << "mov rax, 201\n"
+               "xor rdi, rdi\n"
+               "syscall\n";
+        print_mov_if_req(reg, "rax", out);
+        break;
+    }
+    case VF_GETUID:
+    {
+        out << "mov rax, 102\n"
+               "syscall\n";
+        print_mov_if_req(reg, "rax", out);
+        break;
+    }
+    default:
+        c_info.err.error("Unknown vfunc\n");
+        break;
+    }
+}
+
 /* Move a tree_node, which evaluates to a number into a register */
 void number_in_register(std::shared_ptr<ast::Node> nd, const std::string &reg,
                         std::fstream &out, CompileInfo &c_info)
 {
     assert(nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_VAR ||
-           nd->get_type() == ast::T_CONST);
+           nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_VFUNC);
 
     switch (nd->get_type()) {
     case ast::T_ARIT:
@@ -180,6 +225,17 @@ void number_in_register(std::shared_ptr<ast::Node> nd, const std::string &reg,
     case ast::T_CONST:
         print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
         break;
+    case ast::T_VFUNC:
+    {
+        auto vfunc = ast::safe_cast<ast::VFunc>(nd);
+        c_info.err.on_false(vfunc->get_return_type() == V_INT,
+                            "'%' has wrong return type '%'\n",
+                            vfunc_str_map.at(vfunc->get_value_func()),
+                            var_type_str_map.at(vfunc->get_return_type()));
+
+        print_vfunc_in_reg(ast::safe_cast<ast::VFunc>(nd), reg, out, c_info);
+        break;
+    }
     default:
         c_info.err.error("UNREACHABLE: Unexpected node_type\n");
     }

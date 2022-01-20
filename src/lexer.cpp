@@ -24,7 +24,8 @@ const std::map<std::string, keyword> key_map{
     std::make_pair("str", K_STR),     std::make_pair("read", K_READ),
     std::make_pair("set", K_SET),     std::make_pair("putchar", K_PUTCHAR),
     std::make_pair("add", K_ADD),     std::make_pair("sub", K_SUB),
-    std::make_pair("break", K_BREAK),   std::make_pair("continue", K_CONT),
+    std::make_pair("break", K_BREAK), std::make_pair("continue", K_CONT),
+    std::make_pair("time", K_TIME),   std::make_pair("getuid", K_GETUID),
 };
 
 const std::map<std::string, cmp_op> cmp_map{
@@ -54,6 +55,7 @@ const std::map<token_type, std::string> token_str_map{
     std::make_pair(lexer::TK_NUM, "num"),
     std::make_pair(lexer::TK_VAR, "var"),
     std::make_pair(lexer::TK_SEP, "sep"),
+    std::make_pair(lexer::TK_CALL, "call"),
     std::make_pair(lexer::TK_EOL, "eol"),
     std::make_pair(lexer::TK_INV, "inv"),
 };
@@ -178,6 +180,19 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
             } else if (log_map.find(next_word) != log_map.end()) {
                 tokens.push_back(
                     std::make_shared<Log>(i, log_map.at(next_word)));
+            } else if (next_word == "->") {
+                j += next_i + 1;
+                auto after = get_next_word(line, j, next_i);
+
+                value_func_id id;
+                try {
+                    keyword key = key_map.at(after);
+                    id = key_vfunc_map.at(key);
+                } catch (std::out_of_range &e) {
+                    c_info.err.error("Could not convert '%' to evaluable function\n", after);
+                }
+
+                tokens.push_back(std::make_shared<Call>(i, id));
             } else if (next_word == ";") {
                 tokens.push_back(std::make_shared<Sep>(i));
             } else {

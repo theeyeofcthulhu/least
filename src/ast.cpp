@@ -31,6 +31,11 @@ const std::map<keyword, func_id> key_func_map = {
     std::make_pair(K_CONT, F_CONT),
 };
 
+const std::map<value_func_id, var_type> vfunc_var_type_map = {
+    std::make_pair(VF_TIME, V_INT),
+    std::make_pair(VF_GETUID, V_INT),
+};
+
 /* Maps for converting enum values to strings */
 
 const std::map<cmp_op, std::string> cmp_str_map = {
@@ -49,6 +54,17 @@ const std::map<arit_op, std::string> arit_str_map = {
     std::make_pair(ADD, "+"), std::make_pair(DIV, "/"),
     std::make_pair(MOD, "%"), std::make_pair(MUL, "*"),
     std::make_pair(SUB, "-"),
+};
+
+const std::map<keyword, std::string> key_str_map{
+    std::make_pair(K_PRINT, "print"), std::make_pair(K_EXIT, "exit"),
+    std::make_pair(K_IF, "if"),       std::make_pair(K_ELIF, "elif"),
+    std::make_pair(K_ELSE, "else"),   std::make_pair(K_WHILE, "while"),
+    std::make_pair(K_END, "end"),     std::make_pair(K_INT, "int"),
+    std::make_pair(K_STR, "str"),     std::make_pair(K_READ, "read"),
+    std::make_pair(K_SET, "set"),     std::make_pair(K_PUTCHAR, "putchar"),
+    std::make_pair(K_ADD, "add"),     std::make_pair(K_SUB, "sub"),
+    std::make_pair(K_BREAK, "break"), std::make_pair(K_CONT, "continue"),
 };
 
 Body::Body(int line, std::shared_ptr<Body> t_parent, CompileInfo &c_info)
@@ -132,7 +148,7 @@ void check_correct_function_call(
             /* NUM_GENERAL means that arg has to evaluate to a number */
             c_info.err.on_false(
                 arg->get_type() == T_VAR || arg->get_type() == T_CONST ||
-                    arg->get_type() == T_ARIT,
+                    arg->get_type() == T_ARIT || arg->get_type() == T_VFUNC,
                 "Argument % to '%' has to evaluate to a number\n", i, name);
 
             /* If we are var: check that we are int */
@@ -148,6 +164,14 @@ void check_correct_function_call(
                     "Argument % to '%' has to have type '%' but has '%'\n", i,
                     name, var_type_str_map.at(V_INT),
                     var_type_str_map.at(v_info.type));
+            } else if (arg->get_type() == T_VFUNC) {
+                auto vfunc = safe_cast<VFunc>(args[i]);
+                c_info.err.on_false(
+                    vfunc->get_return_type() == V_INT,
+                    "Argument % to '%' has to evaluate to a number\n"
+                    "Got '%' returning '%'\n",
+                    i, name, vfunc_str_map.at(vfunc->get_value_func()),
+                    var_type_str_map.at(vfunc->get_return_type()));
             }
         } else {
             c_info.err.on_false(arg->get_type() == types[i],
@@ -180,9 +204,10 @@ void check_correct_function_call(
 
 /* Tree node from variable or constant */
 std::shared_ptr<ast::Node>
-node_from_var_or_const(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
+node_from_numeric_token(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
 {
-    assert(tk->get_type() == lexer::TK_VAR || tk->get_type() == lexer::TK_NUM);
+    assert(tk->get_type() == lexer::TK_VAR || tk->get_type() == lexer::TK_NUM ||
+           tk->get_type() == lexer::TK_CALL);
 
     std::shared_ptr<ast::Node> res;
 
@@ -193,6 +218,15 @@ node_from_var_or_const(std::shared_ptr<lexer::Token> tk, CompileInfo &c_info)
     } else if (tk->get_type() == lexer::TK_NUM) {
         res = std::make_shared<ast::Const>(
             tk->get_line(), lexer::safe_cast<lexer::Num>(tk)->get_num());
+    } else if (tk->get_type() == lexer::TK_CALL) {
+        const auto &call = lexer::safe_cast<lexer::Call>(tk);
+
+        var_type ret_type = vfunc_var_type_map.at(call->get_value_func());
+        c_info.err.on_false(ret_type == V_INT,
+                            "'%' does not return an integer\n",
+                            vfunc_str_map.at(call->get_value_func()));
+
+        res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_value_func(), ret_type);
     }
 
     return res;
@@ -203,12 +237,15 @@ void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>> &t
                              CompileInfo &c_info)
 {
     bool expect_operator = false;
-    for (const auto &t : ts) {
+    for (size_t i = 0; i < ts.size(); i++) {
+        const auto &t = ts[i];
+
         if (expect_operator) {
             c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator\n");
         } else {
             c_info.err.on_false(t->get_type() == lexer::TK_NUM ||
-                                t->get_type() == lexer::TK_VAR, "Expected variable or constant\n");
+                                t->get_type() == lexer::TK_VAR ||
+                                t->get_type() == lexer::TK_CALL, "Expected variable, constant or inline call\n");
         }
 
         expect_operator = !expect_operator;
@@ -252,10 +289,12 @@ parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
                 c_info.err.on_false(ts[i - 1]->get_type() == lexer::TK_NUM ||
+                                    ts[i - 1]->get_type() == lexer::TK_CALL ||
                                         ts[i - 1]->get_type() == lexer::TK_VAR,
                                     "Expected number before '%' operator\n",
                                     arit_str_map.at(op->get_op()));
                 c_info.err.on_false(ts[i + 1]->get_type() == lexer::TK_NUM ||
+                                    ts[i + 1]->get_type() == lexer::TK_CALL ||
                                         ts[i + 1]->get_type() == lexer::TK_VAR,
                                     "Expected number after '%' operator\n",
                                     arit_str_map.at(op->get_op()));
@@ -266,7 +305,7 @@ parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                      * previous one in the array */
                     std::shared_ptr<Arit> new_arit = std::make_shared<Arit>(
                         op->get_line(), s2.back(),
-                        node_from_var_or_const(ts[i + 1], c_info),
+                        node_from_numeric_token(ts[i + 1], c_info),
                         op->get_op());
                     s2.back() = new_arit;
                 } else {
@@ -274,8 +313,8 @@ parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
                      */
                     s2.push_back(std::make_shared<Arit>(
                         op->get_line(),
-                        node_from_var_or_const(ts[i - 1], c_info),
-                        node_from_var_or_const(ts[i + 1], c_info),
+                        node_from_numeric_token(ts[i - 1], c_info),
+                        node_from_numeric_token(ts[i + 1], c_info),
                         op->get_op()));
                 }
             } else {
@@ -290,7 +329,7 @@ parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>> &ts,
              * array */
             if (has_precedence(last_op))
                 continue;
-            s2.push_back(node_from_var_or_const(ts[i], c_info));
+            s2.push_back(node_from_numeric_token(ts[i], c_info));
         }
     }
     if (s2.size() == 1) {
@@ -583,6 +622,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &
                     }
                     case lexer::TK_NUM:
                     case lexer::TK_VAR:
+                    case lexer::TK_CALL:
                     {
                         std::vector<std::shared_ptr<lexer::Token>> slc =
                             slice(tokens, i, next_sep);
@@ -592,7 +632,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &
                     }
                     default:
                         c_info.err.error("Unexpected argument to function: %\n",
-                                         tokens[i]->get_type());
+                                        tokens[i]->get_type());
                         break;
                     }
                     i = next_sep + 1;
@@ -753,6 +793,16 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
         }
         break;
     }
+    case T_VFUNC:
+    {
+        std::shared_ptr<VFunc> t_vfunc = safe_cast<VFunc>(root);
+
+        dot << "\tNode_" << ++node << " [label=\""
+            << vfunc_str_map.at(t_vfunc->get_value_func()) << "\"]\n";
+        dot << "\tNode_" << parent_body_id << " -> Node_" << node
+            << " [label=\"vfunc\"]\n";
+        break;
+    }
     case T_CMP:
     {
         std::shared_ptr<Cmp> t_cmp = safe_cast<Cmp>(root);
@@ -874,6 +924,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root, int &node, int &tbody_id,
     }
     case T_NUM_GENERAL:
     case T_BASE:
+    default:
     {
         c_info.err.error("Invalid tree node\n");
         break;

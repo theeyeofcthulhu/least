@@ -29,6 +29,7 @@ enum token_type : int {
     TK_NUM,
     TK_VAR,
     TK_SEP,
+    TK_CALL,
     TK_EOL,
     TK_INV,
 };
@@ -131,6 +132,17 @@ class Var : public Token {
     std::string m_name;
 };
 
+class Call : public Token {
+  public:
+    Call(int line, value_func_id vfunc) : Token(line), m_vfunc(vfunc) {}
+    value_func_id get_value_func() const { return m_vfunc; };
+    token_type get_type() const override { return m_type; };
+
+  private:
+    static const token_type m_type = lexer::TK_CALL;
+    value_func_id m_vfunc;
+};
+
 class Sep : public Token {
   public:
     Sep(int line) : Token(line) {}
@@ -163,6 +175,7 @@ const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(Lstr).hash_code(), lexer::TK_LSTR),
     std::make_pair(typeid(Num).hash_code(), lexer::TK_NUM),
     std::make_pair(typeid(Var).hash_code(), lexer::TK_VAR),
+    std::make_pair(typeid(Call).hash_code(), lexer::TK_CALL),
     std::make_pair(typeid(Sep).hash_code(), lexer::TK_SEP),
     std::make_pair(typeid(Eol).hash_code(), lexer::TK_EOL),
 };
@@ -171,7 +184,12 @@ const std::map<const size_t, token_type> token_type_enum_map = {
  * Ensures that tk was declared as a type T originally */
 template <typename T> std::shared_ptr<T> safe_cast(std::shared_ptr<Token> tk)
 {
-    assert(token_type_enum_map.at(typeid(T).hash_code()) == tk->get_type());
+    try {
+        assert(token_type_enum_map.at(typeid(T).hash_code()) == tk->get_type());
+    } catch (std::out_of_range &e) {
+        std::cerr << "Type '" << typeid(T).name() << "' not in map in lexer::safe_cast()\n";
+        std::exit(1);
+    }
     return std::dynamic_pointer_cast<T>(tk);
 }
 

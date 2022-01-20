@@ -16,6 +16,12 @@ enum func_id {
     F_PUTCHAR,
     F_INT,
     F_STR,
+    F_CALL,
+};
+
+enum value_func_id {
+    VF_TIME,
+    VF_GETUID,
 };
 
 enum conditional {
@@ -66,6 +72,8 @@ enum keyword {
     K_SET,
     K_ADD,
     K_SUB,
+    K_TIME,
+    K_GETUID,
     K_BREAK,
     K_CONT,
     K_PUTCHAR,
@@ -80,5 +88,7 @@ enum var_type {
 
 extern const std::map<var_type, std::string> var_type_str_map;
 extern const std::map<func_id, std::string> func_str_map;
+extern const std::map<value_func_id, std::string> vfunc_str_map;
+extern const std::map<keyword, value_func_id> key_vfunc_map;
 
 #endif // DICTIONARY_H_
