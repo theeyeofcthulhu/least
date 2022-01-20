@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 function test_program_compile {
     $@ > /dev/null
@@ -62,6 +62,8 @@ for file in "${FILES[@]}"; do
         else
             echo "Test ${executable} succeeded"
         fi
+    elif [ "$executable" == "tests/time" ]; then
+        echo -e "Time returned:\n$($executable)"
     else
         if [ "`$executable`" != "${expected_output}" ]; then
             echo -e "${SHELL_RED}Test ${executable} failed${SHELL_WHITE}"
