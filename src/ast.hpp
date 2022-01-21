@@ -257,11 +257,28 @@ class Arit : public Node {
     static const ts_class m_type = T_ARIT;
 };
 
+struct FunctionSpec {
+    std::string name;
+    size_t exp_arg_len;
+    std::vector<ts_class> types;
+    std::vector<var_type> info;
+    std::vector<std::pair<size_t, var_type>> define;
+    FunctionSpec(const std::string &name, size_t arg_len,
+                 const std::vector<ts_class> &types,
+                 const std::vector<var_type> &info = std::vector<var_type>(),
+                 const std::vector<std::pair<size_t, var_type>> &define =
+                     std::vector<std::pair<size_t, var_type>>());
+};
+
 std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node);
+void check_correct_function_call(const FunctionSpec &spec,
+                                 const std::vector<std::shared_ptr<Node>> &args,
+                                 CompileInfo &c_info);
 void tree_to_dot(std::shared_ptr<Body> root, std::string fn,
                  CompileInfo &c_info);
-std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &tokens,
-                              CompileInfo &c_info);
+std::shared_ptr<Body>
+gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &tokens,
+        CompileInfo &c_info);
 
 const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(Node).hash_code(), T_BASE),
@@ -297,16 +314,6 @@ template <typename T> std::shared_ptr<Node> to_base(std::shared_ptr<T> nd)
 {
     return std::dynamic_pointer_cast<Node>(nd);
 }
-
-void check_correct_function_call(
-    const std::string &name,
-    const std::vector<std::shared_ptr<Node>> &args,
-    size_t arg_len, const std::vector<ts_class> &types,
-    CompileInfo &c_info,
-    const std::vector<var_type> &info =
-        std::vector<var_type>(),
-    const std::vector<std::pair<size_t, var_type>> &define =
-        std::vector<std::pair<size_t, var_type>>());
 
 inline constexpr bool has_precedence(arit_op op)
 {

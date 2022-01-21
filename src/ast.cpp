@@ -106,27 +106,34 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>> &ts,
     }
 }
 
+FunctionSpec::FunctionSpec(
+    const std::string &t_name, size_t t_len,
+    const std::vector<ts_class> &t_types, const std::vector<var_type> &t_info,
+    const std::vector<std::pair<size_t, var_type>> &t_def)
+    : name(t_name), exp_arg_len(t_len), types(t_types), info(t_info),
+      define(t_def)
+{}
+
 /* Give information about how a correct function call looks like and check for
  * it */
-void check_correct_function_call(
-    const std::string &name, const std::vector<std::shared_ptr<Node>> &args, size_t arg_len,
-    const std::vector<ts_class> &types, CompileInfo &c_info,
-    const std::vector<var_type> &info, const std::vector<std::pair<size_t, var_type>> &define)
+void check_correct_function_call(const FunctionSpec &spec,
+                                 const std::vector<std::shared_ptr<Node>> &args,
+                                 CompileInfo &c_info)
 {
     /* Caller can provide arguments which will be defined by this function
      * We define them so we don't error out later */
-    if (!define.empty()) {
-        for (const auto &d : define) {
-            assert(d.first < arg_len);
+    if (!spec.define.empty()) {
+        for (const auto &d : spec.define) {
+            assert(d.first < spec.exp_arg_len);
 
             c_info.err.on_false(args[d.first]->get_type() == T_VAR,
                                 "Argument % to '%' expected to be variable\n",
-                                d.first, name);
+                                d.first, spec.name);
             auto t_var = safe_cast<Var>(args[d.first]);
 
             c_info.err.on_true(c_info.known_vars[t_var->get_var_id()].defined,
                                "Argument % to '%' expected to be undefined\n",
-                               d.first, name);
+                               d.first, spec.name);
             c_info.known_vars[safe_cast<Var>(args[d.first])->get_var_id()]
                 .defined = true;
             c_info.known_vars[safe_cast<Var>(args[d.first])->get_var_id()]
@@ -134,22 +141,22 @@ void check_correct_function_call(
         }
     }
 
-    auto info_it = info.begin();
+    auto info_it = spec.info.begin();
 
-    c_info.err.on_false(args.size() == arg_len,
+    c_info.err.on_false(args.size() == spec.exp_arg_len,
                         "Expected % arguments to function '%', got %\n",
-                        arg_len, name, args.size());
-    assert(types.size() == arg_len);
+                        spec.exp_arg_len, spec.name, args.size());
+    assert(spec.types.size() == spec.exp_arg_len);
 
     for (size_t i = 0; i < args.size(); i++) {
         const auto &arg = args[i];
 
-        if (types[i] == T_NUM_GENERAL) {
+        if (spec.types[i] == T_NUM_GENERAL) {
             /* NUM_GENERAL means that arg has to evaluate to a number */
             c_info.err.on_false(
                 arg->get_type() == T_VAR || arg->get_type() == T_CONST ||
                     arg->get_type() == T_ARIT || arg->get_type() == T_VFUNC,
-                "Argument % to '%' has to evaluate to a number\n", i, name);
+                "Argument % to '%' has to evaluate to a number\n", i, spec.name);
 
             /* If we are var: check that we are int */
             if (arg->get_type() == T_VAR) {
@@ -162,7 +169,7 @@ void check_correct_function_call(
                 c_info.err.on_false(
                     v_info.type == V_INT,
                     "Argument % to '%' has to have type '%' but has '%'\n", i,
-                    name, var_type_str_map.at(V_INT),
+                    spec.name, var_type_str_map.at(V_INT),
                     var_type_str_map.at(v_info.type));
             } else if (arg->get_type() == T_VFUNC) {
                 auto vfunc = safe_cast<VFunc>(args[i]);
@@ -170,24 +177,24 @@ void check_correct_function_call(
                     vfunc->get_return_type() == V_INT,
                     "Argument % to '%' has to evaluate to a number\n"
                     "Got '%' returning '%'\n",
-                    i, name, vfunc_str_map.at(vfunc->get_value_func()),
+                    i, spec.name, vfunc_str_map.at(vfunc->get_value_func()),
                     var_type_str_map.at(vfunc->get_return_type()));
             }
         } else {
-            c_info.err.on_false(arg->get_type() == types[i],
+            c_info.err.on_false(arg->get_type() == spec.types[i],
                                 "Argument % to function '%' is wrong type\n", i,
-                                name);
+                                spec.name);
         }
 
         /* If we are a var: check the provided 'info' type information if the
          * type is correct */
-        if (arg->get_type() == T_VAR && types[i] != T_NUM_GENERAL) {
+        if (arg->get_type() == T_VAR && spec.types[i] != T_NUM_GENERAL) {
             auto t_var = safe_cast<Var>(args[i]);
             auto v_info = c_info.known_vars[t_var->get_var_id()];
 
-            c_info.err.on_true(info_it == info.end() || info.empty(),
+            c_info.err.on_true(info_it == spec.info.end() || spec.info.empty(),
                                "Could not parse arguments to function '%'\n",
-                               name);
+                               spec.name);
 
             c_info.err.on_false(v_info.defined,
                                 "Var '%' is undefined at this time\n",

@@ -161,10 +161,10 @@ class Eol : public Token {
     static const token_type m_type = lexer::TK_EOL;
 };
 
+void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts);
+bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len);
 std::vector<std::shared_ptr<Token>>
 do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line = false);
-bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len);
-void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts);
 
 const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(Key).hash_code(), lexer::TK_KEY),

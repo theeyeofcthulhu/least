@@ -60,20 +60,13 @@ const std::map<token_type, std::string> token_str_map{
     std::make_pair(lexer::TK_INV, "inv"),
 };
 
+void checkbanned(const std::string &s, CompileInfo &c_info);
+
 void checkbanned(const std::string &s, CompileInfo &c_info)
 {
     for (char c : s)
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
                            "Invalid character in variable name: '%'\n", s);
-}
-
-bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len)
-{
-    while ((ts[len]->get_type() != lexer::TK_SEP) &&
-           (ts[len]->get_type() != lexer::TK_EOL))
-        len += 1;
-
-    return ts[len]->get_type() == lexer::TK_SEP;
 }
 
 void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts)
@@ -84,6 +77,15 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts)
                   << '\n';
     }
     std::cout << "---------------------------------\n";
+}
+
+bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len)
+{
+    while ((ts[len]->get_type() != lexer::TK_SEP) &&
+           (ts[len]->get_type() != lexer::TK_EOL))
+        len += 1;
+
+    return ts[len]->get_type() == lexer::TK_SEP;
 }
 
 std::vector<std::shared_ptr<Token>>

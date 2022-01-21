@@ -20,12 +20,6 @@ struct cmp_operation {
     std::string opposite_asm_name;
 };
 
-const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
-    {EQUAL, "je", "jne"},   {NOT_EQUAL, "jne", "je"},
-    {LESS, "jl", "jge"},    {LESS_OR_EQ, "jle", "jg"},
-    {GREATER, "jg", "jle"}, {GREATER_OR_EQ, "jge", "jl"},
-};
-
 void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
                         CompileInfo &c_info, int body_id, int real_end_id, bool cmp_log_or=false,
                         int cond_entry=-1);
@@ -34,6 +28,40 @@ void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
                         CompileInfo &c_info);
 void number_in_register(std::shared_ptr<ast::Node> nd, const std::string &reg,
                         std::fstream &out, CompileInfo &c_info);
+
+const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
+    {EQUAL, "je", "jne"},   {NOT_EQUAL, "jne", "je"},
+    {LESS, "jl", "jge"},    {LESS_OR_EQ, "jle", "jg"},
+    {GREATER, "jg", "jle"}, {GREATER_OR_EQ, "jge", "jl"},
+};
+
+/* How each function needs to be called */
+const std::map<func_id, ast::FunctionSpec> func_spec_map = {
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_PRINT, {"print", 1, {ast::T_LSTR}, {}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_EXIT, {"exit", 1, {ast::T_NUM_GENERAL}, {}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_READ, {"read", 1, {ast::T_VAR}, {V_STR}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_SET, {"set", 2, {ast::T_VAR, ast::T_NUM_GENERAL}, {V_INT}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_ADD, {"add", 2, {ast::T_VAR, ast::T_NUM_GENERAL}, {V_INT}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_SUB, {"sub", 2, {ast::T_VAR, ast::T_NUM_GENERAL}, {V_INT}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_BREAK, {"break", 0, {}, {}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_CONT, {"continue", 0, {}, {}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_PUTCHAR, {"putchar", 1, {ast::T_NUM_GENERAL}, {}, {}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_INT,
+        {"int", 2, {ast::T_VAR, ast::T_NUM_GENERAL}, {V_INT}, {{0, V_INT}}}),
+    std::make_pair<func_id, ast::FunctionSpec>(
+        F_STR,
+        {"str", 1, {ast::T_VAR}, {V_STR}, {{0, V_STR}}}),
+};
 
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
@@ -384,14 +412,14 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
     {
         std::shared_ptr<ast::Func> t_func = ast::safe_cast<ast::Func>(root);
 
+        ast::check_correct_function_call(func_spec_map.at(t_func->get_func()), t_func->args, c_info);
+
         const std::string func_name = func_str_map.at(t_func->get_func());
         out << ";; " << func_name << '\n';
 
         switch (t_func->get_func()) {
         case F_EXIT:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 1,
-                                             {ast::T_NUM_GENERAL}, c_info);
             number_in_register(t_func->args[0], "rdi", out, c_info);
             out << "mov rax, 60\n"
                    "syscall\n";
@@ -400,17 +428,10 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         case F_STR:
         {
             /* check_correct_function_call defines the variable */
-            ast::check_correct_function_call(func_name, t_func->args, 1,
-                                             {ast::T_VAR}, c_info, {V_STR},
-                                             {{0, V_STR}});
             break;
         }
         case F_INT:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 2,
-                                             {ast::T_VAR, ast::T_NUM_GENERAL},
-                                             c_info, {V_INT}, {{0, V_INT}});
-
             number_in_register(t_func->args[1],
                                asm_from_int_or_const(t_func->args[0], c_info),
                                out, c_info);
@@ -418,9 +439,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         }
         case F_PRINT:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 1,
-                                             {ast::T_LSTR}, c_info);
-
             std::shared_ptr<ast::Lstr> ls =
                 ast::safe_cast<ast::Lstr>(t_func->args[0]);
 
@@ -498,10 +516,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         }
         case F_SET:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 2,
-                                             {ast::T_VAR, ast::T_NUM_GENERAL},
-                                             c_info, {V_INT});
-
             number_in_register(t_func->args[1],
                                asm_from_int_or_const(t_func->args[0], c_info),
                                out, c_info);
@@ -510,10 +524,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         case F_ADD:
         case F_SUB:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 2,
-                                             {ast::T_VAR, ast::T_NUM_GENERAL},
-                                             c_info, {V_INT});
-
             if (t_func->args[1]->get_type() == ast::T_CONST) {
                 out << func_name << " "
                     << asm_from_int_or_const(
@@ -532,9 +542,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         }
         case F_READ:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 1,
-                                             {ast::T_VAR}, c_info, {V_STR});
-
             auto t_var = ast::safe_cast<ast::Var>(t_func->args[0]);
 
             out << "xor rax, rax\n"
@@ -557,9 +564,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         }
         case F_PUTCHAR:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 1,
-                                             {ast::T_NUM_GENERAL}, c_info);
-
             number_in_register(t_func->args[0], "rax", out, c_info);
             out << "call putchar\n";
 
@@ -568,9 +572,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root, std::fstream &out,
         case F_BREAK:
         case F_CONT:
         {
-            ast::check_correct_function_call(func_name, t_func->args, 0,
-                                             {}, c_info);
-
             c_info.err.on_true(while_ends.empty(), "'%' outside of loop\n", func_name);
 
             out << "jmp ." <<
