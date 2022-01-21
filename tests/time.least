@@ -1,0 +1,11 @@
+int a ; -> time ;
+
+print "Time in Unix-Seconds: [a]\n" ;
+
+int b ; -> time * 2 ;
+
+print "Doubled time in Unix-Seconds: [b]\n" ;
+
+set b ; -> time * 4 ;
+
+print "Quadrupled time in Unix-Seconds: [b]\n" ;

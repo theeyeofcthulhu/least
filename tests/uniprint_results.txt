@@ -1,0 +1,6 @@
+value of a: 5 !!! 7!
+just a string
+just a string
+5
+5 that was just a number
+printing const number: 5

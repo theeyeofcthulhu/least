@@ -10,6 +10,7 @@ lcc
 *.o
 tests/*
 !tests/*.least
+!tests/*.txt
 .clang-format
 .depend
 build
