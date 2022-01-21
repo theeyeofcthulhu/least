@@ -1,4 +1,5 @@
 #include <getopt.h>
+
 #include <iostream>
 
 #include "ast.hpp"
@@ -25,21 +26,21 @@ int main(int argc, char *argv[])
     int flag;
     while ((flag = getopt(argc, argv, "hr")) != -1) {
         switch (flag) {
-        case 'h':
-            std::cout << "Least Complicated Compiler - lcc\n"
-                         "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
-                         "usage: "
-                      << argv[0]
-                      << " [-hr] FILE\n\n"
-                         "-h: display this message and exit\n"
-                         "-r: run program after compilation\n";
-            return 0;
-        case 'r':
-            run_after_compile = true;
-            break;
-        case '?':
-        default:
-            return 1;
+            case 'h':
+                std::cout << "Least Complicated Compiler - lcc\n"
+                             "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
+                             "usage: "
+                          << argv[0]
+                          << " [-hr] FILE\n\n"
+                             "-h: display this message and exit\n"
+                             "-r: run program after compilation\n";
+                return 0;
+            case 'r':
+                run_after_compile = true;
+                break;
+            case '?':
+            default:
+                return 1;
         }
     }
 
@@ -56,8 +57,7 @@ int main(int argc, char *argv[])
 
     /* Lex file into tokens */
     std::cout << "[INFO] Lexing file: " << GREEN(fn.base()) << '\n';
-    std::vector<std::shared_ptr<lexer::Token>> ts =
-        lexer::do_lex(input_source, c_info);
+    std::vector<std::shared_ptr<lexer::Token>> ts = lexer::do_lex(input_source, c_info);
 
     /* Convert tokens to abstract syntax tree */
     std::shared_ptr<ast::Body> ast_root = ast::gen_ast(ts, c_info);
@@ -65,42 +65,38 @@ int main(int argc, char *argv[])
     std::string dot_filename = fn.extension(".dot");
 
     /* Generate graphviz diagram from abstract syntax tree */
-    std::cout << "[INFO] Generating tree diagram to: " << GREEN(dot_filename)
-              << '\n';
+    std::cout << "[INFO] Generating tree diagram to: " << GREEN(dot_filename) << '\n';
     tree_to_dot(ast_root, dot_filename, c_info);
 
     std::string svg_filename = fn.extension(".svg");
 
     std::string dot_cmd_base = "dot -Tsvg -o ";
-    std::cout << "[CMD] " << dot_cmd_base << RED(svg_filename) << " "
-              << GREEN(dot_filename) << '\n';
+    std::cout << "[CMD] " << dot_cmd_base << RED(svg_filename) << " " << GREEN(dot_filename)
+              << '\n';
 
-    std::string dot_cmd =
-        dot_cmd_base.append(svg_filename).append(" ").append(dot_filename);
+    std::string dot_cmd = dot_cmd_base.append(svg_filename).append(" ").append(dot_filename);
     std::system(dot_cmd.c_str());
 
     std::string asm_filename = fn.extension(".asm");
 
-    std::cout << "[INFO] Generating assembly to " << GREEN(asm_filename)
-              << '\n';
+    std::cout << "[INFO] Generating assembly to " << GREEN(asm_filename) << '\n';
     ast_to_x86_64(ast_root, asm_filename, c_info);
 
     std::string object_filename = fn.extension(".o");
 
     std::string nasm_cmd_base = "nasm -g -felf64 -o ";
-    std::cout << "[CMD] " << nasm_cmd_base << RED(object_filename) << " "
-              << GREEN(asm_filename) << '\n';
+    std::cout << "[CMD] " << nasm_cmd_base << RED(object_filename) << " " << GREEN(asm_filename)
+              << '\n';
 
-    std::string nasm_cmd =
-        nasm_cmd_base.append(object_filename).append(" ").append(asm_filename);
+    std::string nasm_cmd = nasm_cmd_base.append(object_filename).append(" ").append(asm_filename);
     std::system(nasm_cmd.c_str());
 
     std::string ld_cmd_base = "ld -o ";
 
     std::string exe_filename = fn.extension("");
 
-    std::cout << "[CMD] " << ld_cmd_base << RED(exe_filename) << " "
-              << GREEN(object_filename) << " " << LIBSTDLEAST << '\n';
+    std::cout << "[CMD] " << ld_cmd_base << RED(exe_filename) << " " << GREEN(object_filename)
+              << " " << LIBSTDLEAST << '\n';
     std::string ld_cmd = ld_cmd_base.append(exe_filename)
                              .append(" ")
                              .append(object_filename)

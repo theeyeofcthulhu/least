@@ -1,3 +1,5 @@
+#include "lexer.hpp"
+
 #include <cctype>
 #include <iostream>
 #include <map>
@@ -7,7 +9,6 @@
 
 #include "dictionary.hpp"
 #include "error.hpp"
-#include "lexer.hpp"
 #include "lstring.hpp"
 #include "util.hpp"
 
@@ -15,6 +16,8 @@
  * of error: function calls must be terminated with a ';' */
 
 namespace lexer {
+
+void checkbanned(const std::string &s, CompileInfo &c_info);
 
 const std::map<std::string, keyword> key_map{
     std::make_pair("print", K_PRINT), std::make_pair("exit", K_EXIT),
@@ -35,32 +38,24 @@ const std::map<std::string, cmp_op> cmp_map{
 };
 
 const std::map<std::string, arit_op> arit_map{
-    std::make_pair("+", ADD), std::make_pair("-", SUB),
-    std::make_pair("%", MOD), std::make_pair("/", DIV),
-    std::make_pair("*", MUL),
+    std::make_pair("+", ADD), std::make_pair("-", SUB), std::make_pair("%", MOD),
+    std::make_pair("/", DIV), std::make_pair("*", MUL),
 };
 
 const std::map<std::string, log_op> log_map{
-    std::make_pair("&&", AND), std::make_pair("||", OR),
+    std::make_pair("&&", AND),
+    std::make_pair("||", OR),
 };
 
 const std::map<token_type, std::string> token_str_map{
-    std::make_pair(lexer::TK_KEY, "key"),
-    std::make_pair(lexer::TK_ARIT, "arit"),
-    std::make_pair(lexer::TK_CMP, "cmp"),
-    std::make_pair(lexer::TK_LOG, "log"),
-    std::make_pair(lexer::TK_STR, "str"),
-    std::make_pair(lexer::TK_LSTR, "lstr"),
-    std::make_pair(lexer::TK_CHAR, "char"),
-    std::make_pair(lexer::TK_NUM, "num"),
-    std::make_pair(lexer::TK_VAR, "var"),
-    std::make_pair(lexer::TK_SEP, "sep"),
-    std::make_pair(lexer::TK_CALL, "call"),
-    std::make_pair(lexer::TK_EOL, "eol"),
+    std::make_pair(lexer::TK_KEY, "key"),   std::make_pair(lexer::TK_ARIT, "arit"),
+    std::make_pair(lexer::TK_CMP, "cmp"),   std::make_pair(lexer::TK_LOG, "log"),
+    std::make_pair(lexer::TK_STR, "str"),   std::make_pair(lexer::TK_LSTR, "lstr"),
+    std::make_pair(lexer::TK_CHAR, "char"), std::make_pair(lexer::TK_NUM, "num"),
+    std::make_pair(lexer::TK_VAR, "var"),   std::make_pair(lexer::TK_SEP, "sep"),
+    std::make_pair(lexer::TK_CALL, "call"), std::make_pair(lexer::TK_EOL, "eol"),
     std::make_pair(lexer::TK_INV, "inv"),
 };
-
-void checkbanned(const std::string &s, CompileInfo &c_info);
 
 void checkbanned(const std::string &s, CompileInfo &c_info)
 {
@@ -73,23 +68,22 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>> &ts)
 {
     std::cout << "----- DEBUG INFO FOR TOKENS -----\n";
     for (const auto &tk : ts) {
-        std::cout << tk->get_line() << ": " << token_str_map.at(tk->get_type())
-                  << '\n';
+        std::cout << tk->get_line() << ": " << token_str_map.at(tk->get_type()) << '\n';
     }
     std::cout << "---------------------------------\n";
 }
 
 bool has_next_arg(const std::vector<std::shared_ptr<Token>> &ts, size_t &len)
 {
-    while ((ts[len]->get_type() != lexer::TK_SEP) &&
-           (ts[len]->get_type() != lexer::TK_EOL))
+    while ((ts[len]->get_type() != lexer::TK_SEP) && (ts[len]->get_type() != lexer::TK_EOL))
         len += 1;
 
     return ts[len]->get_type() == lexer::TK_SEP;
 }
 
-std::vector<std::shared_ptr<Token>>
-do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
+std::vector<std::shared_ptr<Token>> do_lex(const std::string &source,
+                                           CompileInfo &c_info,
+                                           bool no_set_line)
 {
     std::vector<std::shared_ptr<Token>> tokens;
 
@@ -122,18 +116,16 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
                 for (k = j + 1; k < line.length(); k++) {
                     if (line[k] == quote && line[k - 1] != '\\') {
                         if (k + 1 < line.length())
-                            c_info.err.on_false(
-                                std::isspace(line[k + 1]),
-                                "Quote not end of word in line: '%'\n", line);
+                            c_info.err.on_false(std::isspace(line[k + 1]),
+                                                "Quote not end of word in line: '%'\n", line);
                         united = line.substr(j, k - j + 1);
                         break;
                     }
                 }
                 j = k; /* Advance current char to end of string */
 
-                c_info.err.on_true(
-                    united.empty(),
-                    "Could not find end of string or character constant\n");
+                c_info.err.on_true(united.empty(),
+                                   "Could not find end of string or character constant\n");
 
                 std::shared_ptr<Token> parsed;
 
@@ -154,13 +146,11 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
                  * (stoi() doesn't throw on something like 2312ddfdf, so we need
                  * to have a whole thing...) */
                 for (auto new_chr : next_word)
-                    c_info.err.on_false(
-                        std::isdigit(new_chr),
-                        "Expected digit, got: '%' in number '%'\n", new_chr,
-                        next_word);
+                    c_info.err.on_false(std::isdigit(new_chr),
+                                        "Expected digit, got: '%' in number '%'\n", new_chr,
+                                        next_word);
 
-                tokens.push_back(
-                    std::make_shared<Num>(i, std::stoi(next_word)));
+                tokens.push_back(std::make_shared<Num>(i, std::stoi(next_word)));
 
                 j += next_i - 1;
 
@@ -171,17 +161,13 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
             auto next_word = get_next_word(line, j, next_i);
 
             if (cmp_map.find(next_word) != cmp_map.end()) {
-                tokens.push_back(
-                    std::make_shared<Cmp>(i, cmp_map.at(next_word)));
+                tokens.push_back(std::make_shared<Cmp>(i, cmp_map.at(next_word)));
             } else if (key_map.find(next_word) != key_map.end()) {
-                tokens.push_back(
-                    std::make_shared<Key>(i, key_map.at(next_word)));
+                tokens.push_back(std::make_shared<Key>(i, key_map.at(next_word)));
             } else if (arit_map.find(next_word) != arit_map.end()) {
-                tokens.push_back(
-                    std::make_shared<Arit>(i, arit_map.at(next_word)));
+                tokens.push_back(std::make_shared<Arit>(i, arit_map.at(next_word)));
             } else if (log_map.find(next_word) != log_map.end()) {
-                tokens.push_back(
-                    std::make_shared<Log>(i, log_map.at(next_word)));
+                tokens.push_back(std::make_shared<Log>(i, log_map.at(next_word)));
             } else if (next_word == "->") {
                 j += next_i + 1;
                 auto after = get_next_word(line, j, next_i);
@@ -210,4 +196,4 @@ do_lex(const std::string &source, CompileInfo &c_info, bool no_set_line)
     return tokens;
 }
 
-} // namespace lexer
+}  // namespace lexer
