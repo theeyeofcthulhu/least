@@ -9,10 +9,10 @@
 
 #define SHELL_GREEN "\033[0;32m"
 #define SHELL_RED "\033[0;31m"
-#define SHELL_WHITE "\033[0;37m"
+#define SHELL_RESET "\033[0;0m"
 
-#define RED(str) SHELL_RED << str << SHELL_WHITE
-#define GREEN(str) SHELL_GREEN << str << SHELL_WHITE
+#define RED(str) SHELL_RED << str << SHELL_RESET
+#define GREEN(str) SHELL_GREEN << str << SHELL_RESET
 
 #define LIBSTDLEAST "lib/libstdleast.a"
 

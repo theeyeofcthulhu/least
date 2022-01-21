@@ -14,7 +14,7 @@ echo -e "Testing these files: ${FILES[@]}\n"
 
 SHELL_GREEN="\033[0;32m"
 SHELL_RED="\033[0;31m"
-SHELL_WHITE="\033[0;37m"
+SHELL_WHITE="\033[0;0m"
 
 if [[ $1 = "reload" ]]; then
     make
