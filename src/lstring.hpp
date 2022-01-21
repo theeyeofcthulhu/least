@@ -12,8 +12,8 @@ namespace lexer {
 class Lstr;
 class Num;
 
-std::shared_ptr<Lstr> parse_string(const std::string &string, int line, CompileInfo &c_info);
-std::shared_ptr<Num> parse_char(const std::string &string, int line, CompileInfo &c_info);
-}  // namespace lexer
+std::shared_ptr<Lstr> parse_string(const std::string& string, int line, CompileInfo& c_info);
+std::shared_ptr<Num> parse_char(const std::string& string, int line, CompileInfo& c_info);
+} // namespace lexer
 
-#endif  // LSTRING_H_
+#endif // LSTRING_H_

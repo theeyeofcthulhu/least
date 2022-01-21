@@ -10,6 +10,6 @@ class Body;
 
 class CompileInfo;
 
-void ast_to_x86_64(std::shared_ptr<ast::Body> root, const std::string &fn, CompileInfo &c_info);
+void ast_to_x86_64(std::shared_ptr<ast::Body> root, const std::string& fn, CompileInfo& c_info);
 
-#endif  // X86_64_H_
+#endif // X86_64_H_

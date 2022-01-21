@@ -19,28 +19,28 @@
 
 /* TODO: add more *const* to project */
 /* TODO: observe blocks when looking at variable definitions */
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     bool run_after_compile = false;
     /* Handle command line input with getopt */
     int flag;
     while ((flag = getopt(argc, argv, "hr")) != -1) {
         switch (flag) {
-            case 'h':
-                std::cout << "Least Complicated Compiler - lcc\n"
-                             "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
-                             "usage: "
-                          << argv[0]
-                          << " [-hr] FILE\n\n"
-                             "-h: display this message and exit\n"
-                             "-r: run program after compilation\n";
-                return 0;
-            case 'r':
-                run_after_compile = true;
-                break;
-            case '?':
-            default:
-                return 1;
+        case 'h':
+            std::cout << "Least Complicated Compiler - lcc\n"
+                         "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
+                         "usage: "
+                      << argv[0]
+                      << " [-hr] FILE\n\n"
+                         "-h: display this message and exit\n"
+                         "-r: run program after compilation\n";
+            return 0;
+        case 'r':
+            run_after_compile = true;
+            break;
+        case '?':
+        default:
+            return 1;
         }
     }
 

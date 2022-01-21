@@ -39,19 +39,22 @@ enum ts_class {
 class Cmp;
 
 class Node {
-   public:
+public:
     int get_line() const { return m_line; };
     virtual ts_class get_type() const { return m_type; };
 
-    Node(int line) : m_line(line) {}
+    Node(int line)
+        : m_line(line)
+    {
+    }
 
-   private:
+private:
     int m_line;
     static const ts_class m_type = T_BASE;
 };
 
 class Body : public Node {
-   public:
+public:
     std::shared_ptr<Body> parent;
 
     std::vector<std::shared_ptr<Node>> children;
@@ -59,15 +62,15 @@ class Body : public Node {
     ts_class get_type() const override { return m_type; };
     int get_body_id() const { return m_body_id; };
 
-    Body(int line, std::shared_ptr<Body> t_parent, CompileInfo &c_info);
+    Body(int line, std::shared_ptr<Body> t_parent, CompileInfo& c_info);
 
-   private:
+private:
     static const ts_class m_type = T_BODY;
     int m_body_id;
 };
 
 class If : public Node {
-   public:
+public:
     std::shared_ptr<Node> condition;
     std::shared_ptr<Body> body;
     std::shared_ptr<Node> elif;
@@ -77,58 +80,72 @@ class If : public Node {
     ts_class get_type() const override { return m_type; };
 
     If(int line, std::shared_ptr<Node> t_condition, std::shared_ptr<Body> t_body, bool is_elif)
-        : Node(line), condition(t_condition), body(t_body), elif (nullptr), m_is_elif(is_elif)
+        : Node(line)
+        , condition(t_condition)
+        , body(t_body)
+        , elif (nullptr)
+        , m_is_elif(is_elif)
     {
     }
 
-   private:
+private:
     static const ts_class m_type = T_IF;
     bool m_is_elif;
 };
 
 class Else : public Node {
-   public:
+public:
     std::shared_ptr<Body> body;
 
     ts_class get_type() const override { return m_type; };
 
-    Else(int line, std::shared_ptr<Body> t_body) : Node(line), body(t_body) {}
+    Else(int line, std::shared_ptr<Body> t_body)
+        : Node(line)
+        , body(t_body)
+    {
+    }
 
-   private:
+private:
     static const ts_class m_type = T_ELSE;
 };
 
 class While : public Node {
-   public:
+public:
     std::shared_ptr<Node> condition;
     std::shared_ptr<Body> body;
 
     ts_class get_type() const override { return m_type; };
 
     While(int line, std::shared_ptr<Node> t_condition, std::shared_ptr<Body> t_body)
-        : Node(line), condition(t_condition), body(t_body)
+        : Node(line)
+        , condition(t_condition)
+        , body(t_body)
     {
     }
 
-   private:
+private:
     static const ts_class m_type = T_WHILE;
 };
 
 class Const : public Node {
-   public:
+public:
     int get_value() const { return m_value; };
 
     ts_class get_type() const override { return m_type; };
 
-    Const(int line, int value) : Node(line), m_value(value) {}
+    Const(int line, int value)
+        : Node(line)
+        , m_value(value)
+    {
+    }
 
-   private:
+private:
     int m_value;
     static const ts_class m_type = T_CONST;
 };
 
 class Cmp : public Node {
-   public:
+public:
     std::shared_ptr<Node> left;
     std::shared_ptr<Node> right;
 
@@ -136,17 +153,20 @@ class Cmp : public Node {
     cmp_op get_cmp() const { return m_cmp; };
 
     Cmp(int line, std::shared_ptr<Node> t_left, std::shared_ptr<Node> t_right, cmp_op t_cmp)
-        : Node(line), left(t_left), right(t_right), m_cmp(t_cmp)
+        : Node(line)
+        , left(t_left)
+        , right(t_right)
+        , m_cmp(t_cmp)
     {
     }
 
-   private:
+private:
     cmp_op m_cmp;
     static const ts_class m_type = T_CMP;
 };
 
 class Log : public Node {
-   public:
+public:
     std::shared_ptr<Node> left;
     std::shared_ptr<Node> right;
 
@@ -154,31 +174,38 @@ class Log : public Node {
     log_op get_log() const { return m_log; };
 
     Log(int line, std::shared_ptr<Node> t_left, std::shared_ptr<Node> t_right, log_op t_log)
-        : Node(line), left(t_left), right(t_right), m_log(t_log)
+        : Node(line)
+        , left(t_left)
+        , right(t_right)
+        , m_log(t_log)
     {
     }
 
-   private:
+private:
     log_op m_log;
     static const ts_class m_type = T_LOG;
 };
 
 class Func : public Node {
-   public:
+public:
     std::vector<std::shared_ptr<Node>> args;
 
     ts_class get_type() const override { return m_type; };
     func_id get_func() const { return m_func; };
 
-    Func(int line, func_id t_func) : Node(line), m_func(t_func) {}
+    Func(int line, func_id t_func)
+        : Node(line)
+        , m_func(t_func)
+    {
+    }
 
-   private:
+private:
     func_id m_func;
     static const ts_class m_type = T_FUNC;
 };
 
 class VFunc : public Node {
-   public:
+public:
     // TODO: args?
 
     ts_class get_type() const override { return m_type; };
@@ -186,54 +213,64 @@ class VFunc : public Node {
     var_type get_return_type() const { return m_return_type; };
 
     VFunc(int line, value_func_id t_vfunc, var_type t_ret)
-        : Node(line), m_vfunc(t_vfunc), m_return_type(t_ret)
+        : Node(line)
+        , m_vfunc(t_vfunc)
+        , m_return_type(t_ret)
     {
     }
 
-   private:
+private:
     value_func_id m_vfunc;
     var_type m_return_type;
     static const ts_class m_type = T_VFUNC;
 };
 
 class Var : public Node {
-   public:
+public:
     ts_class get_type() const override { return m_type; };
 
     int get_var_id() const { return m_var_id; };
 
-    Var(int line, int var_id) : Node(line), m_var_id(var_id) {}
+    Var(int line, int var_id)
+        : Node(line)
+        , m_var_id(var_id)
+    {
+    }
 
-   private:
+private:
     int m_var_id;
     static const ts_class m_type = T_VAR;
 };
 
 class Str : public Node {
-   public:
+public:
     ts_class get_type() const override { return m_type; };
     int get_str_id() const { return m_str_id; };
 
-    Str(int line, int str_id) : Node(line), m_str_id(str_id) {}
+    Str(int line, int str_id)
+        : Node(line)
+        , m_str_id(str_id)
+    {
+    }
 
-   private:
+private:
     int m_str_id;
     static const ts_class m_type = T_STR;
 };
 
 class Lstr : public Node {
-   public:
+public:
     ts_class get_type() const override { return m_type; };
     std::vector<std::shared_ptr<Node>> format;
 
-    Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>> &ts, CompileInfo &c_info);
+    Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, CompileInfo& c_info);
 
-   private:
+private:
     static const ts_class m_type = T_LSTR;
 };
 
 class Arit : public Node {
-   public:
+public:
     std::shared_ptr<Node> left;
     std::shared_ptr<Node> right;
 
@@ -241,11 +278,14 @@ class Arit : public Node {
     arit_op get_arit() const { return m_arit; };
 
     Arit(int line, std::shared_ptr<Node> t_left, std::shared_ptr<Node> t_right, arit_op t_arit)
-        : Node(line), left(t_left), right(t_right), m_arit(t_arit)
+        : Node(line)
+        , left(t_left)
+        , right(t_right)
+        , m_arit(t_arit)
     {
     }
 
-   private:
+private:
     arit_op m_arit;
     static const ts_class m_type = T_ARIT;
 };
@@ -256,23 +296,27 @@ struct FunctionSpec {
     std::vector<ts_class> types;
     std::vector<var_type> info;
     std::vector<std::pair<size_t, var_type>> define;
-    FunctionSpec(const std::string &t_name,
-                 size_t t_len,
-                 const std::vector<ts_class> &t_types,
-                 const std::vector<var_type> &t_info,
-                 const std::vector<std::pair<size_t, var_type>> &t_def)
-        : name(t_name), exp_arg_len(t_len), types(t_types), info(t_info), define(t_def)
+    FunctionSpec(const std::string& t_name,
+        size_t t_len,
+        const std::vector<ts_class>& t_types,
+        const std::vector<var_type>& t_info,
+        const std::vector<std::pair<size_t, var_type>>& t_def)
+        : name(t_name)
+        , exp_arg_len(t_len)
+        , types(t_types)
+        , info(t_info)
+        , define(t_def)
     {
     }
 };
 
 std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node);
-void check_correct_function_call(const FunctionSpec &spec,
-                                 const std::vector<std::shared_ptr<Node>> &args,
-                                 CompileInfo &c_info);
-void tree_to_dot(std::shared_ptr<Body> root, std::string fn, CompileInfo &c_info);
-std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>> &tokens,
-                              CompileInfo &c_info);
+void check_correct_function_call(const FunctionSpec& spec,
+    const std::vector<std::shared_ptr<Node>>& args,
+    CompileInfo& c_info);
+void tree_to_dot(std::shared_ptr<Body> root, std::string fn, CompileInfo& c_info);
+std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& tokens,
+    CompileInfo& c_info);
 
 const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(Node).hash_code(), T_BASE),
@@ -293,19 +337,19 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
 
 /* Cast tree_node to desired polymorphic subtype
  * Ensures that tk was declared as a type T originally */
-template <typename T>
+template<typename T>
 std::shared_ptr<T> safe_cast(std::shared_ptr<Node> nd)
 {
     try {
         assert(tree_type_enum_map.at(typeid(T).hash_code()) == nd->get_type());
-    } catch (std::out_of_range &e) {
+    } catch (std::out_of_range& e) {
         std::cerr << "Type '" << typeid(T).name() << "' not in map in ast::safe_cast()\n";
         std::exit(1);
     }
     return std::dynamic_pointer_cast<T>(nd);
 }
 
-template <typename T>
+template<typename T>
 std::shared_ptr<Node> to_base(std::shared_ptr<T> nd)
 {
     return std::dynamic_pointer_cast<Node>(nd);
@@ -316,6 +360,6 @@ inline constexpr bool has_precedence(arit_op op)
     return op == DIV || op == MUL || op == MOD;
 }
 
-}  // namespace ast
+} // namespace ast
 
 #endif /* AST_H_ */

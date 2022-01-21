@@ -91,4 +91,4 @@ extern const std::map<func_id, std::string> func_str_map;
 extern const std::map<value_func_id, std::string> vfunc_str_map;
 extern const std::map<keyword, value_func_id> key_vfunc_map;
 
-#endif  // DICTIONARY_H_
+#endif // DICTIONARY_H_
