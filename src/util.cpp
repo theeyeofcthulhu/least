@@ -17,15 +17,14 @@
  * in spc_idx */
 std::string get_next_word(const std::string& str, int index, size_t& spc_idx)
 {
-    std::string substr = str.substr(index, std::string::npos);
+    std::string from_index = str.substr(index);
 
-    spc_idx = substr.find(' ');
+    spc_idx = from_index.find(' ');
 
     if (spc_idx == std::string::npos)
-        spc_idx = substr.size();
+        spc_idx = from_index.size();
 
-    std::string res = substr.substr(0, spc_idx);
-    return res;
+    return from_index.substr(0, spc_idx);
 }
 
 std::vector<std::string> split(const std::string& str, char delim)
