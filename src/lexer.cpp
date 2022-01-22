@@ -166,16 +166,16 @@ std::vector<std::shared_ptr<Token>> do_lex(const std::string& source,
                 size_t next_i;
                 auto next_word = get_next_word(line, j, next_i);
 
-                /* TODO: do the whole conversion manually, don't
-                 * check if every character is a digit and then call stoi()
-                 * (stoi() doesn't throw on something like 2312ddfdf, so we need
-                 * to have a whole thing...) */
-                for (auto new_chr : next_word)
-                    c_info.err.on_false(std::isdigit(new_chr),
-                        "Expected digit, got: '%' in number '%'\n", new_chr,
-                        next_word);
+                const char *word_cstr = next_word.c_str();
+                char *end;
 
-                tokens.push_back(std::make_shared<Num>(i, std::stoi(next_word)));
+                /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
+                int result = std::strtol(word_cstr, &end, 0);
+
+                /* The end of the word was not reached or the beginning not left: conversion failed */
+                c_info.err.on_true(end == word_cstr || *end != '\0', "Could not convert '%' to an integer\n", next_word);
+
+                tokens.push_back(std::make_shared<Num>(i, result));
 
                 j += next_i - 1;
 
