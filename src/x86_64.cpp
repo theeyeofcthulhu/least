@@ -1,5 +1,3 @@
-#include "x86_64.hpp"
-
 #include <algorithm>
 #include <cassert>
 #include <fstream>
@@ -11,6 +9,7 @@
 
 #include "ast.hpp"
 #include "util.hpp"
+#include "x86_64.hpp"
 
 #define MAX_DIGITS 32
 #define STR_RESERVED_SIZE 128

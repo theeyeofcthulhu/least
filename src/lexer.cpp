@@ -17,6 +17,10 @@
 
 namespace lexer {
 
+/*
+ * Checks if s contains a banned character; errors out if that
+ * is the case
+ */
 void checkbanned(const std::string& s, CompileInfo& c_info);
 
 const std::map<std::string, keyword> key_map {

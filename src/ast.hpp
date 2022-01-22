@@ -290,12 +290,15 @@ private:
     static const ts_class m_type = T_ARIT;
 };
 
+/*
+ * Specifies a correct call to a function
+ */
 struct FunctionSpec {
-    std::string name;
-    size_t exp_arg_len;
-    std::vector<ts_class> types;
-    std::vector<var_type> info;
-    std::vector<std::pair<size_t, var_type>> define;
+    std::string name;                                /* The name of the function */
+    size_t exp_arg_len;                              /* The number of arguments */
+    std::vector<ts_class> types;                     /* The types of every argument */
+    std::vector<var_type> info;                      /* The types of every T_VAR argument */
+    std::vector<std::pair<size_t, var_type>> define; /* What T_VARS are defined by this function */
     FunctionSpec(const std::string& t_name,
         size_t t_len,
         const std::vector<ts_class>& t_types,
@@ -310,11 +313,27 @@ struct FunctionSpec {
     }
 };
 
+/*
+ * Traverse the pointers to elifs/elses on if_node until the
+ * last one
+ */
 std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node);
+
+/*
+ * Check if the supplied args comply with spec
+ */
 void check_correct_function_call(const FunctionSpec& spec,
     const std::vector<std::shared_ptr<Node>>& args,
     CompileInfo& c_info);
+
+/*
+ * Write a graphviz representation of the AST in root to fn
+ */
 void tree_to_dot(std::shared_ptr<Body> root, std::string fn, CompileInfo& c_info);
+
+/*
+ * Generate an abstract syntax tree from tokens and return the root
+ */
 std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& tokens,
     CompileInfo& c_info);
 
@@ -335,8 +354,10 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(Arit).hash_code(), T_ARIT),
 };
 
-/* Cast tree_node to desired polymorphic subtype
- * Ensures that tk was declared as a type T originally */
+/*
+ * Cast tree_node to desired polymorphic subtype
+ * Ensures that tk was declared as a type T originally
+ */
 template<typename T>
 std::shared_ptr<T> safe_cast(std::shared_ptr<Node> nd)
 {
@@ -349,6 +370,9 @@ std::shared_ptr<T> safe_cast(std::shared_ptr<Node> nd)
     return std::dynamic_pointer_cast<T>(nd);
 }
 
+/*
+ * Cast a subclass tree node back to Node
+ */
 template<typename T>
 std::shared_ptr<Node> to_base(std::shared_ptr<T> nd)
 {
