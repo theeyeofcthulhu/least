@@ -78,7 +78,7 @@ template<typename... args>
 void ErrorHandler::print_error(const std::string& format, const args&... fargs)
 {
     std::cerr << "Compiler error!\n"
-              << m_file << ":" << m_line << ": ";
+              << m_file << ":" << m_line + 1 << ": ";
     error_core(std::cerr, format.begin(), format.end(), fargs...);
 }
 
@@ -101,7 +101,7 @@ void ErrorHandler::error_core(std::ostream& out, It first, It last)
                 break;
             } else {
                 out << "Too few arguments to error function\n";
-                exit(1);
+                std::exit(1);
             }
         default:
             out << *it;
