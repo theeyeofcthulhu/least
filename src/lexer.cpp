@@ -166,14 +166,18 @@ std::vector<std::shared_ptr<Token>> do_lex(const std::string& source,
                 size_t next_i;
                 auto next_word = get_next_word(line, j, next_i);
 
-                const char *word_cstr = next_word.c_str();
-                char *end;
+                int result;
+                size_t processed;
 
-                /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
-                int result = std::strtol(word_cstr, &end, 0);
+                try {
+                    /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
+                    result = std::stoi(next_word, &processed, 0);
+                } catch (std::out_of_range &e) {
+                    c_info.err.error("Number '%' is too large\n", next_word);
+                }
 
                 /* The end of the word was not reached or the beginning not left: conversion failed */
-                c_info.err.on_true(end == word_cstr || *end != '\0', "Could not convert '%' to an integer\n", next_word);
+                c_info.err.on_true(processed != next_word.length(), "Could not convert '%' to an integer\n", next_word);
 
                 tokens.push_back(std::make_shared<Num>(i, result));
 

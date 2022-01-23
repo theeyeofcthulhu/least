@@ -398,6 +398,7 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
 
     eol = next_of_type_on_line(ts, i, lexer::TK_EOL);
 
+    /* Not a logical operation; pass on to parse_condition */
     if (next_of_type_on_line(ts, i, lexer::TK_LOG) == ts.size()) {
         auto res = parse_condition(slice(ts, i, eol), c_info);
         i = eol - 1;
