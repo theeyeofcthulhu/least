@@ -448,7 +448,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
 
                     switch (the_var_info.type) {
                     case V_INT: {
-                        out << "mov rax, " << asm_from_int_or_const(format, c_info)
+                        out << "mov rdi, " << asm_from_int_or_const(format, c_info)
                             << "\n"
                                "call uprint\n";
                         break;
@@ -474,7 +474,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     break;
                 }
                 case ast::T_CONST: {
-                    out << "mov rax, " << asm_from_int_or_const(format, c_info)
+                    out << "mov rdi, " << asm_from_int_or_const(format, c_info)
                         << "\n"
                            "call uprint\n";
                     break;
@@ -531,7 +531,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         case F_PUTCHAR: {
-            number_in_register(t_func->args[0], "rax", out, c_info);
+            number_in_register(t_func->args[0], "rdi", out, c_info);
             out << "call putchar\n";
 
             break;

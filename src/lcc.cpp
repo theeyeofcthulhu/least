@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
         switch (flag) {
         case 'h':
             std::cout << "Least Complicated Compiler - lcc\n"
-                         "Copyright (C) 2021 - theeyeofcthulhu on GitHub\n\n"
+                         "Copyright (C) 2021-2022 - theeyeofcthulhu on GitHub\n\n"
                          "usage: "
                       << argv[0]
                       << " [-hr] FILE\n\n"
