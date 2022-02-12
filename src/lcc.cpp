@@ -19,7 +19,7 @@
 
 /* TODO: add more *const* to project */
 /* TODO: observe blocks when looking at variable definitions */
-int main(int argc, char* argv[])
+int main(int argc, char** argv)
 {
     bool run_after_compile = false;
     /* Handle command line input with getopt */
