@@ -157,6 +157,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
 
                 std::shared_ptr<Token> parsed;
 
+                /* NOTE: overloaded function? */
                 if (quote == '\"')
                     parsed = parse_string(united, i, c_info);
                 else if (quote == '\'')

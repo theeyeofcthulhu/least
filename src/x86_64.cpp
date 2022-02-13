@@ -290,8 +290,8 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, Compile
            "syscall\n"
            "section .data\n";
 
-    for (size_t i = 0; i < c_info.known_string.size(); i++) {
-        out << "str" << i << ": db \"" << c_info.known_string[i]
+    for (size_t i = 0; i < c_info.known_strings.size(); i++) {
+        out << "str" << i << ": db \"" << c_info.known_strings[i]
             << "\"\n"
                "str"
             << i << "Len: equ $ - str" << i << "\n";

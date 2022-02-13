@@ -102,14 +102,14 @@ int CompileInfo::check_var(std::string_view var)
 /* Same as check_var but with string */
 int CompileInfo::check_str(std::string_view str)
 {
-    for (size_t i = 0; i < known_string.size(); i++) {
-        if (str == known_string[i])
+    for (size_t i = 0; i < known_strings.size(); i++) {
+        if (str == known_strings[i])
             return i;
     }
 
-    known_string.push_back(str);
+    known_strings.push_back(str);
 
-    return known_string.size() - 1;
+    return known_strings.size() - 1;
 }
 
 void CompileInfo::error_on_undefined(std::shared_ptr<ast::Var> var_id)

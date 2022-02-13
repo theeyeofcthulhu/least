@@ -34,7 +34,7 @@ struct VarInfo {
 class CompileInfo {
 public:
     std::vector<VarInfo> known_vars;
-    std::vector<std::string_view> known_string; // TODO: rename to known_strings
+    std::vector<std::string_view> known_strings; // TODO: rename to known_strings
 
     ErrorHandler err;
 
