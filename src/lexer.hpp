@@ -115,7 +115,7 @@ public:
         , m_str(t_str)
     {
     }
-    std::string get_str() const { return m_str; };
+    std::string_view get_str() const { return m_str; };
     token_type get_type() const override { return m_type; };
 
 private:
@@ -153,17 +153,17 @@ private:
 
 class Var : public Token {
 public:
-    Var(int line, const std::string& name)
+    Var(int line, const std::string_view name)
         : Token(line)
         , m_name(name)
     {
     }
-    std::string get_name() const { return m_name; };
+    std::string_view get_name() const { return m_name; };
     token_type get_type() const override { return m_type; };
 
 private:
     static const token_type m_type = lexer::TK_VAR;
-    std::string m_name;
+    std::string_view m_name;
 };
 
 class Call : public Token {
@@ -218,7 +218,7 @@ bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len);
 /*
  * Lexes the source code in source to list of tokens
  */
-std::vector<std::shared_ptr<Token>> do_lex(const std::string& source,
+std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
     CompileInfo& c_info,
     bool no_set_line = false);
 

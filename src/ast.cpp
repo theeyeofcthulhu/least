@@ -37,11 +37,11 @@ std::shared_ptr<While> parse_condition_to_while(
     std::shared_ptr<Body> root,
     CompileInfo& c_info);
 
-void tree_to_dot_core(std::shared_ptr<ast::Node> root,
+void tree_to_dot_core(std::shared_ptr<Node> root,
     int& node,
     int& tbody_id,
     int parent_body_id,
-    std::fstream& dot,
+    std::ofstream& dot,
     CompileInfo& c_info);
 
 const std::map<keyword, func_id> key_func_map = {
@@ -65,7 +65,7 @@ const std::map<value_func_id, var_type> vfunc_var_type_map = {
 
 /* Maps for converting enum values to strings */
 
-const std::map<cmp_op, std::string> cmp_str_map = {
+const std::map<cmp_op, std::string_view> cmp_str_map = {
     std::make_pair(EQUAL, "=="),
     std::make_pair(GREATER, ">"),
     std::make_pair(GREATER_OR_EQ, ">="),
@@ -75,13 +75,13 @@ const std::map<cmp_op, std::string> cmp_str_map = {
     std::make_pair(CMP_OPERATION_ENUM_END, "no operation"),
 };
 
-const std::map<log_op, std::string> log_str_map = {
+const std::map<log_op, std::string_view> log_str_map = {
     std::make_pair(AND, "&&"),
     std::make_pair(OR, "||"),
     std::make_pair(LOGICAL_OPS_END, "no log"),
 };
 
-const std::map<arit_op, std::string> arit_str_map = {
+const std::map<arit_op, std::string_view> arit_str_map = {
     std::make_pair(ADD, "+"),
     std::make_pair(DIV, "/"),
     std::make_pair(MOD, "%"),
@@ -89,7 +89,7 @@ const std::map<arit_op, std::string> arit_str_map = {
     std::make_pair(SUB, "-"),
 };
 
-const std::map<keyword, std::string> key_str_map {
+const std::map<keyword, std::string_view> key_str_map {
     std::make_pair(K_PRINT, "print"),
     std::make_pair(K_EXIT, "exit"),
     std::make_pair(K_IF, "if"),
@@ -689,10 +689,11 @@ std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node)
     return nullptr;
 }
 
-void tree_to_dot(std::shared_ptr<Body> root, std::string fn, CompileInfo& c_info)
+void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c_info)
 {
-    std::fstream out;
-    out.open(fn, std::ios::out);
+    const std::string temp(fn);
+
+    std::ofstream out(temp);
 
     out << "digraph AST {\n";
 
@@ -711,7 +712,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     int& node,
     int& tbody_id,
     int parent_body_id,
-    std::fstream& dot,
+    std::ofstream& dot,
     CompileInfo& c_info)
 {
     switch (root->get_type()) {
@@ -738,7 +739,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_IF: {
         std::shared_ptr<If> t_if = AST_SAFE_CAST(If, root);
 
-        const std::string if_name = t_if->is_elif() ? "elif" : "if";
+        std::string_view if_name = t_if->is_elif() ? "elif" : "if";
 
         dot << "\tNode_" << ++node << "[label=\"" << if_name << "\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"body >"

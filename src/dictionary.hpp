@@ -86,9 +86,9 @@ enum var_type {
     V_UNSURE,
 };
 
-extern const std::map<var_type, std::string> var_type_str_map;
-extern const std::map<func_id, std::string> func_str_map;
-extern const std::map<value_func_id, std::string> vfunc_str_map;
+extern const std::map<var_type, std::string_view> var_type_str_map;
+extern const std::map<func_id, std::string_view> func_str_map;
+extern const std::map<value_func_id, std::string_view> vfunc_str_map;
 extern const std::map<keyword, value_func_id> key_vfunc_map;
 
 #endif // DICTIONARY_H_

@@ -1,12 +1,12 @@
 #include "dictionary.hpp"
 
-const std::map<var_type, std::string> var_type_str_map = {
+const std::map<var_type, std::string_view> var_type_str_map = {
     std::make_pair(V_INT, "int"),
     std::make_pair(V_STR, "str"),
     std::make_pair(V_UNSURE, "untyped"),
 };
 
-const std::map<func_id, std::string> func_str_map = {
+const std::map<func_id, std::string_view> func_str_map = {
     std::make_pair(F_PRINT, "print"),
     std::make_pair(F_EXIT, "exit"),
     std::make_pair(F_READ, "read"),
@@ -21,7 +21,7 @@ const std::map<func_id, std::string> func_str_map = {
     std::make_pair(F_CALL, "call"),
 };
 
-const std::map<value_func_id, std::string> vfunc_str_map = {
+const std::map<value_func_id, std::string_view> vfunc_str_map = {
     std::make_pair(VF_TIME, "time"),
     std::make_pair(VF_GETUID, "getuid"),
 };

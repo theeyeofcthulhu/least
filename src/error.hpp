@@ -7,31 +7,31 @@
 class ErrorHandler {
 public:
     template<typename... args>
-    void on_false(bool eval, const std::string& format, const args&... fargs);
+    void on_false(bool eval, std::string_view format, const args&... fargs);
 
     template<typename... args>
-    void on_true(bool eval, const std::string& format, const args&... fargs);
+    void on_true(bool eval, std::string_view format, const args&... fargs);
 
     template<typename... args>
-    void error(const std::string& format, const args&... fargs);
+    void error(std::string_view format, const args&... fargs);
 
     template<typename... args>
-    static void dbgln(const std::string& format, const args&... fargs);
+    static void dbgln(std::string_view format, const args&... fargs);
 
-    void set_file(const std::string& file) { m_file = file; };
+    void set_file(std::string_view file) { m_file = file; };
     void set_line(int line) { m_line = line; };
 
-    ErrorHandler(const std::string& file)
+    ErrorHandler(std::string_view file)
         : m_file(file)
     {
     }
 
 private:
-    std::string m_file;
+    std::string_view m_file;
     int m_line = -1;
 
     template<typename... args>
-    void print_error(const std::string& format, const args&... fargs);
+    void print_error(std::string_view format, const args&... fargs);
 
     template<typename It>
     static void error_core(std::ostream& out, It first, It last);
@@ -45,7 +45,7 @@ private:
 };
 
 template<typename... args>
-void ErrorHandler::on_false(bool eval, const std::string& format, const args&... fargs)
+void ErrorHandler::on_false(bool eval, std::string_view format, const args&... fargs)
 {
     if (eval)
         return;
@@ -56,7 +56,7 @@ void ErrorHandler::on_false(bool eval, const std::string& format, const args&...
 }
 
 template<typename... args>
-void ErrorHandler::on_true(bool eval, const std::string& format, const args&... fargs)
+void ErrorHandler::on_true(bool eval, std::string_view format, const args&... fargs)
 {
     if (!eval)
         return;
@@ -67,7 +67,7 @@ void ErrorHandler::on_true(bool eval, const std::string& format, const args&... 
 }
 
 template<typename... args>
-void ErrorHandler::error(const std::string& format, const args&... fargs)
+void ErrorHandler::error(std::string_view format, const args&... fargs)
 {
     print_error(format, fargs...);
 
@@ -75,7 +75,7 @@ void ErrorHandler::error(const std::string& format, const args&... fargs)
 }
 
 template<typename... args>
-void ErrorHandler::print_error(const std::string& format, const args&... fargs)
+void ErrorHandler::print_error(std::string_view format, const args&... fargs)
 {
     std::cerr << "Compiler error!\n"
               << m_file << ":" << m_line + 1 << ": ";
@@ -83,7 +83,7 @@ void ErrorHandler::print_error(const std::string& format, const args&... fargs)
 }
 
 template<typename... args>
-void ErrorHandler::dbgln(const std::string& format, const args&... fargs)
+void ErrorHandler::dbgln(std::string_view format, const args&... fargs)
 {
     error_core(std::cout, format.begin(), format.end(), fargs...);
     std::cout << '\n';

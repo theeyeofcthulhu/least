@@ -5,11 +5,14 @@
 #include <cassert>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "dictionary.hpp"
 #include "error.hpp"
+
+#define DBG(x) std::cout << #x << ": " << x << '\n';
 
 namespace ast {
 class Var;
@@ -18,12 +21,12 @@ class Var;
 namespace lexer {
 class Token;
 enum token_type : int;
-} // namespace lexer
+}
 
 #define BODY_ID_START 1024
 
 struct VarInfo {
-    std::string name;
+    std::string_view name;
     var_type type;
     bool defined;
 };
@@ -31,42 +34,42 @@ struct VarInfo {
 class CompileInfo {
 public:
     std::vector<VarInfo> known_vars;
-    std::vector<std::string> known_string;
+    std::vector<std::string_view> known_string; // TODO: rename to known_strings
 
     ErrorHandler err;
 
     int get_next_body_id() { return body_id++; }
 
-    CompileInfo(const std::string& pfilename)
+    CompileInfo(std::string_view pfilename)
         : err(pfilename)
         , m_filename(pfilename)
     {
     }
 
-    int check_var(const std::string& var);
-    int check_str(const std::string& str);
+    int check_var(std::string_view var);
+    int check_str(std::string_view str);
     void error_on_undefined(std::shared_ptr<ast::Var> var_id);
     void error_on_wrong_type(std::shared_ptr<ast::Var> var_id, var_type tp);
 
 private:
-    std::string m_filename;
+    std::string_view m_filename;
     int body_id = BODY_ID_START;
 };
 
 class Filename {
 public:
-    std::string extension(const std::string& ext) const;
-    std::string base() const { return m_filename; };
-    Filename(const std::string& fn);
+    std::string extension(std::string_view ext) const;
+    std::string_view base() const { return m_filename; };
+    Filename(std::string_view fn);
 
 private:
-    std::string m_filename;
-    std::string m_noext;
+    std::string_view m_filename;
+    std::string_view m_noext;
 };
 
-std::vector<std::string> split(const std::string& str, char delim);
-std::string read_source_code(const std::string& filename, CompileInfo& c_info);
-std::string get_next_word(const std::string& str, int index, size_t& spc_idx);
+std::vector<std::string_view> split(std::string_view str, char delim);
+std::string read_source_code(std::string_view filename, CompileInfo& c_info);
+std::string_view get_next_word(std::string_view str, int index, size_t& spc_idx);
 size_t next_of_type_on_line(const std::vector<std::shared_ptr<lexer::Token>>& ts,
     size_t start,
     lexer::token_type ty);

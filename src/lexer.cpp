@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <charconv>
 
 #include "dictionary.hpp"
 #include "error.hpp"
@@ -21,30 +22,30 @@ namespace lexer {
  * Checks if s contains a banned character; errors out if that
  * is the case
  */
-void checkbanned(const std::string& s, CompileInfo& c_info);
+void checkbanned(std::string_view s, CompileInfo& c_info);
 
-const std::map<std::string, keyword> key_map {
-    std::make_pair("print", K_PRINT),
-    std::make_pair("exit", K_EXIT),
-    std::make_pair("if", K_IF),
-    std::make_pair("elif", K_ELIF),
-    std::make_pair("else", K_ELSE),
-    std::make_pair("while", K_WHILE),
-    std::make_pair("end", K_END),
-    std::make_pair("int", K_INT),
-    std::make_pair("str", K_STR),
-    std::make_pair("read", K_READ),
-    std::make_pair("set", K_SET),
-    std::make_pair("putchar", K_PUTCHAR),
-    std::make_pair("add", K_ADD),
-    std::make_pair("sub", K_SUB),
-    std::make_pair("break", K_BREAK),
+const std::map<std::string_view, keyword> key_map {
+    std::make_pair("print",    K_PRINT),
+    std::make_pair("exit",     K_EXIT),
+    std::make_pair("if",       K_IF),
+    std::make_pair("elif",     K_ELIF),
+    std::make_pair("else",     K_ELSE),
+    std::make_pair("while",    K_WHILE),
+    std::make_pair("end",      K_END),
+    std::make_pair("int",      K_INT),
+    std::make_pair("str",      K_STR),
+    std::make_pair("read",     K_READ),
+    std::make_pair("set",      K_SET),
+    std::make_pair("putchar",  K_PUTCHAR),
+    std::make_pair("add",      K_ADD),
+    std::make_pair("sub",      K_SUB),
+    std::make_pair("break",    K_BREAK),
     std::make_pair("continue", K_CONT),
-    std::make_pair("time", K_TIME),
-    std::make_pair("getuid", K_GETUID),
+    std::make_pair("time",     K_TIME),
+    std::make_pair("getuid",   K_GETUID),
 };
 
-const std::map<std::string, cmp_op> cmp_map {
+const std::map<std::string_view, cmp_op> cmp_map {
     std::make_pair("==", EQUAL),
     std::make_pair("!=", NOT_EQUAL),
     std::make_pair("<", LESS),
@@ -53,7 +54,7 @@ const std::map<std::string, cmp_op> cmp_map {
     std::make_pair(">=", GREATER_OR_EQ),
 };
 
-const std::map<std::string, arit_op> arit_map {
+const std::map<std::string_view, arit_op> arit_map {
     std::make_pair("+", ADD),
     std::make_pair("-", SUB),
     std::make_pair("%", MOD),
@@ -61,12 +62,12 @@ const std::map<std::string, arit_op> arit_map {
     std::make_pair("*", MUL),
 };
 
-const std::map<std::string, log_op> log_map {
+const std::map<std::string_view, log_op> log_map {
     std::make_pair("&&", AND),
     std::make_pair("||", OR),
 };
 
-const std::map<token_type, std::string> token_str_map {
+const std::map<token_type, std::string_view> token_str_map {
     std::make_pair(lexer::TK_KEY, "key"),
     std::make_pair(lexer::TK_ARIT, "arit"),
     std::make_pair(lexer::TK_CMP, "cmp"),
@@ -82,11 +83,12 @@ const std::map<token_type, std::string> token_str_map {
     std::make_pair(lexer::TK_INV, "inv"),
 };
 
-void checkbanned(const std::string& s, CompileInfo& c_info)
+void checkbanned(std::string_view s, CompileInfo& c_info)
 {
-    for (char c : s)
+    for (char c : s) {
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
             "Invalid character in variable name: '%'\n", s);
+    }
 }
 
 void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts)
@@ -106,7 +108,7 @@ bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len)
     return ts[len]->get_type() == lexer::TK_SEP;
 }
 
-std::vector<std::shared_ptr<Token>> do_lex(const std::string& source,
+std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
     CompileInfo& c_info,
     bool no_set_line)
 {
@@ -135,14 +137,15 @@ std::vector<std::shared_ptr<Token>> do_lex(const std::string& source,
                 /* Parse string literal or character constant */
 
                 char quote = line[j]; /* Could be '"' or ''' */
-                std::string united;
+                std::string_view united;
 
                 size_t k;
                 for (k = j + 1; k < line.length(); k++) {
                     if (line[k] == quote && line[k - 1] != '\\') {
-                        if (k + 1 < line.length())
+                        if (k + 1 < line.length()) {
                             c_info.err.on_false(std::isspace(line[k + 1]),
                                 "Quote not end of word in line: '%'\n", line);
+                        }
                         united = line.substr(j, k - j + 1);
                         break;
                     }
@@ -164,20 +167,16 @@ std::vector<std::shared_ptr<Token>> do_lex(const std::string& source,
                 continue;
             } else if (std::isdigit(line[j])) {
                 size_t next_i;
-                auto next_word = get_next_word(line, j, next_i);
-
+                std::string_view next_word = get_next_word(line, j, next_i);
                 int result;
-                size_t processed;
 
-                try {
-                    /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
-                    result = std::stoi(next_word, &processed, 0);
-                } catch (std::out_of_range &e) {
-                    c_info.err.error("Number '%' is too large\n", next_word);
-                }
+                const char *last = next_word.data() + next_word.size();
+
+                /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
+                auto [ptr, ec] = std::from_chars(next_word.data(), last, result);
 
                 /* The end of the word was not reached or the beginning not left: conversion failed */
-                c_info.err.on_true(processed != next_word.length(), "Could not convert '%' to an integer\n", next_word);
+                c_info.err.on_true(ec == std::errc::invalid_argument || ec == std::errc::result_out_of_range || ptr != last, "Could not convert '%' to an integer\n", next_word);
 
                 tokens.push_back(std::make_shared<Num>(i, result));
 

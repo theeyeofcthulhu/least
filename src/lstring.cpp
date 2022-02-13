@@ -4,6 +4,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "ast.hpp"
@@ -12,7 +13,7 @@
 
 namespace lexer {
 
-const std::map<char, std::string> str_tokens = {
+const std::map<char, std::string_view> str_tokens = {
     std::make_pair('n', "\",0xa,\""),   /* Newline */
     std::make_pair('t', "\",0x9,\""),   /* Tabstop */
     std::make_pair('\\', "\\"),         /* The character '\' */
@@ -34,7 +35,7 @@ const std::map<char, char> str_tokens_char = {
 
 /* Check validity of string and insert escape sequences */
 /* Also parse any '[var]' blocks and insert variable tokens */
-std::shared_ptr<Lstr> parse_string(const std::string& string, int line, CompileInfo& c_info)
+std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInfo& c_info)
 {
     std::shared_ptr<Lstr> res = std::make_shared<Lstr>(line);
 
@@ -70,14 +71,14 @@ std::shared_ptr<Lstr> parse_string(const std::string& string, int line, CompileI
             if (!part.empty())
                 res->ts.push_back(std::make_shared<Str>(line, part));
 
-            std::string string_end = string.substr(i, std::string::npos);
+            std::string_view string_end = string.substr(i, std::string_view::npos);
             size_t next_bracket = string_end.find(']');
 
-            c_info.err.on_true(next_bracket == std::string::npos, "'[' without closing ']'\n");
+            c_info.err.on_true(next_bracket == std::string_view::npos, "'[' without closing ']'\n");
 
-            std::string inside = string_end.substr(1, next_bracket - 1);
+            std::string_view inside = string_end.substr(1, next_bracket - 1);
 
-            c_info.err.on_true(inside.find('[') != std::string::npos,
+            c_info.err.on_true(inside.find('[') != std::string_view::npos,
                 "Found '[' inside format argument");
 
             std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(inside, c_info, true);
@@ -122,7 +123,7 @@ std::shared_ptr<Lstr> parse_string(const std::string& string, int line, CompileI
     return res;
 }
 
-std::shared_ptr<Num> parse_char(const std::string& string, int line, CompileInfo& c_info)
+std::shared_ptr<Num> parse_char(std::string_view string, int line, CompileInfo& c_info)
 {
     char parsed_char;
 

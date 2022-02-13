@@ -294,12 +294,12 @@ private:
  * Specifies a correct call to a function
  */
 struct FunctionSpec {
-    std::string name;                                /* The name of the function */
+    std::string_view name;                           /* The name of the function */
     size_t exp_arg_len;                              /* The number of arguments */
     std::vector<ts_class> types;                     /* The types of every argument */
     std::vector<var_type> info;                      /* The types of every T_VAR argument */
     std::vector<std::pair<size_t, var_type>> define; /* What T_VARS are defined by this function */
-    FunctionSpec(const std::string& t_name,
+    FunctionSpec(std::string_view t_name,
         size_t t_len,
         const std::vector<ts_class>& t_types,
         const std::vector<var_type>& t_info,
@@ -329,7 +329,7 @@ void check_correct_function_call(const FunctionSpec& spec,
 /*
  * Write a graphviz representation of the AST in root to fn
  */
-void tree_to_dot(std::shared_ptr<Body> root, std::string fn, CompileInfo& c_info);
+void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c_info);
 
 /*
  * Generate an abstract syntax tree from tokens and return the root

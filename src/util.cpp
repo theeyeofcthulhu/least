@@ -15,53 +15,57 @@
 
 /* Get the next word starting from index and store the next space
  * in spc_idx */
-std::string get_next_word(const std::string& str, int index, size_t& spc_idx)
+std::string_view get_next_word(std::string_view str, int index, size_t& spc_idx)
 {
-    std::string from_index = str.substr(index);
+    std::string_view from_index = str.substr(index);
 
     spc_idx = from_index.find(' ');
 
-    if (spc_idx == std::string::npos)
+    if (spc_idx == std::string_view::npos)
         spc_idx = from_index.size();
 
     return from_index.substr(0, spc_idx);
 }
 
-std::vector<std::string> split(const std::string& str, char delim)
+std::vector<std::string_view> split(std::string_view str, char delim)
 {
-    std::vector<std::string> res;
+    std::vector<std::string_view> res;
+    size_t delim_idx, saved, length;
+    bool looping = true;
 
-    std::stringstream lines(str);
+    saved = 0;
+    while (looping) {
+        if ((delim_idx = str.find(delim, saved)) == std::string_view::npos)
+            looping = false;
 
-    std::string ln;
+        length = delim_idx - saved;
 
-    while (std::getline(lines, ln, delim)) {
-        res.push_back(ln);
+        res.push_back(str.substr(saved, length));
+        saved = delim_idx + 1;
     }
 
     return res;
 }
 
 /* Memory map a file and return the contents */
-std::string read_source_code(const std::string& filename, CompileInfo& c_info)
+std::string read_source_code(std::string_view filename, CompileInfo& c_info)
 {
-    int input_file = open(filename.c_str(), O_RDONLY);
-    c_info.err.on_true(input_file < 0, "Could not open file '%'\n", filename);
+    /* FIXME: there is a proposal in C++ to make std::ifstream constructable from
+     * std::string_view, once this happens, simplify this. */
+    const std::string temp(filename);
 
-    struct stat file_stat;
-    c_info.err.on_true((fstat(input_file, &file_stat)) < 0, "Could not stat file '%'\n", filename);
+    std::ifstream fs(temp);
+    c_info.err.on_false(fs.is_open(), "%: Could not open file\n", filename);
 
-    int input_size = file_stat.st_size;
+    std::string res;
 
-    char* c_res = (char*)mmap(nullptr, input_size, PROT_READ, MAP_PRIVATE, input_file, 0);
-    c_info.err.on_true(c_res == MAP_FAILED, "Failed to map file '%'\n", filename);
+    std::ostringstream ss;
+    ss << fs.rdbuf();
+    res = ss.str();
 
-    std::string result(c_res, input_size);
+    fs.close();
 
-    munmap(c_res, file_stat.st_size);
-    close(input_file);
-
-    return result;
+    return res;
 }
 
 /* Get the index of the next token of type 'ty' on line starting from start.
@@ -83,11 +87,12 @@ size_t next_of_type_on_line(const std::vector<std::shared_ptr<lexer::Token>>& ts
 
 /* If a var is defined: return its index
  * else:                add a new variable to c_info's known_vars */
-int CompileInfo::check_var(const std::string& var)
+int CompileInfo::check_var(std::string_view var)
 {
-    for (size_t i = 0; i < known_vars.size(); i++)
+    for (size_t i = 0; i < known_vars.size(); i++) {
         if (var == known_vars[i].name)
             return i;
+    }
 
     known_vars.push_back({ var, V_UNSURE, false });
 
@@ -95,11 +100,12 @@ int CompileInfo::check_var(const std::string& var)
 }
 
 /* Same as check_var but with string */
-int CompileInfo::check_str(const std::string& str)
+int CompileInfo::check_str(std::string_view str)
 {
-    for (size_t i = 0; i < known_string.size(); i++)
+    for (size_t i = 0; i < known_string.size(); i++) {
         if (str == known_string[i])
             return i;
+    }
 
     known_string.push_back(str);
 
@@ -118,21 +124,23 @@ void CompileInfo::error_on_wrong_type(std::shared_ptr<ast::Var> var_id, var_type
         known_vars[var_id->get_var_id()].name, var_type_str_map.at(tp));
 }
 
-Filename::Filename(const std::string& fn)
+Filename::Filename(std::string_view fn)
     : m_filename(fn)
 {
     size_t dot = fn.find_last_of('.');
-    if (dot == std::string::npos)
+    if (dot == std::string_view::npos)
         std::cout << "TODO: handle files without dots\n";
 
     m_noext = fn.substr(0, dot);
 }
 
-std::string Filename::extension(const std::string& ext) const
+std::string Filename::extension(std::string_view ext) const
 {
     if (ext.empty())
-        return m_noext;
+        return std::string(m_noext);
 
-    std::string result = m_noext;
-    return result.append(ext);
+    std::stringstream res;
+    res << m_noext << ext;
+
+    return res.str();
 }
