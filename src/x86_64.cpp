@@ -6,6 +6,7 @@
 #include <sstream>
 #include <stack>
 #include <string>
+#include <string_view>
 
 #include "ast.hpp"
 #include "util.hpp"

@@ -2,7 +2,7 @@
 #define X86_64_H_
 
 #include <memory>
-#include <string>
+#include <string_view>
 
 namespace ast {
 class Body;

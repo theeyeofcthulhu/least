@@ -1,13 +1,12 @@
 #ifndef LEXER_H_
 #define LEXER_H_
 
-/* typedef struct token_s token; */
-
 #include <cassert>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <typeindex>
 #include <typeinfo>
 #include <vector>

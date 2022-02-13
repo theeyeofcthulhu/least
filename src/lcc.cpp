@@ -1,5 +1,4 @@
 #include <getopt.h>
-
 #include <iostream>
 
 #include "ast.hpp"

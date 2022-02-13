@@ -1,17 +1,12 @@
-#include "util.hpp"
-
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string_view>
 
 #include "ast.hpp"
 #include "error.hpp"
 #include "lexer.hpp"
+#include "util.hpp"
 
 /* Get the next word starting from index and store the next space
  * in spc_idx */
