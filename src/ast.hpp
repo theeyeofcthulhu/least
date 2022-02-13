@@ -354,15 +354,20 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(Arit).hash_code(), T_ARIT),
 };
 
+#define AST_SAFE_CAST(type, tk) ast::safe_cast_core<type>((tk), __FILE__, __LINE__)
+
 /*
  * Cast tree_node to desired polymorphic subtype
  * Ensures that tk was declared as a type T originally
  */
 template<typename T>
-std::shared_ptr<T> safe_cast(std::shared_ptr<Node> nd)
+std::shared_ptr<T> safe_cast_core(std::shared_ptr<Node> nd, std::string_view file, int line)
 {
     try {
-        assert(tree_type_enum_map.at(typeid(T).hash_code()) == nd->get_type());
+        if (tree_type_enum_map.at(typeid(T).hash_code()) != nd->get_type()) {
+            std::cerr << file << ":" << line << ": Invalid type-match: " << typeid(T).name() << '\n';
+            std::exit(1);
+        }
     } catch (std::out_of_range& e) {
         std::cerr << "Type '" << typeid(T).name() << "' not in map in ast::safe_cast()\n";
         std::exit(1);

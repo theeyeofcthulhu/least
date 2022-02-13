@@ -236,15 +236,20 @@ const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(Eol).hash_code(), lexer::TK_EOL),
 };
 
+#define LEXER_SAFE_CAST(type, tk) lexer::safe_cast_core<type>((tk), __FILE__, __LINE__)
+
 /*
  * Cast token to desired polymorphic subtype
  * Ensures that tk was declared as a type T originally
  */
 template<typename T>
-std::shared_ptr<T> safe_cast(std::shared_ptr<Token> tk)
+std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view file, int line)
 {
     try {
-        assert(token_type_enum_map.at(typeid(T).hash_code()) == tk->get_type());
+        if (token_type_enum_map.at(typeid(T).hash_code()) != tk->get_type()) {
+            std::cerr << file << ":" << line << ": Invalid type-match: " << typeid(T).name() << '\n';
+            std::exit(1);
+        }
     } catch (std::out_of_range& e) {
         std::cerr << "Type '" << typeid(T).name() << "' not in map in lexer::safe_cast()\n";
         std::exit(1);

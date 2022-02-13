@@ -75,14 +75,14 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
 
     assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_CONST);
     if (node->get_type() == ast::T_VAR) {
-        auto t_var = ast::safe_cast<ast::Var>(node);
+        auto t_var = AST_SAFE_CAST(ast::Var, node);
 
         c_info.error_on_undefined(t_var);
         c_info.error_on_wrong_type(t_var, V_INT);
 
         var_or_const << "qword [rbp - " << (t_var->get_var_id() + 1) * 8 << "]";
     } else if (node->get_type() == ast::T_CONST) {
-        var_or_const << ast::safe_cast<ast::Const>(node)->get_value();
+        var_or_const << AST_SAFE_CAST(ast::Const, node)->get_value();
     }
 
     return var_or_const.str();
@@ -141,13 +141,13 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
         print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
         break;
     case ast::T_VFUNC: {
-        auto vfunc = ast::safe_cast<ast::VFunc>(nd);
+        auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
         c_info.err.on_false(vfunc->get_return_type() == V_INT,
             "'%' has wrong return type '%'\n",
             vfunc_str_map.at(vfunc->get_value_func()),
             var_type_str_map.at(vfunc->get_return_type()));
 
-        print_vfunc_in_reg(ast::safe_cast<ast::VFunc>(nd), reg, out, c_info);
+        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, nd), reg, out, c_info);
         break;
     }
     default:
@@ -220,7 +220,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     case ast::T_VFUNC: {
         if (value_in_rax)
             out << "push rax\n";
-        print_vfunc_in_reg(ast::safe_cast<ast::VFunc>(arit->right), "rcx", out, c_info);
+        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out, c_info);
         if (value_in_rax)
             out << "pop rax\n";
         break;
@@ -331,14 +331,14 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
     c_info.err.set_line(root->get_line());
     switch (root->get_type()) {
     case ast::T_BODY: {
-        std::shared_ptr<ast::Body> body = ast::safe_cast<ast::Body>(root);
+        std::shared_ptr<ast::Body> body = AST_SAFE_CAST(ast::Body, root);
         for (const auto& child : body->children) {
             ast_to_x86_64_core(child, out, c_info, body->get_body_id(), real_end_id);
         }
         break;
     }
     case ast::T_IF: {
-        std::shared_ptr<ast::If> t_if = ast::safe_cast<ast::If>(root);
+        std::shared_ptr<ast::If> t_if = AST_SAFE_CAST(ast::If, root);
 
         /* Getting the end label for the whole block
          * we jmp there if one if succeeded and we traversed its block */
@@ -346,9 +346,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             std::shared_ptr<ast::Node> last_if = ast::get_last_if(t_if);
             if (last_if) {
                 if (last_if->get_type() == ast::T_ELSE) {
-                    real_end_id = ast::safe_cast<ast::Else>(last_if)->body->get_body_id();
+                    real_end_id = AST_SAFE_CAST(ast::Else, last_if)->body->get_body_id();
                 } else if (last_if->get_type() == ast::T_IF) {
-                    real_end_id = ast::safe_cast<ast::If>(last_if)->body->get_body_id();
+                    real_end_id = AST_SAFE_CAST(ast::If, last_if)->body->get_body_id();
                 }
             }
         }
@@ -370,7 +370,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     case ast::T_ELSE: {
-        std::shared_ptr<ast::Else> t_else = ast::safe_cast<ast::Else>(root);
+        std::shared_ptr<ast::Else> t_else = AST_SAFE_CAST(ast::Else, root);
 
         out << ";; else\n";
         ast_to_x86_64_core(t_else->body, out, c_info, t_else->body->get_body_id(), real_end_id);
@@ -378,7 +378,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     case ast::T_WHILE: {
-        std::shared_ptr<ast::While> t_while = ast::safe_cast<ast::While>(root);
+        std::shared_ptr<ast::While> t_while = AST_SAFE_CAST(ast::While, root);
 
         while_ends.push(t_while->body->get_body_id());
 
@@ -397,7 +397,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     case ast::T_FUNC: {
-        std::shared_ptr<ast::Func> t_func = ast::safe_cast<ast::Func>(root);
+        std::shared_ptr<ast::Func> t_func = AST_SAFE_CAST(ast::Func, root);
 
         ast::check_correct_function_call(func_spec_map.at(t_func->get_func()), t_func->args,
             c_info);
@@ -422,12 +422,12 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         case F_PRINT: {
-            std::shared_ptr<ast::Lstr> ls = ast::safe_cast<ast::Lstr>(t_func->args[0]);
+            std::shared_ptr<ast::Lstr> ls = AST_SAFE_CAST(ast::Lstr, t_func->args[0]);
 
             for (const auto& format : ls->format) {
                 switch (format->get_type()) {
                 case ast::T_STR: {
-                    std::shared_ptr<ast::Str> str = ast::safe_cast<ast::Str>(format);
+                    std::shared_ptr<ast::Str> str = AST_SAFE_CAST(ast::Str, format);
 
                     out << "mov rax, 1\n"
                            "mov rdi, 1\n"
@@ -441,7 +441,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     break;
                 }
                 case ast::T_VAR: {
-                    auto the_var = ast::safe_cast<ast::Var>(format);
+                    auto the_var = AST_SAFE_CAST(ast::Var, format);
                     auto the_var_info = c_info.known_vars[the_var->get_var_id()];
 
                     c_info.error_on_undefined(the_var);
@@ -508,7 +508,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         case F_READ: {
-            auto t_var = ast::safe_cast<ast::Var>(t_func->args[0]);
+            auto t_var = AST_SAFE_CAST(ast::Var, t_func->args[0]);
 
             out << "xor rax, rax\n"
                    "xor rdi, rdi\n"
@@ -551,8 +551,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     case ast::T_CMP: {
-        std::shared_ptr<ast::Cmp> cmp = ast::safe_cast<ast::Cmp>(root);
-        std::array<std::string, 2> regs;
+        std::shared_ptr<ast::Cmp> cmp = AST_SAFE_CAST(ast::Cmp, root);
+        std::array<std::string, 2> regs; /* Have to use std::string here because the strings returned
+                                          * from asm_from_int_or_const() go out of scope. */
         cmp_op op;
 
         /* Cannot use immediate value as first operand to 'cmp' */
@@ -609,7 +610,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     case ast::T_LOG: {
-        auto log = ast::safe_cast<ast::Log>(root);
+        auto log = AST_SAFE_CAST(ast::Log, root);
 
         bool need_entry = log->get_log() == OR && cond_entry == -1;
         if (cond_entry == -1 && need_entry) {

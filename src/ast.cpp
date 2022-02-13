@@ -121,18 +121,18 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, Compi
     for (const auto& tk : ts) {
         switch (tk->get_type()) {
         case lexer::TK_STR: {
-            auto string = lexer::safe_cast<lexer::Str>(tk);
+            auto string = LEXER_SAFE_CAST(lexer::Str, tk);
             format.push_back(std::make_shared<Str>(line, c_info.check_str(string->get_str())));
             break;
         }
         case lexer::TK_VAR: {
-            auto token_var = lexer::safe_cast<lexer::Var>(tk);
+            auto token_var = LEXER_SAFE_CAST(lexer::Var, tk);
             format.push_back(
                 std::make_shared<Var>(line, c_info.check_var(token_var->get_name())));
             break;
         }
         case lexer::TK_NUM: {
-            auto cnst = lexer::safe_cast<lexer::Num>(tk);
+            auto cnst = LEXER_SAFE_CAST(lexer::Num, tk);
             format.push_back(std::make_shared<Const>(line, cnst->get_num()));
             break;
         }
@@ -157,12 +157,12 @@ void check_correct_function_call(const FunctionSpec& spec,
 
             c_info.err.on_false(args[d.first]->get_type() == T_VAR,
                 "Argument % to '%' expected to be variable\n", d.first, spec.name);
-            auto t_var = safe_cast<Var>(args[d.first]);
+            auto t_var = AST_SAFE_CAST(Var, args[d.first]);
 
             c_info.err.on_true(c_info.known_vars[t_var->get_var_id()].defined,
                 "Argument % to '%' expected to be undefined\n", d.first, spec.name);
-            c_info.known_vars[safe_cast<Var>(args[d.first])->get_var_id()].defined = true;
-            c_info.known_vars[safe_cast<Var>(args[d.first])->get_var_id()].type = d.second;
+            c_info.known_vars[AST_SAFE_CAST(Var, args[d.first])->get_var_id()].defined = true;
+            c_info.known_vars[AST_SAFE_CAST(Var, args[d.first])->get_var_id()].type = d.second;
         }
     }
 
@@ -183,7 +183,7 @@ void check_correct_function_call(const FunctionSpec& spec,
 
             /* If we are var: check that we are int */
             if (arg->get_type() == T_VAR) {
-                auto t_var = safe_cast<Var>(args[i]);
+                auto t_var = AST_SAFE_CAST(Var, args[i]);
                 auto v_info = c_info.known_vars[t_var->get_var_id()];
 
                 c_info.err.on_false(v_info.defined, "Var '%' is undefined at this time\n",
@@ -192,7 +192,7 @@ void check_correct_function_call(const FunctionSpec& spec,
                     v_info.type == V_INT, "Argument % to '%' has to have type '%' but has '%'\n", i,
                     spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type));
             } else if (arg->get_type() == T_VFUNC) {
-                auto vfunc = safe_cast<VFunc>(args[i]);
+                auto vfunc = AST_SAFE_CAST(VFunc, args[i]);
                 c_info.err.on_false(vfunc->get_return_type() == V_INT,
                     "Argument % to '%' has to evaluate to a number\n"
                     "Got '%' returning '%'\n",
@@ -207,7 +207,7 @@ void check_correct_function_call(const FunctionSpec& spec,
         /* If we are a var: check the provided 'info' type information if the
          * type is correct */
         if (arg->get_type() == T_VAR && spec.types[i] != T_NUM_GENERAL) {
-            auto t_var = safe_cast<Var>(args[i]);
+            auto t_var = AST_SAFE_CAST(Var, args[i]);
             auto v_info = c_info.known_vars[t_var->get_var_id()];
 
             c_info.err.on_true(info_it == spec.info.end() || spec.info.empty(),
@@ -234,12 +234,12 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
 
     if (tk->get_type() == lexer::TK_VAR) {
         res = std::make_shared<ast::Var>(
-            tk->get_line(), c_info.check_var(lexer::safe_cast<lexer::Var>(tk)->get_name()));
+            tk->get_line(), c_info.check_var(LEXER_SAFE_CAST(lexer::Var, tk)->get_name()));
     } else if (tk->get_type() == lexer::TK_NUM) {
         res = std::make_shared<ast::Const>(tk->get_line(),
-            lexer::safe_cast<lexer::Num>(tk)->get_num());
+            LEXER_SAFE_CAST(lexer::Num, tk)->get_num());
     } else if (tk->get_type() == lexer::TK_CALL) {
-        const auto& call = lexer::safe_cast<lexer::Call>(tk);
+        const auto& call = LEXER_SAFE_CAST(lexer::Call, tk);
 
         var_type ret_type = vfunc_var_type_map.at(call->get_value_func());
         c_info.err.on_false(ret_type == V_INT, "'%' does not return an integer\n",
@@ -291,7 +291,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
         arit_op next_op = ARIT_OPERATION_ENUM_END;
         for (int j = i + 1; j < len; j++) {
             if (ts[j]->get_type() == lexer::TK_ARIT) {
-                next_op = lexer::safe_cast<lexer::Arit>(ts[j])->get_op();
+                next_op = LEXER_SAFE_CAST(lexer::Arit, ts[j])->get_op();
                 break;
             }
         }
@@ -301,7 +301,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
         }
 
         if (ts[i]->get_type() == lexer::TK_ARIT) {
-            auto op = safe_cast<lexer::Arit>(ts[i]);
+            auto op = LEXER_SAFE_CAST(lexer::Arit, ts[i]);
             /* Make new multiplication */
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
@@ -356,7 +356,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
     /* Parse everything into a tree */
     for (size_t i = 0; i < s2.size(); i++) {
         if (s2[i]->get_type() == T_ARIT) {
-            std::shared_ptr<Arit> cur_arit = safe_cast<Arit>(s2[i]);
+            std::shared_ptr<Arit> cur_arit = AST_SAFE_CAST(Arit, s2[i]);
             if (!has_precedence(cur_arit->get_arit())) {
                 if (!root) {
                     root = std::make_shared<Arit>(cur_arit->get_line(), s2[i - 1], nullptr,
@@ -376,7 +376,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                         arit_str_map.at(cur_arit->get_arit()));
                     current->right = s2[i + 1];
                 } else if (s2[i + 1]->get_type() == T_ARIT) {
-                    std::shared_ptr<Arit> next_arit = safe_cast<Arit>(s2[i + 1]);
+                    std::shared_ptr<Arit> next_arit = AST_SAFE_CAST(Arit, s2[i + 1]);
                     c_info.err.on_false(has_precedence(next_arit->get_arit()),
                         "+/- followed by another +/-\n");
                 }
@@ -411,7 +411,7 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
 
     for (; ts[next_i]->get_type() != lexer::TK_EOL; next_i++) {
         if (ts[next_i]->get_type() == lexer::TK_LOG) {
-            auto log = safe_cast<lexer::Log>(ts[next_i]);
+            auto log = LEXER_SAFE_CAST(lexer::Log, ts[next_i]);
 
             c_info.err.on_true(ts[next_i + 1]->get_type() == lexer::TK_EOL || ts[next_i + 1]->get_type() == lexer::TK_LOG,
                 "Expected number after '%'\n", log_str_map.at(log->get_log()));
@@ -464,7 +464,7 @@ std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::To
 
         if (next->get_type() == lexer::TK_CMP) {
             c_info.err.on_false(comparator == nullptr, "Found two operators\n");
-            comparator = lexer::safe_cast<lexer::Cmp>(next);
+            comparator = LEXER_SAFE_CAST(lexer::Cmp, next);
             operator_i = i;
         }
     }
@@ -527,7 +527,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
         c_info.err.set_line(tokens[i]->get_line());
         switch (tokens[i]->get_type()) {
         case lexer::TK_KEY: {
-            auto key = safe_cast<lexer::Key>(tokens[i]);
+            auto key = LEXER_SAFE_CAST(lexer::Key, tokens[i]);
 
             switch (key->get_key()) {
             case K_IF: {
@@ -605,7 +605,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                             "string argument\n");
                         new_func->args.push_back(std::make_shared<Lstr>(
                             tokens[i]->get_line(),
-                            lexer::safe_cast<lexer::Lstr>(tokens[i])->ts, c_info));
+                            LEXER_SAFE_CAST(lexer::Lstr, tokens[i])->ts, c_info));
                         break;
                     }
                     case lexer::TK_NUM:
@@ -633,14 +633,14 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 if (!blk_stk.empty()) {
                     switch (blk_stk.top()->get_type()) {
                     case T_IF:
-                        root = safe_cast<If>(blk_stk.top())->body->parent;
+                        root = AST_SAFE_CAST(If, blk_stk.top())->body->parent;
                         blk_stk.pop();
 
                         if (!blk_stk.empty() && blk_stk.top()->get_type() == T_IF)
-                            current_if = safe_cast<If>(blk_stk.top());
+                            current_if = AST_SAFE_CAST(If, blk_stk.top());
                         break;
                     case T_WHILE:
-                        root = safe_cast<While>(blk_stk.top())->body->parent;
+                        root = AST_SAFE_CAST(While, blk_stk.top())->body->parent;
                         blk_stk.pop();
                         break;
                     default:
@@ -659,7 +659,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
         case lexer::TK_SEP:
             break;
         case lexer::TK_VAR: {
-            auto the_var = lexer::safe_cast<lexer::Var>(tokens[i]);
+            auto the_var = LEXER_SAFE_CAST(lexer::Var, tokens[i]);
             c_info.err.error(
                 "Unexpected occurence of word expected to be variable: "
                 "'%'\n",
@@ -680,8 +680,8 @@ std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node)
 {
     std::shared_ptr<Node> res = if_node;
 
-    for (;; res = safe_cast<If>(res)->elif) {
-        if (res->get_type() == T_ELSE || safe_cast<If>(res)->elif == nullptr) {
+    for (;; res = AST_SAFE_CAST(If, res)->elif) {
+        if (res->get_type() == T_ELSE || AST_SAFE_CAST(If, res)->elif == nullptr) {
             return res;
         }
     }
@@ -716,7 +716,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 {
     switch (root->get_type()) {
     case T_BODY: {
-        std::shared_ptr<Body> body = safe_cast<Body>(root);
+        std::shared_ptr<Body> body = AST_SAFE_CAST(Body, root);
 
         tbody_id = body->get_body_id();
         dot << "\tNode_" << tbody_id << "[label=\"body " << tbody_id << "\"]\n";
@@ -726,7 +726,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_ELSE: {
-        std::shared_ptr<Else> t_else = safe_cast<Else>(root);
+        std::shared_ptr<Else> t_else = AST_SAFE_CAST(Else, root);
 
         dot << "\tNode_" << ++node << " [label=\"else\"]\n";
         dot << "\tNode_" << node << " -> Node_" << tbody_id + 1 << " [label=\"else > body\"]\n";
@@ -736,7 +736,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_IF: {
-        std::shared_ptr<If> t_if = safe_cast<If>(root);
+        std::shared_ptr<If> t_if = AST_SAFE_CAST(If, root);
 
         const std::string if_name = t_if->is_elif() ? "elif" : "if";
 
@@ -757,7 +757,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_FUNC: {
-        std::shared_ptr<Func> t_func = safe_cast<Func>(root);
+        std::shared_ptr<Func> t_func = AST_SAFE_CAST(Func, root);
 
         dot << "\tNode_" << ++node << " [label=\"" << func_str_map.at(t_func->get_func())
             << "\"]\n";
@@ -770,7 +770,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_VFUNC: {
-        std::shared_ptr<VFunc> t_vfunc = safe_cast<VFunc>(root);
+        std::shared_ptr<VFunc> t_vfunc = AST_SAFE_CAST(VFunc, root);
 
         dot << "\tNode_" << ++node << " [label=\""
             << vfunc_str_map.at(t_vfunc->get_value_func()) << "\"]\n";
@@ -778,7 +778,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_CMP: {
-        std::shared_ptr<Cmp> t_cmp = safe_cast<Cmp>(root);
+        std::shared_ptr<Cmp> t_cmp = AST_SAFE_CAST(Cmp, root);
 
         dot << "\tNode_" << ++node << " [label=\"cmp\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"cmp\"]\n";
@@ -795,7 +795,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_LOG: {
-        std::shared_ptr<Log> log = safe_cast<Log>(root);
+        std::shared_ptr<Log> log = AST_SAFE_CAST(Log, root);
 
         dot << "\tNode_" << ++node << " [label=\"log\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"log\"]\n";
@@ -814,25 +814,25 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_CONST: {
-        std::shared_ptr<Const> num = safe_cast<Const>(root);
+        std::shared_ptr<Const> num = AST_SAFE_CAST(Const, root);
         dot << "\tNode_" << ++node << " [label=\"" << num->get_value() << "\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"const\"]\n";
         break;
     }
     case T_VAR: {
-        std::shared_ptr<Var> t_var = safe_cast<Var>(root);
+        std::shared_ptr<Var> t_var = AST_SAFE_CAST(Var, root);
         dot << "\tNode_" << ++node << " [label=\"" << t_var->get_var_id() << "\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"var\"]\n";
         break;
     }
     case T_STR: {
-        std::shared_ptr<Str> string = safe_cast<Str>(root);
+        std::shared_ptr<Str> string = AST_SAFE_CAST(Str, root);
         dot << "\tNode_" << ++node << " [label=\"" << string->get_str_id() << "\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"str\"]\n";
         break;
     }
     case T_ARIT: {
-        std::shared_ptr<Arit> t_arit = safe_cast<Arit>(root);
+        std::shared_ptr<Arit> t_arit = AST_SAFE_CAST(Arit, root);
 
         dot << "\tNode_" << ++node << " [label=\"" << arit_str_map.at(t_arit->get_arit())
             << "\"]\n";
@@ -845,7 +845,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_WHILE: {
-        std::shared_ptr<While> t_while = safe_cast<While>(root);
+        std::shared_ptr<While> t_while = AST_SAFE_CAST(While, root);
 
         dot << "\tNode_" << ++node << " [label=\"while\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node
@@ -862,7 +862,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     case T_LSTR: {
-        std::shared_ptr<Lstr> t_lstr = safe_cast<Lstr>(root);
+        std::shared_ptr<Lstr> t_lstr = AST_SAFE_CAST(Lstr, root);
 
         dot << "\tNode_" << ++node << " [label=\"lstring\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"lstring\"]\n";
