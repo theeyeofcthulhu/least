@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.22)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 project(lcc CXX ASM_NASM)
 
@@ -9,6 +11,8 @@ set(CMAKE_ASM_NASM_OBJECT_FORMAT elf64)
 
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 file(GLOB SOURCES "${SRC_DIR}/*.cpp")
 file(GLOB ASM "${LIB_DIR}/*.asm")

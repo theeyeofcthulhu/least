@@ -14,3 +14,4 @@ tests/*
 .depend
 build
 src/.ccls
+compile_commands.json
