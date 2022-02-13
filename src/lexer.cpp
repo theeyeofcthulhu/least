@@ -1,12 +1,12 @@
 #include "lexer.hpp"
 
 #include <cctype>
+#include <charconv>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include <charconv>
 
 #include "dictionary.hpp"
 #include "error.hpp"
@@ -25,24 +25,24 @@ namespace lexer {
 void checkbanned(std::string_view s, CompileInfo& c_info);
 
 const std::map<std::string_view, keyword> key_map {
-    std::make_pair("print",    K_PRINT),
-    std::make_pair("exit",     K_EXIT),
-    std::make_pair("if",       K_IF),
-    std::make_pair("elif",     K_ELIF),
-    std::make_pair("else",     K_ELSE),
-    std::make_pair("while",    K_WHILE),
-    std::make_pair("end",      K_END),
-    std::make_pair("int",      K_INT),
-    std::make_pair("str",      K_STR),
-    std::make_pair("read",     K_READ),
-    std::make_pair("set",      K_SET),
-    std::make_pair("putchar",  K_PUTCHAR),
-    std::make_pair("add",      K_ADD),
-    std::make_pair("sub",      K_SUB),
-    std::make_pair("break",    K_BREAK),
+    std::make_pair("print", K_PRINT),
+    std::make_pair("exit", K_EXIT),
+    std::make_pair("if", K_IF),
+    std::make_pair("elif", K_ELIF),
+    std::make_pair("else", K_ELSE),
+    std::make_pair("while", K_WHILE),
+    std::make_pair("end", K_END),
+    std::make_pair("int", K_INT),
+    std::make_pair("str", K_STR),
+    std::make_pair("read", K_READ),
+    std::make_pair("set", K_SET),
+    std::make_pair("putchar", K_PUTCHAR),
+    std::make_pair("add", K_ADD),
+    std::make_pair("sub", K_SUB),
+    std::make_pair("break", K_BREAK),
     std::make_pair("continue", K_CONT),
-    std::make_pair("time",     K_TIME),
-    std::make_pair("getuid",   K_GETUID),
+    std::make_pair("time", K_TIME),
+    std::make_pair("getuid", K_GETUID),
 };
 
 const std::map<std::string_view, cmp_op> cmp_map {
@@ -171,7 +171,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 std::string_view next_word = get_next_word(line, j, next_i);
                 int result;
 
-                const char *last = next_word.data() + next_word.size();
+                const char* last = next_word.data() + next_word.size();
 
                 /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
                 auto [ptr, ec] = std::from_chars(next_word.data(), last, result);
