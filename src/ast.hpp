@@ -29,15 +29,18 @@ enum ts_class {
     T_FUNC,
     T_VFUNC,
     T_VAR,
+    T_ACCESS,
     T_BODY,
     T_STR,
     T_LSTR,
     T_ARIT,
     T_NUM_GENERAL, /* Stands for int var, const and arit, i.e. anything that
                       would be a number */
+    T_IN_MEMORY,
 };
 
 class Cmp;
+class Arit;
 
 class Node {
 public:
@@ -243,6 +246,27 @@ private:
     static const ts_class m_type = T_VAR;
 };
 
+class Access : public Node {
+public:
+    ts_class get_type() const override { return m_type; };
+
+    int get_array_id() const { return m_array_id; };
+    std::shared_ptr<Node> index;
+
+    Access(int line, int array_id, std::shared_ptr<Node> p_index)
+        : Node(line)
+        , index(p_index)
+        , m_array_id(array_id)
+    {
+    }
+
+    /* TODO: types for arrays */
+
+private:
+    int m_array_id;
+    static const ts_class m_type = T_ACCESS;
+};
+
 class Str : public Node {
 public:
     ts_class get_type() const override { return m_type; };
@@ -292,40 +316,10 @@ private:
 };
 
 /*
- * Specifies a correct call to a function
- */
-struct FunctionSpec {
-    std::string_view name;                           /* The name of the function */
-    size_t exp_arg_len;                              /* The number of arguments */
-    std::vector<ts_class> types;                     /* The types of every argument */
-    std::vector<var_type> info;                      /* The types of every T_VAR argument */
-    std::vector<std::pair<size_t, var_type>> define; /* What T_VARS are defined by this function */
-    FunctionSpec(std::string_view t_name,
-        size_t t_len,
-        const std::vector<ts_class>& t_types,
-        const std::vector<var_type>& t_info,
-        const std::vector<std::pair<size_t, var_type>>& t_def)
-        : name(t_name)
-        , exp_arg_len(t_len)
-        , types(t_types)
-        , info(t_info)
-        , define(t_def)
-    {
-    }
-};
-
-/*
  * Traverse the pointers to elifs/elses on if_node until the
  * last one
  */
 std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node);
-
-/*
- * Check if the supplied args comply with spec
- */
-void check_correct_function_call(const FunctionSpec& spec,
-    const std::vector<std::shared_ptr<Node>>& args,
-    CompileInfo& c_info);
 
 /*
  * Write a graphviz representation of the AST in root to fn
@@ -349,6 +343,7 @@ const std::map<const size_t, ts_class> tree_type_enum_map = {
     std::make_pair(typeid(Func).hash_code(), T_FUNC),
     std::make_pair(typeid(VFunc).hash_code(), T_VFUNC),
     std::make_pair(typeid(Var).hash_code(), T_VAR),
+    std::make_pair(typeid(Access).hash_code(), T_ACCESS),
     std::make_pair(typeid(Body).hash_code(), T_BODY),
     std::make_pair(typeid(Str).hash_code(), T_STR),
     std::make_pair(typeid(Lstr).hash_code(), T_LSTR),
@@ -385,9 +380,14 @@ std::shared_ptr<Node> to_base(std::shared_ptr<T> nd)
     return std::dynamic_pointer_cast<Node>(nd);
 }
 
-inline constexpr bool has_precedence(arit_op op)
+inline bool has_precedence(arit_op op)
 {
     return op == DIV || op == MUL || op == MOD;
+}
+
+inline bool could_be_num(ts_class type)
+{
+    return type == ast::T_ARIT || type == ast::T_CONST || type == ast::T_VFUNC || type == ast::T_VAR || type == ast::T_ACCESS;
 }
 
 } // namespace ast

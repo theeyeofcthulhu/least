@@ -12,7 +12,7 @@
 #include "dictionary.hpp"
 #include "error.hpp"
 
-#define DBG(x) std::cout << #x << ": " << x << '\n';
+#define DBG(x) std::cout << #x << ": " << (x) << '\n';
 
 namespace ast {
 class Var;
@@ -26,15 +26,42 @@ enum token_type : int;
 #define BODY_ID_START 1024
 
 struct VarInfo {
+    enum class Arrayness {
+        Yes,
+        No,
+        Unsure,
+    };
+
     std::string_view name;
     var_type type;
     bool defined;
+    Arrayness arrayness;
+    size_t stack_units;
+    size_t stack_offset;
+
+    VarInfo(std::string_view p_name, var_type p_type, bool p_defined)
+        : name(p_name)
+        , type(p_type)
+        , defined(p_defined)
+        , arrayness(Arrayness::Unsure)
+        , stack_units(1)
+    {
+    }
+
+    VarInfo(std::string_view p_name, var_type p_type, bool p_defined, Arrayness p_arrayness, size_t p_stack_size)
+        : name(p_name)
+        , type(p_type)
+        , defined(p_defined)
+        , arrayness(p_arrayness)
+        , stack_units(p_stack_size)
+    {
+    }
 };
 
 class CompileInfo {
 public:
     std::vector<VarInfo> known_vars;
-    std::vector<std::string_view> known_strings; // TODO: rename to known_strings
+    std::vector<std::string_view> known_strings;
 
     ErrorHandler err;
 
@@ -47,13 +74,19 @@ public:
     }
 
     int check_var(std::string_view var);
+    int check_array(std::string_view array);
     int check_str(std::string_view str);
+
+    size_t get_stack_size() const { return stack_size; }
+    size_t get_stack_size_and_append(size_t length_to_append);
+
     void error_on_undefined(std::shared_ptr<ast::Var> var_id);
     void error_on_wrong_type(std::shared_ptr<ast::Var> var_id, var_type tp);
 
 private:
     std::string_view m_filename;
     int body_id = BODY_ID_START;
+    size_t stack_size = 0;
 };
 
 class Filename {

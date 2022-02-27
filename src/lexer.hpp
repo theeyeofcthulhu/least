@@ -27,6 +27,7 @@ enum token_type : int {
     TK_CHAR,
     TK_NUM,
     TK_VAR,
+    TK_ACCESS,
     TK_SEP,
     TK_CALL,
     TK_EOL,
@@ -165,6 +166,23 @@ private:
     std::string_view m_name;
 };
 
+class Access : public Token {
+public:
+    Access(int line, std::string_view array_name, const std::vector<std::shared_ptr<Token>> &p_expr)
+        : Token(line)
+        , expr(p_expr)
+        , m_array_name(array_name)
+    {
+    }
+    std::string_view get_array_name() const { return m_array_name; };
+    token_type get_type() const override { return m_type; };
+    std::vector<std::shared_ptr<Token>> expr;
+
+private:
+    static const token_type m_type = lexer::TK_ACCESS;
+    std::string_view m_array_name;
+};
+
 class Call : public Token {
 public:
     Call(int line, value_func_id vfunc)
@@ -230,6 +248,7 @@ const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(Lstr).hash_code(), lexer::TK_LSTR),
     std::make_pair(typeid(Num).hash_code(), lexer::TK_NUM),
     std::make_pair(typeid(Var).hash_code(), lexer::TK_VAR),
+    std::make_pair(typeid(Access).hash_code(), lexer::TK_ACCESS),
     std::make_pair(typeid(Call).hash_code(), lexer::TK_CALL),
     std::make_pair(typeid(Sep).hash_code(), lexer::TK_SEP),
     std::make_pair(typeid(Eol).hash_code(), lexer::TK_EOL),
@@ -254,6 +273,11 @@ std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view fi
         std::exit(1);
     }
     return std::dynamic_pointer_cast<T>(tk);
+}
+
+inline bool could_be_num(lexer::token_type tt)
+{
+    return tt == TK_NUM || tt == TK_VAR || tt == TK_CALL || tt == TK_ACCESS;
 }
 
 } // namespace lexer

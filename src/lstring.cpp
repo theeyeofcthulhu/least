@@ -79,7 +79,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
             std::string_view inside = string_end.substr(1, next_bracket - 1);
 
             c_info.err.on_true(inside.find('[') != std::string_view::npos,
-                "Found '[' inside format argument");
+                "Found '[' inside format argument\n");
 
             std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(inside, c_info, true);
 
@@ -92,7 +92,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
             parsed_inside.pop_back();
 
             for (const auto& tk : parsed_inside) {
-                c_info.err.on_false(tk->get_type() == TK_ARIT || tk->get_type() == TK_VAR || tk->get_type() == TK_NUM || tk->get_type() == TK_EOL,
+                c_info.err.on_false(lexer::could_be_num(tk->get_type()),
                     "Only variables, numbers and operators "
                     "are allowed inside "
                     "a format parameter\n");

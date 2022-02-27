@@ -42,6 +42,7 @@ const std::map<std::string_view, keyword> key_map {
     std::make_pair("continue", K_CONT),
     std::make_pair("time", K_TIME),
     std::make_pair("getuid", K_GETUID),
+    std::make_pair("array", K_ARRAY),
 };
 
 const std::map<std::string_view, cmp_op> cmp_map {
@@ -76,6 +77,7 @@ const std::map<token_type, std::string_view> token_str_map {
     std::make_pair(lexer::TK_CHAR, "char"),
     std::make_pair(lexer::TK_NUM, "num"),
     std::make_pair(lexer::TK_VAR, "var"),
+    std::make_pair(lexer::TK_ACCESS, "access"),
     std::make_pair(lexer::TK_SEP, "sep"),
     std::make_pair(lexer::TK_CALL, "call"),
     std::make_pair(lexer::TK_EOL, "eol"),
@@ -211,6 +213,18 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 tokens.push_back(std::make_shared<Call>(i, id));
             } else if (next_word == ";") {
                 tokens.push_back(std::make_shared<Sep>(i));
+            } else if (size_t open, close; (open = next_word.find('{') != std::string_view::npos) && (close = next_word.find('}') != std::string_view::npos)) {
+                c_info.err.on_false(next_word.ends_with('}'), "Expected '}' at the end of word '%'\n", next_word);
+
+
+                std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(next_word.substr(open + 1, close - open + 1), c_info, true);
+
+                c_info.err.on_true(parsed_inside.empty(),
+                    "Could not parse format parameter to tokens\n");
+                /* Remove eol from end */
+                parsed_inside.pop_back();
+
+                tokens.push_back(std::make_shared<Access>(i, next_word.substr(0, open), parsed_inside));
             } else {
                 checkbanned(next_word, c_info);
                 tokens.push_back(std::make_shared<Var>(i, next_word));

@@ -15,6 +15,8 @@
 #define MAX_DIGITS 32
 #define STR_RESERVED_SIZE 128
 
+static const size_t WORD_SIZE = 8;
+
 struct cmp_operation {
     cmp_op op_enum;
     std::string_view asm_name;
@@ -22,6 +24,10 @@ struct cmp_operation {
 };
 
 std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info);
+
+void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info);
+void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info);
+
 void print_mov_if_req(std::string_view target, std::string_view source, std::ofstream& out);
 void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
     std::string_view reg,
@@ -53,21 +59,6 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
     { GREATER_OR_EQ, "jge", "jl" },
 };
 
-/* How each function needs to be called */
-const std::map<func_id, ast::FunctionSpec> func_spec_map = {
-    std::make_pair<func_id, ast::FunctionSpec>(F_PRINT, { "print", 1, { ast::T_LSTR }, {}, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_EXIT, { "exit", 1, { ast::T_NUM_GENERAL }, {}, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_READ, { "read", 1, { ast::T_VAR }, { V_STR }, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_SET, { "set", 2, { ast::T_VAR, ast::T_NUM_GENERAL }, { V_INT }, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_ADD, { "add", 2, { ast::T_VAR, ast::T_NUM_GENERAL }, { V_INT }, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_SUB, { "sub", 2, { ast::T_VAR, ast::T_NUM_GENERAL }, { V_INT }, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_BREAK, { "break", 0, {}, {}, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_CONT, { "continue", 0, {}, {}, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_PUTCHAR, { "putchar", 1, { ast::T_NUM_GENERAL }, {}, {} }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_INT, { "int", 2, { ast::T_VAR, ast::T_NUM_GENERAL }, { V_INT }, { { 0, V_INT } } }),
-    std::make_pair<func_id, ast::FunctionSpec>(F_STR, { "str", 1, { ast::T_VAR }, { V_STR }, { { 0, V_STR } } }),
-};
-
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
 std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info)
@@ -81,12 +72,32 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
         c_info.error_on_undefined(t_var);
         c_info.error_on_wrong_type(t_var, V_INT);
 
-        var_or_const << "qword [rbp - " << (t_var->get_var_id() + 1) * 8 << "]";
+        var_or_const << "qword [rbp - " << c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE << "]";
     } else if (node->get_type() == ast::T_CONST) {
         var_or_const << AST_SAFE_CAST(ast::Const, node)->get_value();
     }
 
     return var_or_const.str();
+}
+
+void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info)
+{
+    if (node->index->get_type() == ast::T_CONST) {
+        out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) + AST_SAFE_CAST(ast::Const, node->index)->get_value() << "], " << reg << '\n';
+    } else {
+        number_in_register(node->index, intermediate, out, c_info);
+        out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) << " + " << intermediate << " * " << WORD_SIZE << "], " << reg << '\n';
+    }
+}
+
+void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info)
+{
+    if (node->index->get_type() == ast::T_CONST) {
+        out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) + AST_SAFE_CAST(ast::Const, node->index)->get_value() << "]\n";
+    } else {
+        number_in_register(node->index, intermediate, out, c_info);
+        out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) << " + " << intermediate << " * " << WORD_SIZE << "]\n";
+    }
 }
 
 /* Print assembly mov from source to target if they are not equal */
@@ -131,7 +142,7 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
     std::ofstream& out,
     CompileInfo& c_info)
 {
-    assert(nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_VFUNC);
+    assert(ast::could_be_num(nd->get_type()));
 
     switch (nd->get_type()) {
     case ast::T_ARIT:
@@ -140,6 +151,9 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
     case ast::T_VAR:
     case ast::T_CONST:
         print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
+        break;
+    case ast::T_ACCESS:
+        array_access_into_register(AST_SAFE_CAST(ast::Access, nd), reg, reg == "rax" ? "rbx" : "rax", out, c_info);
         break;
     case ast::T_VFUNC: {
         auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
@@ -177,8 +191,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
                                                                            the second operand */
     std::string_view second_value = "rcx";
 
-    assert(arit->left->get_type() == ast::T_ARIT || arit->left->get_type() == ast::T_CONST || arit->left->get_type() == ast::T_VFUNC || arit->left->get_type() == ast::T_VAR);
-    assert(arit->right->get_type() == ast::T_ARIT || arit->right->get_type() == ast::T_CONST || arit->right->get_type() == ast::T_VFUNC || arit->right->get_type() == ast::T_VAR);
+    assert(ast::could_be_num(arit->left->get_type()) && ast::could_be_num(arit->right->get_type()));
 
     bool value_in_rax = false;
 
@@ -199,7 +212,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     /* If our children are numbers: mov them into the target
      * Only check for this the second time around because the numbers
      * could get overwritten if we moved before doing another calculation */
-    if (arit->left->get_type() == ast::T_CONST || arit->left->get_type() == ast::T_VAR || arit->left->get_type() == ast::T_VFUNC) {
+    if (arit->left->get_type() == ast::T_CONST || arit->left->get_type() == ast::T_VAR || arit->left->get_type() == ast::T_VFUNC || arit->left->get_type() == ast::T_ACCESS) {
         number_in_register(arit->left, "rax", out, c_info);
 
         value_in_rax = true;
@@ -216,6 +229,10 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     }
     case ast::T_VAR: {
         out << "mov rcx, " << asm_from_int_or_const(arit->right, c_info) << "\n";
+        break;
+    }
+    case ast::T_ACCESS: {
+        number_in_register(arit->left, "rcx", out, c_info);
         break;
     }
     case ast::T_VFUNC: {
@@ -281,7 +298,7 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, Compile
     if (!c_info.known_vars.empty()) {
         out << "mov rbp, rsp\n"
                "sub rsp, "
-            << (c_info.known_vars.size()) * 8 << '\n';
+            << c_info.get_stack_size() * WORD_SIZE << '\n';
     }
 
     ast_to_x86_64_core(ast::to_base(root), out, c_info, root->get_body_id(), root->get_body_id());
@@ -400,9 +417,6 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
     case ast::T_FUNC: {
         std::shared_ptr<ast::Func> t_func = AST_SAFE_CAST(ast::Func, root);
 
-        ast::check_correct_function_call(func_spec_map.at(t_func->get_func()), t_func->args,
-            c_info);
-
         std::string_view func_name = func_str_map.at(t_func->get_func());
         out << ";; " << func_name << '\n';
 
@@ -413,6 +427,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                    "syscall\n";
             break;
         }
+        case F_ARRAY:
         case F_STR: {
             /* check_correct_function_call defines the variable */
             break;
@@ -474,6 +489,12 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     }
                     break;
                 }
+                case ast::T_ACCESS: {
+                    number_in_register(AST_SAFE_CAST(ast::Access, format), "rdi", out, c_info);
+                    out << "call uprint\n";
+
+                    break;
+                }
                 case ast::T_CONST: {
                     out << "mov rdi, " << asm_from_int_or_const(format, c_info)
                         << "\n"
@@ -488,8 +509,27 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         case F_SET: {
-            number_in_register(t_func->args[1],
-                asm_from_int_or_const(t_func->args[0], c_info), out, c_info);
+            std::string input;
+
+            if (t_func->args[1]->get_type() == ast::T_ACCESS) {
+                array_access_into_register(AST_SAFE_CAST(ast::Access, t_func->args[1]), "rax", "rbx", out, c_info);
+                input = "rax";
+            } else if (t_func->args[1]->get_type() == ast::T_CONST){
+                input = std::to_string(AST_SAFE_CAST(ast::Const, t_func->args[1])->get_value());
+            } else {
+                number_in_register(t_func->args[1], "rax", out, c_info);
+                input = "rax";
+            }
+
+            if (t_func->args[0]->get_type() == ast::T_ACCESS) {
+                mov_reg_into_array_access(AST_SAFE_CAST(ast::Access, t_func->args[0]), input, "rbx", out, c_info);
+            } else if (t_func->args[0]->get_type() == ast::T_VAR) {
+                print_mov_if_req(asm_from_int_or_const(t_func->args[0], c_info), input, out);
+            } else {
+                assert(false);
+            }
+
+            // out << "mov " << asm_from_int_or_const(t_func->args[0], c_info) << ", rax\n";
             break;
         }
         case F_ADD:

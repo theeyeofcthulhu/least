@@ -15,6 +15,7 @@ enum func_id {
     F_CONT,
     F_PUTCHAR,
     F_INT,
+    F_ARRAY,
     F_STR,
     F_CALL,
 };
@@ -76,6 +77,7 @@ enum keyword {
     K_GETUID,
     K_BREAK,
     K_CONT,
+    K_ARRAY,
     K_PUTCHAR,
     K_NOKEY,
 };
@@ -83,6 +85,7 @@ enum keyword {
 enum var_type {
     V_INT,
     V_STR,
+    V_ARR,
     V_UNSURE,
 };
 

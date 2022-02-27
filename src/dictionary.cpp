@@ -3,6 +3,7 @@
 const std::map<var_type, std::string_view> var_type_str_map = {
     std::make_pair(V_INT, "int"),
     std::make_pair(V_STR, "str"),
+    std::make_pair(V_ARR, "array"),
     std::make_pair(V_UNSURE, "untyped"),
 };
 
@@ -19,6 +20,7 @@ const std::map<func_id, std::string_view> func_str_map = {
     std::make_pair(F_BREAK, "break"),
     std::make_pair(F_CONT, "continue"),
     std::make_pair(F_CALL, "call"),
+    std::make_pair(F_ARRAY, "array"),
 };
 
 const std::map<value_func_id, std::string_view> vfunc_str_map = {

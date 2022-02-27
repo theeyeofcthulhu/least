@@ -6,6 +6,7 @@
 #include "lexer.hpp"
 #include "util.hpp"
 #include "x86_64.hpp"
+#include "semantics.hpp"
 
 #define SHELL_GREEN "\033[0;32m"
 #define SHELL_RED "\033[0;31m"
@@ -77,6 +78,9 @@ int main(int argc, char** argv)
     std::system(dot_cmd.c_str());
 
     std::string asm_filename = fn.extension(".asm");
+
+    std::cout << "[INFO] Semantical analysis\n";
+    semantic::semantic_analysis(ast_root, c_info);
 
     std::cout << "[INFO] Generating assembly to " << GREEN(asm_filename) << '\n';
     ast_to_x86_64(ast_root, asm_filename, c_info);

@@ -94,6 +94,18 @@ int CompileInfo::check_var(std::string_view var)
     return known_vars.size() - 1;
 }
 
+int CompileInfo::check_array(std::string_view array)
+{
+    for (size_t i = 0; i < known_vars.size(); i++) {
+        if (array == known_vars[i].name)
+            return i;
+    }
+
+    known_vars.push_back({ array, V_UNSURE, false, VarInfo::Arrayness::Yes, 0 });
+
+    return known_vars.size() - 1;
+}
+
 /* Same as check_var but with string */
 int CompileInfo::check_str(std::string_view str)
 {
@@ -105,6 +117,12 @@ int CompileInfo::check_str(std::string_view str)
     known_strings.push_back(str);
 
     return known_strings.size() - 1;
+}
+
+size_t CompileInfo::get_stack_size_and_append(size_t new_offset)
+{
+    stack_size += new_offset;
+    return stack_size;
 }
 
 void CompileInfo::error_on_undefined(std::shared_ptr<ast::Var> var_id)

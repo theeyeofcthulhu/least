@@ -51,6 +51,7 @@ const std::map<keyword, func_id> key_func_map = {
     std::make_pair(K_SET, F_SET),
     std::make_pair(K_PUTCHAR, F_PUTCHAR),
     std::make_pair(K_INT, F_INT),
+    std::make_pair(K_ARRAY, F_ARRAY),
     std::make_pair(K_STR, F_STR),
     std::make_pair(K_ADD, F_ADD),
     std::make_pair(K_SUB, F_SUB),
@@ -106,6 +107,7 @@ const std::map<keyword, std::string_view> key_str_map {
     std::make_pair(K_SUB, "sub"),
     std::make_pair(K_BREAK, "break"),
     std::make_pair(K_CONT, "continue"),
+    std::make_pair(K_ARRAY, "array"),
 };
 
 Body::Body(int line, std::shared_ptr<Body> t_parent, CompileInfo& c_info)
@@ -136,90 +138,14 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, Compi
             format.push_back(std::make_shared<Const>(line, cnst->get_num()));
             break;
         }
+        case lexer::TK_ACCESS: {
+            auto access = LEXER_SAFE_CAST(lexer::Access, tk);
+            format.push_back(std::make_shared<Access>(line, c_info.check_array(access->get_array_name()), parse_arit_expr(access->expr, c_info)));
+            break;
+        }
         default:
             assert(false);
             break;
-        }
-    }
-}
-
-/* Give information about how a correct function call looks like and check for
- * it */
-void check_correct_function_call(const FunctionSpec& spec,
-    const std::vector<std::shared_ptr<Node>>& args,
-    CompileInfo& c_info)
-{
-    /* Caller can provide arguments which will be defined by this function
-     * We define them so we don't error out later */
-    if (!spec.define.empty()) {
-        for (const auto& d : spec.define) {
-            assert(d.first < spec.exp_arg_len);
-
-            c_info.err.on_false(args[d.first]->get_type() == T_VAR,
-                "Argument % to '%' expected to be variable\n", d.first, spec.name);
-            auto t_var = AST_SAFE_CAST(Var, args[d.first]);
-
-            c_info.err.on_true(c_info.known_vars[t_var->get_var_id()].defined,
-                "Argument % to '%' expected to be undefined\n", d.first, spec.name);
-            c_info.known_vars[AST_SAFE_CAST(Var, args[d.first])->get_var_id()].defined = true;
-            c_info.known_vars[AST_SAFE_CAST(Var, args[d.first])->get_var_id()].type = d.second;
-        }
-    }
-
-    auto info_it = spec.info.begin();
-
-    c_info.err.on_false(args.size() == spec.exp_arg_len,
-        "Expected % arguments to function '%', got %\n", spec.exp_arg_len,
-        spec.name, args.size());
-    assert(spec.types.size() == spec.exp_arg_len);
-
-    for (size_t i = 0; i < args.size(); i++) {
-        const auto& arg = args[i];
-
-        if (spec.types[i] == T_NUM_GENERAL) {
-            /* NUM_GENERAL means that arg has to evaluate to a number */
-            c_info.err.on_false(arg->get_type() == T_VAR || arg->get_type() == T_CONST || arg->get_type() == T_ARIT || arg->get_type() == T_VFUNC,
-                "Argument % to '%' has to evaluate to a number\n", i, spec.name);
-
-            /* If we are var: check that we are int */
-            if (arg->get_type() == T_VAR) {
-                auto t_var = AST_SAFE_CAST(Var, args[i]);
-                auto v_info = c_info.known_vars[t_var->get_var_id()];
-
-                c_info.err.on_false(v_info.defined, "Var '%' is undefined at this time\n",
-                    v_info.name);
-                c_info.err.on_false(
-                    v_info.type == V_INT, "Argument % to '%' has to have type '%' but has '%'\n", i,
-                    spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type));
-            } else if (arg->get_type() == T_VFUNC) {
-                auto vfunc = AST_SAFE_CAST(VFunc, args[i]);
-                c_info.err.on_false(vfunc->get_return_type() == V_INT,
-                    "Argument % to '%' has to evaluate to a number\n"
-                    "Got '%' returning '%'\n",
-                    i, spec.name, vfunc_str_map.at(vfunc->get_value_func()),
-                    var_type_str_map.at(vfunc->get_return_type()));
-            }
-        } else {
-            c_info.err.on_false(arg->get_type() == spec.types[i],
-                "Argument % to function '%' is wrong type\n", i, spec.name);
-        }
-
-        /* If we are a var: check the provided 'info' type information if the
-         * type is correct */
-        if (arg->get_type() == T_VAR && spec.types[i] != T_NUM_GENERAL) {
-            auto t_var = AST_SAFE_CAST(Var, args[i]);
-            auto v_info = c_info.known_vars[t_var->get_var_id()];
-
-            c_info.err.on_true(info_it == spec.info.end() || spec.info.empty(),
-                "Could not parse arguments to function '%'\n", spec.name);
-
-            c_info.err.on_false(v_info.defined, "Var '%' is undefined at this time\n", v_info.name);
-            c_info.err.on_false(v_info.type == *info_it.base(),
-                "Argument % to '%' has to have type '%' but has '%'\n", i,
-                v_info.name, var_type_str_map.at(v_info.type),
-                var_type_str_map.at(*info_it.base()));
-
-            info_it++;
         }
     }
 }
@@ -228,7 +154,7 @@ void check_correct_function_call(const FunctionSpec& spec,
 std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token> tk,
     CompileInfo& c_info)
 {
-    assert(tk->get_type() == lexer::TK_VAR || tk->get_type() == lexer::TK_NUM || tk->get_type() == lexer::TK_CALL);
+    assert(lexer::could_be_num(tk->get_type()));
 
     std::shared_ptr<ast::Node> res;
 
@@ -246,6 +172,10 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
             vfunc_str_map.at(call->get_value_func()));
 
         res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_value_func(), ret_type);
+    } else if (tk->get_type() == lexer::TK_ACCESS) {
+        const auto& access = LEXER_SAFE_CAST(lexer::Access, tk);
+
+        res = std::make_shared<ast::Access>(tk->get_line(), c_info.check_array(access->get_array_name()), parse_arit_expr(access->expr, c_info));
     }
 
     return res;
@@ -262,7 +192,7 @@ void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& t
         if (expect_operator) {
             c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator\n");
         } else {
-            c_info.err.on_false(t->get_type() == lexer::TK_NUM || t->get_type() == lexer::TK_VAR || t->get_type() == lexer::TK_CALL,
+            c_info.err.on_false(lexer::could_be_num(t->get_type()),
                 "Expected variable, constant or inline call\n");
         }
 
@@ -305,10 +235,10 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             /* Make new multiplication */
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
-                c_info.err.on_false(ts[i - 1]->get_type() == lexer::TK_NUM || ts[i - 1]->get_type() == lexer::TK_CALL || ts[i - 1]->get_type() == lexer::TK_VAR,
+                c_info.err.on_false(lexer::could_be_num(ts[i - 1]->get_type()),
                     "Expected number before '%' operator\n",
                     arit_str_map.at(op->get_op()));
-                c_info.err.on_false(ts[i + 1]->get_type() == lexer::TK_NUM || ts[i + 1]->get_type() == lexer::TK_CALL || ts[i + 1]->get_type() == lexer::TK_VAR,
+                c_info.err.on_false(lexer::could_be_num(ts[i + 1]->get_type()),
                     "Expected number after '%' operator\n",
                     arit_str_map.at(op->get_op()));
 
@@ -583,6 +513,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
             case K_SUB:
             case K_PUTCHAR:
             case K_INT:
+            case K_ARRAY:
             case K_STR:
             case K_BREAK:
             case K_CONT: {
@@ -610,6 +541,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                     }
                     case lexer::TK_NUM:
                     case lexer::TK_VAR:
+                    case lexer::TK_ACCESS:
                     case lexer::TK_CALL: {
                         std::vector<std::shared_ptr<lexer::Token>> slc = slice(tokens, i, next_sep);
 
@@ -824,6 +756,23 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         std::shared_ptr<Var> t_var = AST_SAFE_CAST(Var, root);
         dot << "\tNode_" << ++node << " [label=\"" << t_var->get_var_id() << "\"]\n";
         dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"var\"]\n";
+        break;
+    }
+    case T_ACCESS: {
+        std::shared_ptr<Access> t_access = AST_SAFE_CAST(Access, root);
+
+        dot << "\tNode_" << ++node << " [label=\"access\"]\n";
+        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"access\"]\n";
+
+        int s_node = node;
+
+        dot << "\tNode_" << ++node << " [label=\"" << t_access->get_array_id() << "\"]\n";
+        dot << "\tNode_" << node-1 << " -> Node_" << node << " [label=\"array-id\"]\n";
+
+        // dot << "\tNode_" << ++node << " [label=\"" << t_access->get_array_id() << "\"]\n";
+        // dot << "\tNode_" << node << " -> Node_" << ++node << "[label=\"array-id\"]\n";
+
+        tree_to_dot_core(t_access->index, node, tbody_id, s_node, dot, c_info);
         break;
     }
     case T_STR: {

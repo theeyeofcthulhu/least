@@ -1,0 +1,39 @@
+array r ; 2801 ;
+int i ; 0 ;
+int k ; 2800 ;
+int b ; 0 ;
+int d ; 0 ;
+int c ; 0 ;
+int buf ; 0 ;
+
+while i < 2800
+    set r{i} ; 2000 ;
+    add i ; 1 ;
+end
+
+while k > 0
+    set d ; 0 ;
+
+    set i ; k ;
+    while 1
+        add d ; r{i} * 10000 ;
+        set b ; 2 * i - 1 ;
+
+        set r{i} ; d % b ;
+        set d ; d / b ;
+
+        sub i ; 1 ;
+        if i == 0
+            break ;
+        end
+
+        set d ; d * i ;
+    end
+
+    set buf ; c + d / 10000 ;
+    print "[buf]" ;
+
+    set c ; d % 10000 ;
+
+    sub k ; 14 ;
+end
