@@ -1,5 +1,6 @@
 #include <getopt.h>
 #include <iostream>
+#include <fmt/core.h>
 
 #include "ast.hpp"
 #include "dictionary.hpp"
@@ -27,13 +28,11 @@ int main(int argc, char** argv)
     while ((flag = getopt(argc, argv, "hr")) != -1) {
         switch (flag) {
         case 'h':
-            std::cout << "Least Complicated Compiler - lcc\n"
+            fmt::print("Least Complicated Compiler - lcc\n"
                          "Copyright (C) 2021-2022 - theeyeofcthulhu on GitHub\n\n"
-                         "usage: "
-                      << argv[0]
-                      << " [-hr] FILE\n\n"
+                         "usage: {} [-hr] FILE\n\n"
                          "-h: display this message and exit\n"
-                         "-r: run program after compilation\n";
+                         "-r: run program after compilation\n", argv[0]);
             return 0;
         case 'r':
             run_after_compile = true;

@@ -19,4 +19,7 @@ file(GLOB ASM "${LIB_DIR}/*.asm")
 
 add_executable(lcc ${SOURCES})
 
+find_package(fmt)
+target_link_libraries(lcc fmt::fmt)
+
 add_library(stdleast ${ASM})

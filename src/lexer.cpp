@@ -202,6 +202,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 j += next_i + 1;
                 auto after = get_next_word(line, j, next_i);
 
+                /* FIXME: this should not be part of lexical analysis */
                 value_func_id id;
                 try {
                     keyword key = key_map.at(after);
@@ -215,7 +216,6 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 tokens.push_back(std::make_shared<Sep>(i));
             } else if (size_t open, close; (open = next_word.find('{') != std::string_view::npos) && (close = next_word.find('}') != std::string_view::npos)) {
                 c_info.err.on_false(next_word.ends_with('}'), "Expected '}' at the end of word '%'\n", next_word);
-
 
                 std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(next_word.substr(open + 1, close - open + 1), c_info, true);
 

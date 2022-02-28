@@ -155,6 +155,7 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo &c_info)
         std::shared_ptr<ast::If> t_if = AST_SAFE_CAST(ast::If, root);
 
         semantic_analysis(t_if->condition, c_info);
+        semantic_analysis(t_if->body, c_info);
 
         if (t_if->elif)
             semantic_analysis(t_if->elif, c_info);
@@ -209,7 +210,6 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo &c_info)
             semantic_analysis(log->left, c_info);
         if (log->right)
             semantic_analysis(log->right, c_info);
-
         break;
     }
     case ast::T_CONST: {
