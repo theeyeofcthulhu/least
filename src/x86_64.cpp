@@ -83,7 +83,7 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
 void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info)
 {
     if (node->index->get_type() == ast::T_CONST) {
-        out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) + AST_SAFE_CAST(ast::Const, node->index)->get_value() << "], " << reg << '\n';
+        out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE) << "], " << reg << '\n';
     } else {
         number_in_register(node->index, intermediate, out, c_info);
         out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) << " + " << intermediate << " * " << WORD_SIZE << "], " << reg << '\n';
@@ -93,7 +93,7 @@ void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_vi
 void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info)
 {
     if (node->index->get_type() == ast::T_CONST) {
-        out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) + AST_SAFE_CAST(ast::Const, node->index)->get_value() << "]\n";
+        out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE) << "]\n";
     } else {
         number_in_register(node->index, intermediate, out, c_info);
         out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) << " + " << intermediate << " * " << WORD_SIZE << "]\n";
