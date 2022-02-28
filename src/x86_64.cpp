@@ -489,16 +489,10 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     }
                     break;
                 }
+                case ast::T_CONST:
                 case ast::T_ACCESS: {
-                    number_in_register(AST_SAFE_CAST(ast::Access, format), "rdi", out, c_info);
+                    number_in_register(format, "rdi", out, c_info);
                     out << "call uprint\n";
-
-                    break;
-                }
-                case ast::T_CONST: {
-                    out << "mov rdi, " << asm_from_int_or_const(format, c_info)
-                        << "\n"
-                           "call uprint\n";
                     break;
                 }
                 default:
