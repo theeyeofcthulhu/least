@@ -8,6 +8,8 @@
 #include <string>
 #include <string_view>
 
+#include <fmt/ostream.h>
+
 #include "ast.hpp"
 #include "util.hpp"
 #include "x86_64.hpp"
@@ -26,7 +28,7 @@ struct cmp_operation {
 std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info);
 
 void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info);
-void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info);
+void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info);
 
 void print_mov_if_req(std::string_view target, std::string_view source, std::ofstream& out);
 void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
@@ -72,31 +74,31 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
         c_info.error_on_undefined(t_var);
         c_info.error_on_wrong_type(t_var, V_INT);
 
-        var_or_const << "qword [rbp - " << c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE << "]";
+        fmt::print(var_or_const, "qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
     } else if (node->get_type() == ast::T_CONST) {
-        var_or_const << AST_SAFE_CAST(ast::Const, node)->get_value();
+        fmt::print(var_or_const, "{}", AST_SAFE_CAST(ast::Const, node)->get_value());
     }
 
     return var_or_const.str();
 }
 
-void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info)
+void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info)
 {
     if (node->index->get_type() == ast::T_CONST) {
-        out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE) << "], " << reg << '\n';
+        fmt::print(out, "mov qword [rbp - {}], {}\n", (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE), reg);
     } else {
         number_in_register(node->index, intermediate, out, c_info);
-        out << "mov qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) << " + " << intermediate << " * " << WORD_SIZE << "], " << reg << '\n';
+        fmt::print(out, "mov qword [rbp - {} + {} * {}], {}\n", (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE), intermediate, WORD_SIZE, reg);
     }
 }
 
-void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream &out, CompileInfo& c_info)
+void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info)
 {
     if (node->index->get_type() == ast::T_CONST) {
-        out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE) << "]\n";
+        fmt::print(out, "mov {}, qword [rbp - {}]\n", reg, (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE));
     } else {
         number_in_register(node->index, intermediate, out, c_info);
-        out << "mov " << reg << ", qword [rbp - " << (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) << " + " << intermediate << " * " << WORD_SIZE << "]\n";
+        fmt::print(out, "mov {}, qword [rbp - {} + {} * {}]\n", reg, (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE), intermediate, WORD_SIZE);
     }
 }
 
@@ -106,7 +108,7 @@ inline void print_mov_if_req(std::string_view target,
     std::ofstream& out)
 {
     if (target != source)
-        out << "mov " << target << ", " << source << '\n';
+        fmt::print(out, "mov {}, {}\n", target, source);
 }
 
 void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
@@ -118,15 +120,15 @@ void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
 
     switch (vfunc) {
     case VF_TIME: {
-        out << "mov rax, 201\n"
-               "xor rdi, rdi\n"
-               "syscall\n";
+        fmt::print(out, "mov rax, 201\n"
+                        "xor rdi, rdi\n"
+                        "syscall\n");
         print_mov_if_req(reg, "rax", out);
         break;
     }
     case VF_GETUID: {
-        out << "mov rax, 102\n"
-               "syscall\n";
+        fmt::print(out, "mov rax, 102\n"
+                        "syscall\n");
         print_mov_if_req(reg, "rax", out);
         break;
     }
@@ -158,7 +160,7 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
     case ast::T_VFUNC: {
         auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
         c_info.err.on_false(vfunc->get_return_type() == V_INT,
-            "'%' has wrong return type '%'\n",
+            "'{}' has wrong return type '{}'\n",
             vfunc_str_map.at(vfunc->get_value_func()),
             var_type_str_map.at(vfunc->get_return_type()));
 
@@ -179,7 +181,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
 {
     /* If we are only a number: mov us into the target and leave */
     if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
-        out << "mov " << reg << ", " << asm_from_int_or_const(root, c_info) << "\n";
+        fmt::print(out, "mov {}, {}\n", reg, asm_from_int_or_const(root, c_info));
         return;
     }
 
@@ -203,10 +205,10 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     if (arit->right->get_type() == ast::T_ARIT) {
         /* Preserve rax */
         if (value_in_rax)
-            out << "push rax\n";
+            fmt::print(out, "push rax\n");
         arithmetic_tree_to_x86_64(arit->right, "rcx", out, c_info);
         if (value_in_rax)
-            out << "pop rax\n";
+            fmt::print(out, "pop rax\n");
     }
 
     /* If our children are numbers: mov them into the target
@@ -228,7 +230,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
                                          same as you would for var */
     }
     case ast::T_VAR: {
-        out << "mov rcx, " << asm_from_int_or_const(arit->right, c_info) << "\n";
+        fmt::print(out, "mov rcx, {}\n", asm_from_int_or_const(arit->right, c_info));
         break;
     }
     case ast::T_ACCESS: {
@@ -237,10 +239,10 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     }
     case ast::T_VFUNC: {
         if (value_in_rax)
-            out << "push rax\n";
+            fmt::print(out, "push rax\n");
         print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out, c_info);
         if (value_in_rax)
-            out << "pop rax\n";
+            fmt::print(out, "pop rax\n");
         break;
     }
     default:
@@ -253,33 +255,33 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     /* Execute the calculation */
     switch (arit->get_arit()) {
     case ADD:
-        out << "add rax, " << second_value << "\n";
+        fmt::print(out, "add rax, {}\n", second_value);
         print_mov_if_req(reg, "rax", out);
         break;
     case SUB:
-        out << "sub rax, " << second_value << "\n";
+        fmt::print(out, "sub rax, {}\n", second_value);
         print_mov_if_req(reg, "rax", out);
         break;
     case DIV:
-        out << "xor rdx, rdx\n"
-               "div "
-            << second_value << "\n";
+        fmt::print(out, "xor rdx, rdx\n"
+                        "div {}\n",
+            second_value);
         print_mov_if_req(reg, "rax", out);
         break;
     case MOD:
-        out << "xor rdx, rdx\n"
-               "div "
-            << second_value << "\n";
+        fmt::print(out, "xor rdx, rdx\n"
+                        "div {}\n",
+            second_value);
         print_mov_if_req(reg, "rdx", out);
         break;
     case MUL:
-        out << "xor rdx, rdx\n"
-               "mul "
-            << second_value << "\n";
+        fmt::print(out, "xor rdx, rdx\n"
+                        "mul {}\n",
+            second_value);
         print_mov_if_req(reg, "rax", out);
         break;
-    case ARIT_OPERATION_ENUM_END:
-        c_info.err.error("Invalid arithmetic operation\n");
+    default:
+        assert(false);
         break;
     }
 }
@@ -289,49 +291,47 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, Compile
     const std::string temp(fn);
     std::ofstream out(temp);
 
-    out << ";; Generated by Least Complicated Compiler (lcc)\n"
-           "global _start\n"
-           "section .text\n"
-           "_start:\n";
+    fmt::print(out, ";; Generated by Least Complicated Compiler (lcc)\n"
+                    "global _start\n"
+                    "section .text\n"
+                    "_start:\n");
 
     /* Allocate space var variables on stack */
     if (!c_info.known_vars.empty()) {
-        out << "mov rbp, rsp\n"
-               "sub rsp, "
-            << c_info.get_stack_size() * WORD_SIZE << '\n';
+        fmt::print(out, "mov rbp, rsp\n"
+                        "sub rsp, {}\n",
+            c_info.get_stack_size() * WORD_SIZE);
     }
 
     ast_to_x86_64_core(ast::to_base(root), out, c_info, root->get_body_id(), root->get_body_id());
 
-    out << "mov rax, 60\n"
-           "xor rdi, rdi\n"
-           "syscall\n"
-           "section .data\n";
+    fmt::print(out, "mov rax, 60\n"
+                    "xor rdi, rdi\n"
+                    "syscall\n"
+                    "section .data\n");
 
     for (size_t i = 0; i < c_info.known_strings.size(); i++) {
-        out << "str" << i << ": db \"" << c_info.known_strings[i]
-            << "\"\n"
-               "str"
-            << i << "Len: equ $ - str" << i << "\n";
+        fmt::print(out, "str{0}: db \"{1}\"\n"
+                        "str{0}Len: equ $ - str{0}\n",
+            i, c_info.known_strings[i]);
     }
 
     /* Reserved string variables */
     auto is_str = [](VarInfo v) { return v.type == V_STR; };
     if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(), is_str) != c_info.known_vars.end()) {
-        out << "section .bss\n";
+        fmt::print(out, "section .bss\n");
         for (size_t i = 0; i < c_info.known_vars.size(); i++) {
             auto v = c_info.known_vars[i];
             if (v.type == V_STR) {
-                out << "strvar" << i << ": resb " << STR_RESERVED_SIZE
-                    << "\n"
-                       "strvar"
-                    << i << "len: resq 1\n";
+                fmt::print(out, "strvar{0}: resb {1}\n"
+                                "strvar{0}len: resq 1\n",
+                    i, STR_RESERVED_SIZE);
             }
         }
     }
 
-    out << "extern uprint\n";
-    out << "extern putchar\n";
+    fmt::print(out, "extern uprint\n");
+    fmt::print(out, "extern putchar\n");
 
     out.close();
 }
@@ -371,28 +371,27 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             }
         }
 
-        out << ";; " << (t_if->is_elif() ? "elif" : "if") << '\n';
+        fmt::print(out, ";; {}\n", (t_if->is_elif() ? "elif" : "if"));
         ast_to_x86_64_core(t_if->condition, out, c_info, t_if->body->get_body_id(),
             real_end_id);
         ast_to_x86_64_core(t_if->body, out, c_info, t_if->body->get_body_id(), real_end_id);
 
         if (t_if->elif != nullptr) {
-            out << "jmp .end" << real_end_id
-                << "\n"
-                   ".end"
-                << t_if->body->get_body_id() << ":\n";
+            fmt::print(out, "jmp .end{}\n"
+                            ".end{}:\n",
+                real_end_id, t_if->body->get_body_id());
             ast_to_x86_64_core(t_if->elif, out, c_info, t_if->body->get_body_id(), real_end_id);
         } else {
-            out << ".end" << t_if->body->get_body_id() << ":\n";
+            fmt::print(out, ".end{}:\n", t_if->body->get_body_id());
         }
         break;
     }
     case ast::T_ELSE: {
         std::shared_ptr<ast::Else> t_else = AST_SAFE_CAST(ast::Else, root);
 
-        out << ";; else\n";
+        fmt::print(out, ";; else\n");
         ast_to_x86_64_core(t_else->body, out, c_info, t_else->body->get_body_id(), real_end_id);
-        out << ".end" << t_else->body->get_body_id() << ":\n";
+        fmt::print(out, ".end{}:\n", t_else->body->get_body_id());
         break;
     }
     case ast::T_WHILE: {
@@ -400,16 +399,16 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
 
         while_ends.push(t_while->body->get_body_id());
 
-        out << ";; while\n";
-        out << ".entry" << t_while->body->get_body_id() << ":\n";
+        fmt::print(out, ";; while\n");
+        fmt::print(out, ".entry{}:\n", t_while->body->get_body_id());
 
         ast_to_x86_64_core(t_while->condition, out, c_info, t_while->body->get_body_id(),
             real_end_id);
         ast_to_x86_64_core(t_while->body, out, c_info, t_while->body->get_body_id(),
             real_end_id);
 
-        out << "jmp .entry" << t_while->body->get_body_id() << "\n";
-        out << ".end" << t_while->body->get_body_id() << ":\n";
+        fmt::print(out, "jmp .entry{}\n", t_while->body->get_body_id());
+        fmt::print(out, ".end{}:\n", t_while->body->get_body_id());
 
         while_ends.pop();
         break;
@@ -418,13 +417,13 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         std::shared_ptr<ast::Func> t_func = AST_SAFE_CAST(ast::Func, root);
 
         std::string_view func_name = func_str_map.at(t_func->get_func());
-        out << ";; " << func_name << '\n';
+        fmt::print(out, ";; {}\n", func_name);
 
         switch (t_func->get_func()) {
         case F_EXIT: {
             number_in_register(t_func->args[0], "rdi", out, c_info);
-            out << "mov rax, 60\n"
-                   "syscall\n";
+            fmt::print(out, "mov rax, 60\n"
+                            "syscall\n");
             break;
         }
         case F_ARRAY:
@@ -445,15 +444,12 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                 case ast::T_STR: {
                     std::shared_ptr<ast::Str> str = AST_SAFE_CAST(ast::Str, format);
 
-                    out << "mov rax, 1\n"
-                           "mov rdi, 1\n"
-                           "mov rsi, str"
-                        << str->get_str_id()
-                        << "\n"
-                           "mov rdx, str"
-                        << str->get_str_id()
-                        << "Len\n"
-                           "syscall\n";
+                    fmt::print(out, "mov rax, 1\n"
+                                    "mov rdi, 1\n"
+                                    "mov rsi, str{0}\n"
+                                    "mov rdx, str{0}Len\n"
+                                    "syscall\n",
+                        str->get_str_id());
                     break;
                 }
                 case ast::T_VAR: {
@@ -464,21 +460,18 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
 
                     switch (the_var_info.type) {
                     case V_INT: {
-                        out << "mov rdi, " << asm_from_int_or_const(format, c_info)
-                            << "\n"
-                               "call uprint\n";
+                        fmt::print(out, "mov rdi, {}\n"
+                                        "call uprint\n",
+                            asm_from_int_or_const(format, c_info));
                         break;
                     }
                     case V_STR: {
-                        out << "mov rax, 1\n"
-                               "mov rdi, 1\n"
-                               "mov rsi, strvar"
-                            << the_var->get_var_id()
-                            << "\n"
-                               "mov rdx, [strvar"
-                            << the_var->get_var_id()
-                            << "len]\n"
-                               "syscall\n";
+                        fmt::print(out, "mov rax, 1\n"
+                                        "mov rdi, 1\n"
+                                        "mov rsi, strvar{0}\n"
+                                        "mov rdx, [strvar{0}len]\n"
+                                        "syscall\n",
+                            the_var->get_var_id());
                         break;
                     }
                     default: {
@@ -492,7 +485,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                 case ast::T_CONST:
                 case ast::T_ACCESS: {
                     number_in_register(format, "rdi", out, c_info);
-                    out << "call uprint\n";
+                    fmt::print(out, "call uprint\n");
                     break;
                 }
                 default:
@@ -508,7 +501,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             if (t_func->args[1]->get_type() == ast::T_ACCESS) {
                 array_access_into_register(AST_SAFE_CAST(ast::Access, t_func->args[1]), "rax", "rbx", out, c_info);
                 input = "rax";
-            } else if (t_func->args[1]->get_type() == ast::T_CONST){
+            } else if (t_func->args[1]->get_type() == ast::T_CONST) {
                 input = std::to_string(AST_SAFE_CAST(ast::Const, t_func->args[1])->get_value());
             } else {
                 number_in_register(t_func->args[1], "rax", out, c_info);
@@ -522,61 +515,49 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             } else {
                 assert(false);
             }
-
-            // out << "mov " << asm_from_int_or_const(t_func->args[0], c_info) << ", rax\n";
             break;
         }
         case F_ADD:
         case F_SUB: {
             if (t_func->args[1]->get_type() == ast::T_CONST) {
-                out << func_name << " "
-                    << asm_from_int_or_const(t_func->args[0],
-                           c_info) /* In this case func name
-                                      ('add' or 'sub') is actually
-                                      the correct instruction */
-                    << ", " << asm_from_int_or_const(t_func->args[1], c_info) << "\n";
+                /* In this case func name
+                ('add' or 'sub') is actually
+                the correct instruction */
+                fmt::print(out, "{} {}, {}\n", func_name, asm_from_int_or_const(t_func->args[0], c_info), asm_from_int_or_const(t_func->args[1], c_info));
             } else {
                 number_in_register(t_func->args[1], "rax", out, c_info);
-                out << func_name << " " << asm_from_int_or_const(t_func->args[0], c_info)
-                    << ", rax\n";
+                fmt::print(out, "{} {}, rax\n", func_name, asm_from_int_or_const(t_func->args[0], c_info));
             }
             break;
         }
         case F_READ: {
             auto t_var = AST_SAFE_CAST(ast::Var, t_func->args[0]);
 
-            out << "xor rax, rax\n"
-                   "xor rdi, rdi\n"
-                   "mov rsi, strvar"
-                << t_var->get_var_id()
-                << "\n"
-                   "mov rdx, "
-                << STR_RESERVED_SIZE
-                << "\n"
-                   "syscall\n"
-                   "dec rax\n"
-                   "mov [strvar"
-                << t_var->get_var_id()
-                << "len], rax\n"                /* Move return value of read, i.e.,
-                                                   length of input into the length
-                                                   variable*/
-                   "mov byte [rsi + rax], 0\n"; /* Clear newline at end
-                                                 * of input
-                                                 */
+            fmt::print(out, "xor rax, rax\n"
+                            "xor rdi, rdi\n"
+                            "mov rsi, strvar{0}\n"
+                            "mov rdx, {1}\n"
+                            "syscall\n"
+                            "dec rax\n"
+                            "mov [strvar{0}len], rax\n"  /* Move return value of read, i.e., length of input into the length variable */
+                            "mov byte [rsi + rax], 0\n", /* Clear newline at end of input */
+                t_var->get_var_id(), STR_RESERVED_SIZE);
+
             break;
         }
         case F_PUTCHAR: {
             number_in_register(t_func->args[0], "rdi", out, c_info);
-            out << "call putchar\n";
+            fmt::print(out, "call putchar\n");
 
             break;
         }
         case F_BREAK:
         case F_CONT: {
-            c_info.err.on_true(while_ends.empty(), "'%' outside of loop\n", func_name);
+            c_info.err.on_true(while_ends.empty(), "'{}' outside of loop\n", func_name);
 
-            out << "jmp ." << (t_func->get_func() == F_BREAK ? "end" : "entry")
-                << while_ends.top() << '\n';
+            /* On *break*: Jump to after the loop
+             * On *continue*: Jump to the beginning of the loop */
+            fmt::print(out, "jmp .{}{}\n", t_func->get_func() == F_BREAK ? "end" : "entry", while_ends.top());
             break;
         }
         default:
@@ -635,11 +616,13 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         if (cmp_log_or) {
             /* We are part of an or-condition, meaning that if we conceed,
              * we immediately go to the beginning of the body */
-            out << "cmp " << regs[0] << ", " << regs[1] << "\n"
-                << cmp_operation_structs[op].asm_name << " .cond_entry" << cond_entry << '\n';
+            fmt::print(out, "cmp {}, {}\n"
+                            "{} .cond_entry{}\n",
+                regs[0], regs[1], cmp_operation_structs[op].asm_name, cond_entry);
         } else {
-            out << "cmp " << regs[0] << ", " << regs[1] << "\n"
-                << cmp_operation_structs[op].opposite_asm_name << " .end" << body_id << '\n';
+            fmt::print(out, "cmp {}, {}\n"
+                            "{} .end{}\n",
+                regs[0], regs[1], cmp_operation_structs[op].opposite_asm_name, body_id);
         }
 
         break;
@@ -648,7 +631,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         auto log = AST_SAFE_CAST(ast::Log, root);
 
         bool need_entry = log->get_log() == OR && cond_entry == -1;
-        if (cond_entry == -1 && need_entry) {
+        if (need_entry) {
             cond_entry = c_info.get_next_body_id();
         }
 
@@ -676,7 +659,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
          * block, because the whole tree will be traversed at this point,
          * even if we were not the first node */
         if (need_entry) {
-            out << ".cond_entry" << cond_entry << ":\n";
+            fmt::print(out, ".cond_entry{}:\n", cond_entry);
         }
 
         break;

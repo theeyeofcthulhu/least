@@ -168,7 +168,7 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
         const auto& call = LEXER_SAFE_CAST(lexer::Call, tk);
 
         var_type ret_type = vfunc_var_type_map.at(call->get_value_func());
-        c_info.err.on_false(ret_type == V_INT, "'%' does not return an integer\n",
+        c_info.err.on_false(ret_type == V_INT, "'{}' does not return an integer\n",
             vfunc_str_map.at(call->get_value_func()));
 
         res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_value_func(), ret_type);
@@ -236,10 +236,10 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
                 c_info.err.on_false(lexer::could_be_num(ts[i - 1]->get_type()),
-                    "Expected number before '%' operator\n",
+                    "Expected number before '{}' operator\n",
                     arit_str_map.at(op->get_op()));
                 c_info.err.on_false(lexer::could_be_num(ts[i + 1]->get_type()),
-                    "Expected number after '%' operator\n",
+                    "Expected number after '{}' operator\n",
                     arit_str_map.at(op->get_op()));
 
                 if (has_precedence(last_op)) {
@@ -302,7 +302,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                 if (i + 1 >= s2.size() - 1) {
                     /* If we are the last thing: set our own right to the next
                      * number */
-                    c_info.err.on_true(i + 1 > s2.size() - 1, "Expected number after operand '%'\n",
+                    c_info.err.on_true(i + 1 > s2.size() - 1, "Expected number after operand '{}'\n",
                         arit_str_map.at(cur_arit->get_arit()));
                     current->right = s2[i + 1];
                 } else if (s2[i + 1]->get_type() == T_ARIT) {
@@ -344,8 +344,8 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
             auto log = LEXER_SAFE_CAST(lexer::Log, ts[next_i]);
 
             c_info.err.on_true(ts[next_i + 1]->get_type() == lexer::TK_EOL || ts[next_i + 1]->get_type() == lexer::TK_LOG,
-                "Expected number after '%'\n", log_str_map.at(log->get_log()));
-            c_info.err.on_true(next_i == i, "'%' not expected at beginning of expression\n",
+                "Expected number after '{}'\n", log_str_map.at(log->get_log()));
+            c_info.err.on_true(next_i == i, "'{}' not expected at beginning of expression\n",
                 log_str_map.at(log->get_log()));
 
             auto left = parse_condition(slice(ts, last_i, next_i), c_info);
@@ -549,7 +549,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                         break;
                     }
                     default:
-                        c_info.err.error("Unexpected argument to function: %\n",
+                        c_info.err.error("Unexpected argument to function: {}\n",
                             tokens[i]->get_type());
                         break;
                     }
@@ -594,12 +594,12 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
             auto the_var = LEXER_SAFE_CAST(lexer::Var, tokens[i]);
             c_info.err.error(
                 "Unexpected occurence of word expected to be variable: "
-                "'%'\n",
+                "'{}'\n",
                 the_var->get_name());
             break;
         }
         default:
-            c_info.err.error("Unexpected token with enum value: %\n", tokens[i]->get_type());
+            c_info.err.error("Unexpected token with enum value: {}\n", tokens[i]->get_type());
             break;
         }
     }
@@ -627,7 +627,7 @@ void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c
 
     std::ofstream out(temp);
 
-    out << "digraph AST {\n";
+    fmt::print(out, "digraph AST {{\n");
 
     int node = 0;
 
@@ -635,7 +635,7 @@ void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c
 
     tree_to_dot_core(to_base(root), node, tbody_id, 0, out, c_info);
 
-    out << "}\n";
+    fmt::print(out, "}}\n");
 
     out.close();
 }
@@ -652,7 +652,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         std::shared_ptr<Body> body = AST_SAFE_CAST(Body, root);
 
         tbody_id = body->get_body_id();
-        dot << "\tNode_" << tbody_id << "[label=\"body " << tbody_id << "\"]\n";
+        fmt::print(dot, "\tNode_{}[label=\"body {}\"]\n", tbody_id, tbody_id);
         for (const auto& child : body->children) {
             tree_to_dot_core(child, node, tbody_id, body->get_body_id(), dot, c_info);
         }
@@ -661,10 +661,9 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_ELSE: {
         std::shared_ptr<Else> t_else = AST_SAFE_CAST(Else, root);
 
-        dot << "\tNode_" << ++node << " [label=\"else\"]\n";
-        dot << "\tNode_" << node << " -> Node_" << tbody_id + 1 << " [label=\"else > body\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node
-            << " [label=\"body > else\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"else\"]\n", ++node);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"else > body\"]\n", node, tbody_id + 1);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"body > else\"]\n", parent_body_id, node);
         tree_to_dot_core(t_else->body, node, tbody_id, parent_body_id, dot, c_info);
         break;
     }
@@ -673,16 +672,14 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         std::string_view if_name = t_if->is_elif() ? "elif" : "if";
 
-        dot << "\tNode_" << ++node << "[label=\"" << if_name << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"body >"
-            << if_name << "\"]\n";
+        fmt::print(dot, "\tNode_{}[label=\"{}\"]\n", ++node, if_name);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"body > {}\"]\n", parent_body_id, node, if_name);
 
         int s_node = node;
 
         tree_to_dot_core(t_if->condition, node, tbody_id, s_node, dot, c_info);
 
-        dot << "\tNode_" << s_node << " -> Node_" << tbody_id + 1 << " [label=\"" << if_name
-            << " > body\"]\n";
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"{} > body\"]\n", s_node, tbody_id + 1, if_name);
         tree_to_dot_core(t_if->body, node, tbody_id, parent_body_id, dot, c_info);
 
         if (t_if->elif)
@@ -692,9 +689,8 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_FUNC: {
         std::shared_ptr<Func> t_func = AST_SAFE_CAST(Func, root);
 
-        dot << "\tNode_" << ++node << " [label=\"" << func_str_map.at(t_func->get_func())
-            << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"func\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, func_str_map.at(t_func->get_func()));
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"func\"]\n", parent_body_id, node);
 
         int s_node = node;
         for (const auto& arg : t_func->args) {
@@ -705,19 +701,17 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_VFUNC: {
         std::shared_ptr<VFunc> t_vfunc = AST_SAFE_CAST(VFunc, root);
 
-        dot << "\tNode_" << ++node << " [label=\""
-            << vfunc_str_map.at(t_vfunc->get_value_func()) << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"vfunc\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, vfunc_str_map.at(t_vfunc->get_value_func()));
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"vfunc\"]\n", parent_body_id, node);
         break;
     }
     case T_CMP: {
         std::shared_ptr<Cmp> t_cmp = AST_SAFE_CAST(Cmp, root);
 
-        dot << "\tNode_" << ++node << " [label=\"cmp\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"cmp\"]\n";
-        dot << "\tNode_" << ++node << " [label=\"" << cmp_str_map.at(t_cmp->get_cmp())
-            << "\"]\n";
-        dot << "\tNode_" << node - 1 << " -> Node_" << node << " [label=\"cond\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"cmp\"]\n", ++node);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"cmp\"]\n", parent_body_id, node);
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, cmp_str_map.at(t_cmp->get_cmp()));
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"cond\"]\n", node - 1, node);
 
         int s_node = node;
 
@@ -730,10 +724,10 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_LOG: {
         std::shared_ptr<Log> log = AST_SAFE_CAST(Log, root);
 
-        dot << "\tNode_" << ++node << " [label=\"log\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"log\"]\n";
-        dot << "\tNode_" << ++node << " [label=\"" << log_str_map.at(log->get_log()) << "\"]\n";
-        dot << "\tNode_" << node - 1 << " -> Node_" << node << " [label=\"log\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"log\"]\n", ++node);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"log\"]\n", parent_body_id, node);
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, log_str_map.at(log->get_log()));
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"log\"]\n", node - 1, node);
 
         int s_node = node;
 
@@ -748,45 +742,41 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     }
     case T_CONST: {
         std::shared_ptr<Const> num = AST_SAFE_CAST(Const, root);
-        dot << "\tNode_" << ++node << " [label=\"" << num->get_value() << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"const\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, num->get_value());
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"const\"]\n", parent_body_id, node);
         break;
     }
     case T_VAR: {
         std::shared_ptr<Var> t_var = AST_SAFE_CAST(Var, root);
-        dot << "\tNode_" << ++node << " [label=\"" << t_var->get_var_id() << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"var\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, t_var->get_var_id());
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"var\"]\n", parent_body_id, node);
         break;
     }
     case T_ACCESS: {
         std::shared_ptr<Access> t_access = AST_SAFE_CAST(Access, root);
 
-        dot << "\tNode_" << ++node << " [label=\"access\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"access\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"access\"]\n", ++node);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"access\"]\n", parent_body_id, node);
 
         int s_node = node;
 
-        dot << "\tNode_" << ++node << " [label=\"" << t_access->get_array_id() << "\"]\n";
-        dot << "\tNode_" << node-1 << " -> Node_" << node << " [label=\"array-id\"]\n";
-
-        // dot << "\tNode_" << ++node << " [label=\"" << t_access->get_array_id() << "\"]\n";
-        // dot << "\tNode_" << node << " -> Node_" << ++node << "[label=\"array-id\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, t_access->get_array_id());
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"array-id\"]\n", node - 1, node);
 
         tree_to_dot_core(t_access->index, node, tbody_id, s_node, dot, c_info);
         break;
     }
     case T_STR: {
         std::shared_ptr<Str> string = AST_SAFE_CAST(Str, root);
-        dot << "\tNode_" << ++node << " [label=\"" << string->get_str_id() << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"str\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, string->get_str_id());
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"str\"]\n", parent_body_id, node);
         break;
     }
     case T_ARIT: {
         std::shared_ptr<Arit> t_arit = AST_SAFE_CAST(Arit, root);
 
-        dot << "\tNode_" << ++node << " [label=\"" << arit_str_map.at(t_arit->get_arit())
-            << "\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"arit\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, arit_str_map.at(t_arit->get_arit()));
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"arit\"]\n", parent_body_id, node);
 
         int s_node = node;
 
@@ -797,16 +787,14 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_WHILE: {
         std::shared_ptr<While> t_while = AST_SAFE_CAST(While, root);
 
-        dot << "\tNode_" << ++node << " [label=\"while\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node
-            << " [label=\"body > while\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"while\"]\n", ++node);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"body > while\"]\n", parent_body_id, node);
 
         int s_node = node;
 
         tree_to_dot_core(t_while->condition, node, tbody_id, s_node, dot, c_info);
 
-        dot << "\tNode_" << s_node << " -> Node_" << tbody_id + 1
-            << " [label=\"while > body\"]\n";
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"while > body\"]\n", s_node, tbody_id + 1);
 
         tree_to_dot_core(t_while->body, node, tbody_id, parent_body_id, dot, c_info);
         break;
@@ -814,8 +802,8 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_LSTR: {
         std::shared_ptr<Lstr> t_lstr = AST_SAFE_CAST(Lstr, root);
 
-        dot << "\tNode_" << ++node << " [label=\"lstring\"]\n";
-        dot << "\tNode_" << parent_body_id << " -> Node_" << node << " [label=\"lstring\"]\n";
+        fmt::print(dot, "\tNode_{} [label=\"lstring\"]\n", ++node);
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"lstring\"]\n", parent_body_id, node);
 
         int s_node = node;
         for (const auto& format : t_lstr->format) {

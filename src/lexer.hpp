@@ -2,6 +2,7 @@
 #define LEXER_H_
 
 #include <cassert>
+#include <fmt/ostream.h>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -168,7 +169,7 @@ private:
 
 class Access : public Token {
 public:
-    Access(int line, std::string_view array_name, const std::vector<std::shared_ptr<Token>> &p_expr)
+    Access(int line, std::string_view array_name, const std::vector<std::shared_ptr<Token>>& p_expr)
         : Token(line)
         , expr(p_expr)
         , m_array_name(array_name)
@@ -265,11 +266,11 @@ std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view fi
 {
     try {
         if (token_type_enum_map.at(typeid(T).hash_code()) != tk->get_type()) {
-            std::cerr << file << ":" << line << ": Invalid type-match: " << typeid(T).name() << '\n';
+            fmt::print(std::cerr, "{}:{}: Invalid type-match: {}\nIn call: {}\n", file, line, typeid(T).name(), __PRETTY_FUNCTION__);
             std::exit(1);
         }
     } catch (std::out_of_range& e) {
-        std::cerr << "Type '" << typeid(T).name() << "' not in map in lexer::safe_cast()\n";
+        fmt::print(std::cerr, "Type '{}' not in map in lexer::safe_cast()\n", typeid(T).name());
         std::exit(1);
     }
     return std::dynamic_pointer_cast<T>(tk);

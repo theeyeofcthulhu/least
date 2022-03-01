@@ -2,6 +2,7 @@
 #define AST_H_
 
 #include <cassert>
+#include <fmt/ostream.h>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -9,6 +10,7 @@
 #include <vector>
 
 #include "dictionary.hpp"
+#include "macros.hpp"
 
 class CompileInfo;
 
@@ -361,11 +363,11 @@ std::shared_ptr<T> safe_cast_core(std::shared_ptr<Node> nd, std::string_view fil
 {
     try {
         if (tree_type_enum_map.at(typeid(T).hash_code()) != nd->get_type()) {
-            std::cerr << file << ":" << line << ": Invalid type-match: " << typeid(T).name() << '\n';
+            fmt::print(std::cerr, "{}:{}: Invalid type-match: {}\nIn call: {}\n", file, line, typeid(T).name(), __PRETTY_FUNCTION__);
             std::exit(1);
         }
     } catch (std::out_of_range& e) {
-        std::cerr << "Type '" << typeid(T).name() << "' not in map in ast::safe_cast()\n";
+        fmt::print(std::cerr, "Type '{}' not in map in lexer::safe_cast()\n", typeid(T).name());
         std::exit(1);
     }
     return std::dynamic_pointer_cast<T>(nd);

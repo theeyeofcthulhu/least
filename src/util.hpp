@@ -12,8 +12,6 @@
 #include "dictionary.hpp"
 #include "error.hpp"
 
-#define DBG(x) std::cout << #x << ": " << (x) << '\n';
-
 namespace ast {
 class Var;
 }

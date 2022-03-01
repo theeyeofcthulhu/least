@@ -59,7 +59,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
             try {
                 ss << str_tokens.at(string[i]);
             } catch (std::out_of_range& e) {
-                c_info.err.error("Could not parse escape sequence: '\\%'\n", string[i]);
+                c_info.err.error("Could not parse escape sequence: '\\{}'\n", string[i]);
             }
             break;
         }
@@ -130,7 +130,7 @@ std::shared_ptr<Num> parse_char(std::string_view string, int line, CompileInfo& 
     int string_len = string.length();
 
     c_info.err.on_false(string_len == 3 || string_len == 4,
-        "Could not parse string '%' as character constant\n", string);
+        "Could not parse string '{}' as character constant\n", string);
 
     assert(string[0] == '\'' && string[string_len - 1] == '\'');
 
@@ -139,10 +139,10 @@ std::shared_ptr<Num> parse_char(std::string_view string, int line, CompileInfo& 
         try {
             parsed_char = str_tokens_char.at(string[2]);
         } catch (std::out_of_range& e) {
-            c_info.err.error("Could not parse escape sequence '\\%'\n", string[2]);
+            c_info.err.error("Could not parse escape sequence '\\{}'\n", string[2]);
         }
     } else {
-        c_info.err.on_false(string_len == 3, "Too many symbols in character constant %\n", string);
+        c_info.err.on_false(string_len == 3, "Too many symbols in character constant {}\n", string);
 
         parsed_char = string[1];
     }
