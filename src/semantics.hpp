@@ -35,12 +35,6 @@ struct FunctionSpec {
 
 void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info);
 
-/*
- * Check if the supplied args comply with spec
- */
-void check_correct_function_call(const FunctionSpec& spec,
-    const std::vector<std::shared_ptr<ast::Node>>& args,
-    CompileInfo& c_info);
 }
 
 #endif // SEMANTICS_H_

@@ -8,6 +8,11 @@
 
 namespace semantic {
 
+/* Check if the supplied args comply with spec */
+void check_correct_function_call(const FunctionSpec& spec,
+    const std::vector<std::shared_ptr<ast::Node>>& args,
+    CompileInfo& c_info);
+
 /* How each function needs to be called */
 const std::map<func_id, FunctionSpec> func_spec_map = {
     std::make_pair<func_id, FunctionSpec>(F_PRINT, { "print", 1, { ast::T_LSTR }, {}, {} }),
