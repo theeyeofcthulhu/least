@@ -9,29 +9,10 @@
 
 #include "ast.hpp"
 #include "lexer.hpp"
+#include "maps.hpp"
 #include "util.hpp"
 
 namespace lexer {
-
-const std::map<char, std::string_view> str_tokens = {
-    std::make_pair('n', "\",0xa,\""),   /* Newline */
-    std::make_pair('t', "\",0x9,\""),   /* Tabstop */
-    std::make_pair('\\', "\\"),         /* The character '\' */
-    std::make_pair('\"', "\",0x22,\""), /* The character '"' */
-    std::make_pair('\'', "\",0x27,\""), /* The character "'" */
-    std::make_pair('[', "\",0x5B,\""),  /* The character '[' */
-    std::make_pair(']', "\",0x5D,\""),  /* The character ']' */
-};
-
-const std::map<char, char> str_tokens_char = {
-    std::make_pair('n', '\n'),  /* Newline */
-    std::make_pair('t', '\t'),  /* Tabstop */
-    std::make_pair('\\', '\\'), /* The character '\' */
-    std::make_pair('\"', '\"'), /* The character '"' */
-    std::make_pair('\'', '\''), /* The character ''' */
-    std::make_pair('[', '['),   /* The character '[' */
-    std::make_pair(']', ']'),   /* The character ']' */
-};
 
 /* Check validity of string and insert escape sequences */
 /* Also parse any '[var]' blocks and insert variable tokens */

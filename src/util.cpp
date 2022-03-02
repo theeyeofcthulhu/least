@@ -6,6 +6,7 @@
 #include "ast.hpp"
 #include "error.hpp"
 #include "lexer.hpp"
+#include "maps.hpp"
 #include "util.hpp"
 
 /* Get the next word starting from index and store the next space

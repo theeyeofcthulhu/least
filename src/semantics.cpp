@@ -3,6 +3,7 @@
 
 #include "ast.hpp"
 #include "error.hpp"
+#include "maps.hpp"
 #include "semantics.hpp"
 #include "util.hpp"
 

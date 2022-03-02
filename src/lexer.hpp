@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "dictionary.hpp"
+#include "maps.hpp"
 
 class CompileInfo;
 
@@ -239,21 +240,6 @@ bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len);
 std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
     CompileInfo& c_info,
     bool no_set_line = false);
-
-const std::map<const size_t, token_type> token_type_enum_map = {
-    std::make_pair(typeid(Key).hash_code(), lexer::TK_KEY),
-    std::make_pair(typeid(Arit).hash_code(), lexer::TK_ARIT),
-    std::make_pair(typeid(Cmp).hash_code(), lexer::TK_CMP),
-    std::make_pair(typeid(Log).hash_code(), lexer::TK_LOG),
-    std::make_pair(typeid(Str).hash_code(), lexer::TK_STR),
-    std::make_pair(typeid(Lstr).hash_code(), lexer::TK_LSTR),
-    std::make_pair(typeid(Num).hash_code(), lexer::TK_NUM),
-    std::make_pair(typeid(Var).hash_code(), lexer::TK_VAR),
-    std::make_pair(typeid(Access).hash_code(), lexer::TK_ACCESS),
-    std::make_pair(typeid(Call).hash_code(), lexer::TK_CALL),
-    std::make_pair(typeid(Sep).hash_code(), lexer::TK_SEP),
-    std::make_pair(typeid(Eol).hash_code(), lexer::TK_EOL),
-};
 
 #define LEXER_SAFE_CAST(type, tk) lexer::safe_cast_core<type>((tk), __FILE__, __LINE__)
 

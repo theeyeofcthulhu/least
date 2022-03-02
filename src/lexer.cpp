@@ -10,6 +10,7 @@
 #include "error.hpp"
 #include "lexer.hpp"
 #include "lstring.hpp"
+#include "maps.hpp"
 #include "util.hpp"
 
 /* TODO: better alertion of wrong termination of function calls, along the lines
@@ -22,67 +23,6 @@ namespace lexer {
  * is the case
  */
 void checkbanned(std::string_view s, CompileInfo& c_info);
-
-const std::map<std::string_view, keyword> key_map {
-    std::make_pair("print", K_PRINT),
-    std::make_pair("exit", K_EXIT),
-    std::make_pair("if", K_IF),
-    std::make_pair("elif", K_ELIF),
-    std::make_pair("else", K_ELSE),
-    std::make_pair("while", K_WHILE),
-    std::make_pair("end", K_END),
-    std::make_pair("int", K_INT),
-    std::make_pair("str", K_STR),
-    std::make_pair("read", K_READ),
-    std::make_pair("set", K_SET),
-    std::make_pair("putchar", K_PUTCHAR),
-    std::make_pair("add", K_ADD),
-    std::make_pair("sub", K_SUB),
-    std::make_pair("break", K_BREAK),
-    std::make_pair("continue", K_CONT),
-    std::make_pair("time", K_TIME),
-    std::make_pair("getuid", K_GETUID),
-    std::make_pair("array", K_ARRAY),
-};
-
-const std::map<std::string_view, cmp_op> cmp_map {
-    std::make_pair("==", EQUAL),
-    std::make_pair("!=", NOT_EQUAL),
-    std::make_pair("<", LESS),
-    std::make_pair("<=", LESS_OR_EQ),
-    std::make_pair(">", GREATER),
-    std::make_pair(">=", GREATER_OR_EQ),
-};
-
-const std::map<std::string_view, arit_op> arit_map {
-    std::make_pair("+", ADD),
-    std::make_pair("-", SUB),
-    std::make_pair("%", MOD),
-    std::make_pair("/", DIV),
-    std::make_pair("*", MUL),
-};
-
-const std::map<std::string_view, log_op> log_map {
-    std::make_pair("&&", AND),
-    std::make_pair("||", OR),
-};
-
-const std::map<token_type, std::string_view> token_str_map {
-    std::make_pair(lexer::TK_KEY, "key"),
-    std::make_pair(lexer::TK_ARIT, "arit"),
-    std::make_pair(lexer::TK_CMP, "cmp"),
-    std::make_pair(lexer::TK_LOG, "log"),
-    std::make_pair(lexer::TK_STR, "str"),
-    std::make_pair(lexer::TK_LSTR, "lstr"),
-    std::make_pair(lexer::TK_CHAR, "char"),
-    std::make_pair(lexer::TK_NUM, "num"),
-    std::make_pair(lexer::TK_VAR, "var"),
-    std::make_pair(lexer::TK_ACCESS, "access"),
-    std::make_pair(lexer::TK_SEP, "sep"),
-    std::make_pair(lexer::TK_CALL, "call"),
-    std::make_pair(lexer::TK_EOL, "eol"),
-    std::make_pair(lexer::TK_INV, "inv"),
-};
 
 void checkbanned(std::string_view s, CompileInfo& c_info)
 {
@@ -192,8 +132,8 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
 
             if (cmp_map.find(next_word) != cmp_map.end()) {
                 tokens.push_back(std::make_shared<Cmp>(i, cmp_map.at(next_word)));
-            } else if (key_map.find(next_word) != key_map.end()) {
-                tokens.push_back(std::make_shared<Key>(i, key_map.at(next_word)));
+            } else if (str_key_map.find(next_word) != str_key_map.end()) {
+                tokens.push_back(std::make_shared<Key>(i, str_key_map.at(next_word)));
             } else if (arit_map.find(next_word) != arit_map.end()) {
                 tokens.push_back(std::make_shared<Arit>(i, arit_map.at(next_word)));
             } else if (log_map.find(next_word) != log_map.end()) {
@@ -205,7 +145,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 /* FIXME: this should not be part of lexical analysis */
                 value_func_id id;
                 try {
-                    keyword key = key_map.at(after);
+                    keyword key = str_key_map.at(after);
                     id = key_vfunc_map.at(key);
                 } catch (std::out_of_range& e) {
                     c_info.err.error("Could not convert '{}' to evaluable function\n", after);
@@ -215,7 +155,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
             } else if (next_word == ";") {
                 tokens.push_back(std::make_shared<Sep>(i));
             } else if (size_t open, close; (open = next_word.find('{') != std::string_view::npos) && (close = next_word.find('}') != std::string_view::npos)) {
-                c_info.err.on_false(next_word.ends_with('}'), "Expected '}' at the end of word '{}'\n", next_word);
+                c_info.err.on_false(next_word.ends_with('}'), "Expected '}}' at the end of word '{}'\n", next_word);
 
                 std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(next_word.substr(open + 1, close - open + 1), c_info, true);
 

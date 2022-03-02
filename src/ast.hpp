@@ -11,6 +11,7 @@
 
 #include "dictionary.hpp"
 #include "macros.hpp"
+#include "maps.hpp"
 
 class CompileInfo;
 
@@ -20,7 +21,7 @@ class Token;
 
 namespace ast {
 
-enum ts_class {
+enum ts_class : int {
     T_BASE,
     T_IF,
     T_ELSE,
@@ -333,24 +334,6 @@ void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c
  */
 std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& tokens,
     CompileInfo& c_info);
-
-const std::map<const size_t, ts_class> tree_type_enum_map = {
-    std::make_pair(typeid(Node).hash_code(), T_BASE),
-    std::make_pair(typeid(If).hash_code(), T_IF),
-    std::make_pair(typeid(Else).hash_code(), T_ELSE),
-    std::make_pair(typeid(While).hash_code(), T_WHILE),
-    std::make_pair(typeid(Const).hash_code(), T_CONST),
-    std::make_pair(typeid(Cmp).hash_code(), T_CMP),
-    std::make_pair(typeid(Log).hash_code(), T_LOG),
-    std::make_pair(typeid(Func).hash_code(), T_FUNC),
-    std::make_pair(typeid(VFunc).hash_code(), T_VFUNC),
-    std::make_pair(typeid(Var).hash_code(), T_VAR),
-    std::make_pair(typeid(Access).hash_code(), T_ACCESS),
-    std::make_pair(typeid(Body).hash_code(), T_BODY),
-    std::make_pair(typeid(Str).hash_code(), T_STR),
-    std::make_pair(typeid(Lstr).hash_code(), T_LSTR),
-    std::make_pair(typeid(Arit).hash_code(), T_ARIT),
-};
 
 #define AST_SAFE_CAST(type, tk) ast::safe_cast_core<type>((tk), __FILE__, __LINE__)
 

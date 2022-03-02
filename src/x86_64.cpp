@@ -11,6 +11,7 @@
 #include <fmt/ostream.h>
 
 #include "ast.hpp"
+#include "maps.hpp"
 #include "util.hpp"
 #include "x86_64.hpp"
 

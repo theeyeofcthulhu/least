@@ -9,6 +9,7 @@
 
 #include "ast.hpp"
 #include "lexer.hpp"
+#include "maps.hpp"
 #include "util.hpp"
 
 namespace ast {
@@ -43,72 +44,6 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     int parent_body_id,
     std::ofstream& dot,
     CompileInfo& c_info);
-
-const std::map<keyword, func_id> key_func_map = {
-    std::make_pair(K_PRINT, F_PRINT),
-    std::make_pair(K_EXIT, F_EXIT),
-    std::make_pair(K_READ, F_READ),
-    std::make_pair(K_SET, F_SET),
-    std::make_pair(K_PUTCHAR, F_PUTCHAR),
-    std::make_pair(K_INT, F_INT),
-    std::make_pair(K_ARRAY, F_ARRAY),
-    std::make_pair(K_STR, F_STR),
-    std::make_pair(K_ADD, F_ADD),
-    std::make_pair(K_SUB, F_SUB),
-    std::make_pair(K_BREAK, F_BREAK),
-    std::make_pair(K_CONT, F_CONT),
-};
-
-const std::map<value_func_id, var_type> vfunc_var_type_map = {
-    std::make_pair(VF_TIME, V_INT),
-    std::make_pair(VF_GETUID, V_INT),
-};
-
-/* Maps for converting enum values to strings */
-
-const std::map<cmp_op, std::string_view> cmp_str_map = {
-    std::make_pair(EQUAL, "=="),
-    std::make_pair(GREATER, ">"),
-    std::make_pair(GREATER_OR_EQ, ">="),
-    std::make_pair(LESS, "<"),
-    std::make_pair(LESS_OR_EQ, "<="),
-    std::make_pair(NOT_EQUAL, "!="),
-    std::make_pair(CMP_OPERATION_ENUM_END, "no operation"),
-};
-
-const std::map<log_op, std::string_view> log_str_map = {
-    std::make_pair(AND, "&&"),
-    std::make_pair(OR, "||"),
-    std::make_pair(LOGICAL_OPS_END, "no log"),
-};
-
-const std::map<arit_op, std::string_view> arit_str_map = {
-    std::make_pair(ADD, "+"),
-    std::make_pair(DIV, "/"),
-    std::make_pair(MOD, "%"),
-    std::make_pair(MUL, "*"),
-    std::make_pair(SUB, "-"),
-};
-
-const std::map<keyword, std::string_view> key_str_map {
-    std::make_pair(K_PRINT, "print"),
-    std::make_pair(K_EXIT, "exit"),
-    std::make_pair(K_IF, "if"),
-    std::make_pair(K_ELIF, "elif"),
-    std::make_pair(K_ELSE, "else"),
-    std::make_pair(K_WHILE, "while"),
-    std::make_pair(K_END, "end"),
-    std::make_pair(K_INT, "int"),
-    std::make_pair(K_STR, "str"),
-    std::make_pair(K_READ, "read"),
-    std::make_pair(K_SET, "set"),
-    std::make_pair(K_PUTCHAR, "putchar"),
-    std::make_pair(K_ADD, "add"),
-    std::make_pair(K_SUB, "sub"),
-    std::make_pair(K_BREAK, "break"),
-    std::make_pair(K_CONT, "continue"),
-    std::make_pair(K_ARRAY, "array"),
-};
 
 Body::Body(int line, std::shared_ptr<Body> t_parent, CompileInfo& c_info)
     : Node(line)
