@@ -31,8 +31,7 @@ std::vector<std::string_view> split(std::string_view str, char delim)
 
     saved = 0;
     while (looping) {
-        if ((delim_idx = str.find(delim, saved)) == std::string_view::npos)
-            looping = false;
+        looping = (delim_idx = str.find(delim, saved)) != std::string_view::npos;
 
         length = delim_idx - saved;
 

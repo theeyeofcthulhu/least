@@ -66,44 +66,30 @@ int main(int argc, char** argv)
 
     std::string svg_filename = fn.extension(".svg");
 
-    std::string dot_cmd_base = "dot -Tsvg -o ";
-    fmt::print("[CMD] {}{} {}\n", dot_cmd_base, RED_ARG(svg_filename), GREEN_ARG(dot_filename));
-
-    std::string dot_cmd = fmt::format("{}{} {}", dot_cmd_base, svg_filename, dot_filename);
-    std::system(dot_cmd.c_str());
+    ECHO_CMD("dot -Tsvg -o {} {}", GREEN_ARG(svg_filename), RED_ARG(dot_filename));
+    RUN_CMD("dot -Tsvg -o {} {}", svg_filename, dot_filename);
 
     std::string asm_filename = fn.extension(".asm");
 
     fmt::print("[INFO] Semantical analysis\n");
     semantic::semantic_analysis(ast_root, c_info);
 
-    fmt::print("[INFO] Generating assembly to {}\n", GREEN_ARG(asm_filename));
+    fmt::print("[INFO] Generating assembly to: {}\n", GREEN_ARG(asm_filename));
     ast_to_x86_64(ast_root, asm_filename, c_info);
 
     std::string object_filename = fn.extension(".o");
 
-    std::string nasm_cmd_base = "nasm -g -felf64 -o ";
-    fmt::print("[CMD] {}{} {}\n", nasm_cmd_base, RED_ARG(object_filename), GREEN_ARG(asm_filename));
-
-    std::string nasm_cmd = fmt::format("{}{} {}", nasm_cmd_base, object_filename, asm_filename);
-    std::system(nasm_cmd.c_str());
-
-    std::string ld_cmd_base = "ld -o ";
+    ECHO_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename));
+    RUN_CMD("nasm -g -felf64 -o {} {}", object_filename, asm_filename);
 
     std::string exe_filename = fn.extension("");
 
-    fmt::print("[CMD] {}{} {} {}\n", ld_cmd_base, RED_ARG(exe_filename), GREEN_ARG(object_filename), LIBSTDLEAST);
-
-    std::string ld_cmd = fmt::format("{}{} {} {}", ld_cmd_base, exe_filename, object_filename, LIBSTDLEAST);
-    std::system(ld_cmd.c_str());
+    ECHO_CMD("ld -o {} {} {}", GREEN_ARG(exe_filename), RED_ARG(object_filename), LIBSTDLEAST);
+    RUN_CMD("ld -o {} {} {}", exe_filename, object_filename, LIBSTDLEAST);
 
     if (run_after_compile) {
-        std::string exe_cmd_base = "./";
-
-        fmt::print("[CMD] {}{}\n", exe_cmd_base, GREEN_ARG(exe_filename));
-
-        std::string exe_cmd = fmt::format("{}{}", exe_cmd_base, exe_filename);
-        std::system(exe_cmd.c_str());
+        ECHO_CMD("./{}", GREEN_ARG(exe_filename));
+        RUN_CMD("./{}", exe_filename);
     }
 
     return 0;
