@@ -573,6 +573,18 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                                           * from asm_from_int_or_const() go out of scope. */
         cmp_op op;
 
+        if (cmp->left->get_type() == ast::T_CONST && !cmp->right) {
+            auto cnst = AST_SAFE_CAST(ast::Const, cmp->left);
+
+            if (cnst->get_value() == 1 && cmp_log_or) {
+                fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
+            } else if (cnst->get_value() != 1) {
+                fmt::print(out, "jmp .end{}\n", body_id);
+            }
+
+            break;
+        }
+
         /* Cannot use immediate value as first operand to 'cmp' */
         if (cmp->left->get_type() == ast::T_VAR) {
             regs[0] = asm_from_int_or_const(cmp->left, c_info);
