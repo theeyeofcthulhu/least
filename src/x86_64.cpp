@@ -134,7 +134,7 @@ void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
         break;
     }
     default:
-        c_info.err.error("Unknown vfunc\n");
+        c_info.err.error("Unknown vfunc");
         break;
     }
 }
@@ -161,7 +161,7 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
     case ast::T_VFUNC: {
         auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
         c_info.err.on_false(vfunc->get_return_type() == V_INT,
-            "'{}' has wrong return type '{}'\n",
+            "'{}' has wrong return type '{}'",
             vfunc_str_map.at(vfunc->get_value_func()),
             var_type_str_map.at(vfunc->get_return_type()));
 
@@ -169,7 +169,7 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
         break;
     }
     default:
-        c_info.err.error("UNREACHABLE: Unexpected node_type\n");
+        c_info.err.error("UNREACHABLE: Unexpected node_type");
     }
 }
 
@@ -490,7 +490,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     break;
                 }
                 default:
-                    c_info.err.error("Unexpected format token in string\n");
+                    c_info.err.error("Unexpected format token in string");
                     break;
                 }
             }
@@ -554,7 +554,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         }
         case F_BREAK:
         case F_CONT: {
-            c_info.err.on_true(while_ends.empty(), "'{}' outside of loop\n", func_name);
+            c_info.err.on_true(while_ends.empty(), "'{}' outside of loop", func_name);
 
             /* On *break*: Jump to after the loop
              * On *continue*: Jump to the beginning of the loop */
@@ -562,7 +562,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         default:
-            c_info.err.error("TODO: unimplemented\n");
+            c_info.err.error("TODO: unimplemented");
             break;
         }
         break;
@@ -652,7 +652,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         default:
-            c_info.err.error("Unexpected tree node\n");
+            c_info.err.error("Unexpected tree node");
             break;
         }
 
@@ -666,7 +666,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     default:
-        c_info.err.error("Unexpected tree node\n");
+        c_info.err.error("Unexpected tree node");
         break;
     }
 }

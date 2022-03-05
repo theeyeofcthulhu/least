@@ -22,7 +22,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
 
     int string_len = string.length();
 
-    c_info.err.on_false(string_len > 2, "String is empty\n");
+    c_info.err.on_false(string_len > 2, "String is empty");
     assert(string[0] == '\"' && string[string_len - 1] == '\"');
 
     std::stringstream ss;
@@ -34,13 +34,12 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
         case '\\': {
             i++;
             c_info.err.on_true(i >= string_len - 1,
-                "Reached end of line while trying to parse "
-                "escape sequence\n");
+                "Reached end of line while trying to parse escape sequence");
 
             try {
                 ss << str_tokens.at(string[i]);
             } catch (std::out_of_range& e) {
-                c_info.err.error("Could not parse escape sequence: '\\{}'\n", string[i]);
+                c_info.err.error("Could not parse escape sequence: '\\{}'", string[i]);
             }
             break;
         }
@@ -55,19 +54,19 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
             std::string_view string_end = string.substr(i, std::string_view::npos);
             size_t next_bracket = string_end.find(']');
 
-            c_info.err.on_true(next_bracket == std::string_view::npos, "'[' without closing ']'\n");
+            c_info.err.on_true(next_bracket == std::string_view::npos, "'[' without closing ']'");
 
             std::string_view inside = string_end.substr(1, next_bracket - 1);
 
             c_info.err.on_true(inside.find('[') != std::string_view::npos,
-                "Found '[' inside format argument\n");
+                "Found '[' inside format argument");
 
             std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(inside, c_info, true);
 
             c_info.err.on_true(parsed_inside.empty(),
-                "Could not parse format parameter to tokens\n");
+                "Could not parse format parameter to tokens");
             c_info.err.on_true(parsed_inside.size() <= 0 || parsed_inside.size() >= 3,
-                "No or more than one token in format parameter\n");
+                "No or more than one token in format parameter");
 
             /* Remove eol from end */
             parsed_inside.pop_back();
@@ -76,7 +75,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
                 c_info.err.on_false(lexer::could_be_num(tk->get_type()),
                     "Only variables, numbers and operators "
                     "are allowed inside "
-                    "a format parameter\n");
+                    "a format parameter");
                 res->ts.push_back(tk);
             }
 
@@ -85,7 +84,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
             break;
         }
         case ']': {
-            c_info.err.error("Unexpected closing ']'\n");
+            c_info.err.error("Unexpected closing ']'");
             break;
         }
         default: {
@@ -99,7 +98,7 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
     if (!final_str.empty())
         res->ts.push_back(std::make_shared<Str>(line, final_str));
 
-    c_info.err.on_true(res->ts.empty(), "lstring format has no contents after parse_string\n");
+    c_info.err.on_true(res->ts.empty(), "lstring format has no contents after parse_string");
 
     return res;
 }
@@ -111,19 +110,19 @@ std::shared_ptr<Num> parse_char(std::string_view string, int line, CompileInfo& 
     int string_len = string.length();
 
     c_info.err.on_false(string_len == 3 || string_len == 4,
-        "Could not parse string '{}' as character constant\n", string);
+        "Could not parse string '{}' as character constant", string);
 
     assert(string[0] == '\'' && string[string_len - 1] == '\'');
 
     if (string[1] == '\\') {
-        c_info.err.on_false(string_len == 4, "Expected another character after '\\'\n");
+        c_info.err.on_false(string_len == 4, "Expected another character after '\\'");
         try {
             parsed_char = str_tokens_char.at(string[2]);
         } catch (std::out_of_range& e) {
-            c_info.err.error("Could not parse escape sequence '\\{}'\n", string[2]);
+            c_info.err.error("Could not parse escape sequence '\\{}'", string[2]);
         }
     } else {
-        c_info.err.on_false(string_len == 3, "Too many symbols in character constant {}\n", string);
+        c_info.err.on_false(string_len == 3, "Too many symbols in character constant {}", string);
 
         parsed_char = string[1];
     }

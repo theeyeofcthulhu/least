@@ -8,7 +8,6 @@
 class CompileInfo;
 
 namespace lexer {
-
 class Lstr;
 class Num;
 

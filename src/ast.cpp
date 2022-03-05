@@ -103,7 +103,7 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
         const auto& call = LEXER_SAFE_CAST(lexer::Call, tk);
 
         var_type ret_type = vfunc_var_type_map.at(call->get_value_func());
-        c_info.err.on_false(ret_type == V_INT, "'{}' does not return an integer\n",
+        c_info.err.on_false(ret_type == V_INT, "'{}' does not return an integer",
             vfunc_str_map.at(call->get_value_func()));
 
         res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_value_func(), ret_type);
@@ -125,10 +125,10 @@ void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& t
         const auto& t = ts[i];
 
         if (expect_operator) {
-            c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator\n");
+            c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator");
         } else {
             c_info.err.on_false(lexer::could_be_num(t->get_type()),
-                "Expected variable, constant or inline call\n");
+                "Expected variable, constant or inline call");
         }
 
         expect_operator = !expect_operator;
@@ -171,10 +171,10 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
                 c_info.err.on_false(lexer::could_be_num(ts[i - 1]->get_type()),
-                    "Expected number before '{}' operator\n",
+                    "Expected number before '{}' operator",
                     arit_str_map.at(op->get_op()));
                 c_info.err.on_false(lexer::could_be_num(ts[i + 1]->get_type()),
-                    "Expected number after '{}' operator\n",
+                    "Expected number after '{}' operator",
                     arit_str_map.at(op->get_op()));
 
                 if (has_precedence(last_op)) {
@@ -237,13 +237,13 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                 if (i + 1 >= s2.size() - 1) {
                     /* If we are the last thing: set our own right to the next
                      * number */
-                    c_info.err.on_true(i + 1 > s2.size() - 1, "Expected number after operand '{}'\n",
+                    c_info.err.on_true(i + 1 > s2.size() - 1, "Expected number after operand '{}'",
                         arit_str_map.at(cur_arit->get_arit()));
                     current->right = s2[i + 1];
                 } else if (s2[i + 1]->get_type() == T_ARIT) {
                     std::shared_ptr<Arit> next_arit = AST_SAFE_CAST(Arit, s2[i + 1]);
                     c_info.err.on_false(has_precedence(next_arit->get_arit()),
-                        "+/- followed by another +/-\n");
+                        "+/- followed by another +/-");
                 }
             }
         }
@@ -279,8 +279,8 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
             auto log = LEXER_SAFE_CAST(lexer::Log, ts[next_i]);
 
             c_info.err.on_true(ts[next_i + 1]->get_type() == lexer::TK_EOL || ts[next_i + 1]->get_type() == lexer::TK_LOG,
-                "Expected number after '{}'\n", log_str_map.at(log->get_log()));
-            c_info.err.on_true(next_i == i, "'{}' not expected at beginning of expression\n",
+                "Expected number after '{}'", log_str_map.at(log->get_log()));
+            c_info.err.on_true(next_i == i, "'{}' not expected at beginning of expression",
                 log_str_map.at(log->get_log()));
 
             auto left = parse_condition(slice(ts, last_i, next_i), c_info);
@@ -328,17 +328,17 @@ std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::To
         auto next = ts[i];
 
         if (next->get_type() == lexer::TK_CMP) {
-            c_info.err.on_false(comparator == nullptr, "Found two operators\n");
+            c_info.err.on_false(comparator == nullptr, "Found two operators");
             comparator = LEXER_SAFE_CAST(lexer::Cmp, next);
             operator_i = i;
         }
     }
-    c_info.err.on_true(operator_i == 0, "Expected constant, variable or arithmetic expression\n");
+    c_info.err.on_true(operator_i == 0, "Expected constant, variable or arithmetic expression");
 
     if (operator_i != -1) {
         left = parse_arit_expr(slice(ts, 0, operator_i), c_info);
 
-        c_info.err.on_true((size_t)operator_i + 1 >= i, "Invalid expression\n");
+        c_info.err.on_true((size_t)operator_i + 1 >= i, "Invalid expression");
         right = parse_arit_expr(slice(ts, operator_i + 1, i), c_info);
 
         res = std::make_shared<Cmp>(ts[0]->get_line(), left, right, comparator->get_cmp());
@@ -406,7 +406,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             }
             case K_ELIF: {
-                c_info.err.on_true(current_if == nullptr, "Unexpected elif\n");
+                c_info.err.on_true(current_if == nullptr, "Unexpected elif");
 
                 std::shared_ptr<If> new_if = parse_condition_to_if(tokens, ++i, root, c_info, true);
 
@@ -466,9 +466,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 while ((next_sep = next_of_type_on_line(tokens, i, lexer::TK_SEP)) < tokens.size()) {
                     switch (tokens[i]->get_type()) {
                     case lexer::TK_LSTR: {
-                        c_info.err.on_true((next_sep - i) > 2,
-                            "Excess tokens after "
-                            "string argument\n");
+                        c_info.err.on_true((next_sep - i) > 2, "Excess tokens after string argument");
                         new_func->args.push_back(std::make_shared<Lstr>(
                             tokens[i]->get_line(),
                             LEXER_SAFE_CAST(lexer::Lstr, tokens[i])->ts, c_info));
@@ -484,7 +482,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                         break;
                     }
                     default:
-                        c_info.err.error("Unexpected argument to function: {}\n",
+                        c_info.err.error("Unexpected argument to function: {}",
                             tokens[i]->get_type());
                         break;
                     }
@@ -494,9 +492,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             }
             case K_END:
-                c_info.err.on_true(root->parent == nullptr, "Unexpected end\n");
-                // c_info.err.on_true(current_if, t->line + 1,
-                // "Unexpected end\n");
+                c_info.err.on_true(root->parent == nullptr, "Unexpected end");
                 if (!blk_stk.empty()) {
                     switch (blk_stk.top()->get_type()) {
                     case T_IF:
@@ -511,14 +507,14 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                         blk_stk.pop();
                         break;
                     default:
-                        c_info.err.error("Exiting invalid block\n");
+                        c_info.err.error("Exiting invalid block");
                         break;
                     }
                 }
                 break;
             default:
             case K_NOKEY:
-                c_info.err.error("Invalid instruction\n");
+                c_info.err.error("Invalid instruction");
                 break;
             }
         }
@@ -528,17 +524,16 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
         case lexer::TK_VAR: {
             auto the_var = LEXER_SAFE_CAST(lexer::Var, tokens[i]);
             c_info.err.error(
-                "Unexpected occurence of word expected to be variable: "
-                "'{}'\n",
+                "Unexpected occurence of word expected to be variable: '{}'",
                 the_var->get_name());
             break;
         }
         default:
-            c_info.err.error("Unexpected token with enum value: {}\n", tokens[i]->get_type());
+            c_info.err.error("Unexpected token with enum value: {}", tokens[i]->get_type());
             break;
         }
     }
-    c_info.err.on_false(root == saved_root, "Unresolved blocks\n");
+    c_info.err.on_false(root == saved_root, "Unresolved blocks");
 
     return saved_root;
 }
@@ -749,7 +744,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_NUM_GENERAL:
     case T_BASE:
     default: {
-        c_info.err.error("Invalid tree node\n");
+        c_info.err.error("Invalid tree node");
         break;
     }
     }

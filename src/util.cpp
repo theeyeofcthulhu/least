@@ -50,7 +50,7 @@ std::string read_source_code(std::string_view filename, CompileInfo& c_info)
     const std::string temp(filename);
 
     std::ifstream fs(temp);
-    c_info.err.on_false(fs.is_open(), "{}: {}\n", filename, std::strerror(errno));
+    c_info.err.on_false(fs.is_open(), "{}: {}", filename, std::strerror(errno));
 
     std::string res;
 
@@ -128,12 +128,12 @@ size_t CompileInfo::get_stack_size_and_append(size_t new_offset)
 void CompileInfo::error_on_undefined(std::shared_ptr<ast::Var> var_id)
 {
     err.on_false(known_vars[var_id->get_var_id()].defined,
-        "Variable '{}' is undefined at this time\n", known_vars[var_id->get_var_id()].name);
+        "Variable '{}' is undefined at this time", known_vars[var_id->get_var_id()].name);
 }
 
 void CompileInfo::error_on_wrong_type(std::shared_ptr<ast::Var> var_id, var_type tp)
 {
-    err.on_false(known_vars[var_id->get_var_id()].type == tp, "Expected '{}' to be type '{}'\n",
+    err.on_false(known_vars[var_id->get_var_id()].type == tp, "Expected '{}' to be type '{}'",
         known_vars[var_id->get_var_id()].name, var_type_str_map.at(tp));
 }
 

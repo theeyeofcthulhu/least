@@ -37,7 +37,7 @@ void check_correct_function_call(const FunctionSpec& spec,
     CompileInfo& c_info)
 {
     c_info.err.on_false(args.size() == spec.exp_arg_len,
-        "Expected {} arguments to function '{}', got {}\n", spec.exp_arg_len,
+        "Expected {} arguments to function '{}', got {}", spec.exp_arg_len,
         spec.name, args.size());
 
     /* Caller can provide arguments which will be defined by this function
@@ -47,11 +47,11 @@ void check_correct_function_call(const FunctionSpec& spec,
             assert(d.first < spec.exp_arg_len);
 
             c_info.err.on_false(args[d.first]->get_type() == ast::T_VAR,
-                "Argument {} to '{}' expected to be variable\n", d.first, spec.name);
+                "Argument {} to '{}' expected to be variable", d.first, spec.name);
             auto t_var = AST_SAFE_CAST(ast::Var, args[d.first]);
 
             c_info.err.on_true(c_info.known_vars[t_var->get_var_id()].defined,
-                "Argument {} to '{}' expected to be undefined\n", d.first, spec.name);
+                "Argument {} to '{}' expected to be undefined", d.first, spec.name);
             c_info.known_vars[t_var->get_var_id()].defined = true;
             c_info.known_vars[t_var->get_var_id()].type = d.second;
 
@@ -71,52 +71,51 @@ void check_correct_function_call(const FunctionSpec& spec,
         if (spec.types[i] == ast::T_NUM_GENERAL) {
             /* NUM_GENERAL means that arg has to evaluate to a number */
             c_info.err.on_false(arg->get_type() == ast::T_VAR || arg->get_type() == ast::T_CONST || arg->get_type() == ast::T_ARIT || arg->get_type() == ast::T_VFUNC,
-                "Argument {} to '{}' has to evaluate to a number\n", i, spec.name);
+                "Argument {} to '{}' has to evaluate to a number", i, spec.name);
 
             /* If we are var: check that we are int */
             if (arg->get_type() == ast::T_VAR) {
                 auto t_var = AST_SAFE_CAST(ast::Var, args[i]);
                 auto v_info = c_info.known_vars[t_var->get_var_id()];
 
-                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time\n",
-                    v_info.name);
+                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time", v_info.name);
                 c_info.err.on_false(
-                    v_info.type == V_INT, "Argument {} to '{}' has to have type '{}' but has '{}'\n", i,
+                    v_info.type == V_INT, "Argument {} to '{}' has to have type '{}' but has '{}'", i,
                     spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type));
             } else if (arg->get_type() == ast::T_VFUNC) {
                 auto vfunc = AST_SAFE_CAST(ast::VFunc, args[i]);
                 c_info.err.on_false(vfunc->get_return_type() == V_INT,
-                    "Argument {} to '{}' has to evaluate to a number\n"
-                    "Got '{}' returning '{}'\n",
+                    "Argument {} to '{}' has to evaluate to a number"
+                    "Got '{}' returning '{}'",
                     i, spec.name, vfunc_str_map.at(vfunc->get_value_func()),
                     var_type_str_map.at(vfunc->get_return_type()));
             }
         } else if (spec.types[i] == ast::T_IN_MEMORY) {
-            c_info.err.on_false(arg->get_type() == ast::T_VAR || arg->get_type() == ast::T_ACCESS, "Argument {} to '{}' has to have a memory address\n", i, spec.name);
+            c_info.err.on_false(arg->get_type() == ast::T_VAR || arg->get_type() == ast::T_ACCESS, "Argument {} to '{}' has to have a memory address", i, spec.name);
 
             /* If we are var: check that we are int */
             if (arg->get_type() == ast::T_VAR) {
                 auto t_var = AST_SAFE_CAST(ast::Var, args[i]);
                 auto v_info = c_info.known_vars[t_var->get_var_id()];
 
-                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time\n",
+                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time",
                     v_info.name);
                 c_info.err.on_false(
-                    v_info.type == V_INT, "Argument {} to '{}' has to have type '{}' but has '{}'\n", i,
+                    v_info.type == V_INT, "Argument {} to '{}' has to have type '{}' but has '{}'", i,
                     spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type));
             } else if (arg->get_type() == ast::T_ACCESS) {
                 auto access = AST_SAFE_CAST(ast::Access, args[i]);
                 auto v_info = c_info.known_vars[access->get_array_id()];
 
-                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time\n",
+                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time",
                     v_info.name);
                 c_info.err.on_false(
-                    v_info.type == V_ARR, "Argument {} to '{}' has to have type '{}' but has '{}'\n", i,
+                    v_info.type == V_ARR, "Argument {} to '{}' has to have type '{}' but has '{}'", i,
                     spec.name, var_type_str_map.at(V_ARR), var_type_str_map.at(v_info.type));
             }
         } else {
             c_info.err.on_false(arg->get_type() == spec.types[i],
-                "Argument {} to function '{}' is wrong type\n", i, spec.name);
+                "Argument {} to function '{}' is wrong type", i, spec.name);
         }
 
         /* If we are a var: check the provided 'info' type information if the
@@ -126,11 +125,11 @@ void check_correct_function_call(const FunctionSpec& spec,
             auto v_info = c_info.known_vars[t_var->get_var_id()];
 
             c_info.err.on_true(info_it == spec.info.end() || spec.info.empty(),
-                "Could not parse arguments to function '{}'\n", spec.name);
+                "Could not parse arguments to function '{}'", spec.name);
 
-            c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time\n", v_info.name);
+            c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time", v_info.name);
             c_info.err.on_false(v_info.type == *info_it.base(),
-                "Argument {} to '{}' has to have type '{}' but has '{}'\n", i,
+                "Argument {} to '{}' has to have type '{}' but has '{}'", i,
                 v_info.name, var_type_str_map.at(v_info.type),
                 var_type_str_map.at(*info_it.base()));
 
@@ -225,14 +224,14 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
     case ast::T_VAR: {
         std::shared_ptr<ast::Var> t_var = AST_SAFE_CAST(ast::Var, root);
 
-        c_info.err.on_false(c_info.known_vars[t_var->get_var_id()].defined, "Variable '{}' is undefined at this time\n", c_info.known_vars[t_var->get_var_id()].name);
+        c_info.err.on_false(c_info.known_vars[t_var->get_var_id()].defined, "Variable '{}' is undefined at this time", c_info.known_vars[t_var->get_var_id()].name);
         break;
     }
     case ast::T_ACCESS: {
         std::shared_ptr<ast::Access> t_access = AST_SAFE_CAST(ast::Access, root);
 
-        c_info.err.on_false(c_info.known_vars[t_access->get_array_id()].arrayness == VarInfo::Arrayness::Yes, "Variable '{}' is not an array\n", c_info.known_vars[t_access->get_array_id()].name);
-        c_info.err.on_false(c_info.known_vars[t_access->get_array_id()].defined, "Array '{}' is undefined at this time\n", c_info.known_vars[t_access->get_array_id()].name);
+        c_info.err.on_false(c_info.known_vars[t_access->get_array_id()].arrayness == VarInfo::Arrayness::Yes, "Variable '{}' is not an array", c_info.known_vars[t_access->get_array_id()].name);
+        c_info.err.on_false(c_info.known_vars[t_access->get_array_id()].defined, "Array '{}' is undefined at this time", c_info.known_vars[t_access->get_array_id()].name);
 
         semantic_analysis(t_access->index, c_info);
         break;
@@ -265,7 +264,7 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
     case ast::T_NUM_GENERAL:
     case ast::T_BASE:
     default: {
-        c_info.err.error("Invalid tree node\n");
+        c_info.err.error("Invalid tree node");
         break;
     }
     }

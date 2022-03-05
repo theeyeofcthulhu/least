@@ -28,7 +28,7 @@ void checkbanned(std::string_view s, CompileInfo& c_info)
 {
     for (char c : s) {
         c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
-            "Invalid character in variable name: '{}'\n", s);
+            "Invalid character in variable name: '{}'", s);
     }
 }
 
@@ -69,7 +69,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
             c_info.err.set_line(i);
 
         auto words = split(line, ' ');
-        c_info.err.on_true(words.empty(), "Could not split line into words\n");
+        c_info.err.on_true(words.empty(), "Could not split line into words");
 
         for (size_t j = 0; j < line.length(); j++) {
             if (line[j] == ' ') {
@@ -85,7 +85,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                     if (line[k] == quote && line[k - 1] != '\\') {
                         if (k + 1 < line.length()) {
                             c_info.err.on_false(std::isspace(line[k + 1]),
-                                "Quote not end of word in line: '{}'\n", line);
+                                "Quote not end of word in line: '{}'", line);
                         }
                         united = line.substr(j, k - j + 1);
                         break;
@@ -94,7 +94,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 j = k; /* Advance current char to end of string */
 
                 c_info.err.on_true(united.empty(),
-                    "Could not find end of string or character constant\n");
+                    "Could not find end of string or character constant");
 
                 std::shared_ptr<Token> parsed;
 
@@ -118,7 +118,7 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                 auto [ptr, ec] = std::from_chars(next_word.data(), last, result);
 
                 /* The end of the word was not reached or the beginning not left: conversion failed */
-                c_info.err.on_true(ec == std::errc::invalid_argument || ec == std::errc::result_out_of_range || ptr != last, "Could not convert '{}' to an integer\n", next_word);
+                c_info.err.on_true(ec == std::errc::invalid_argument || ec == std::errc::result_out_of_range || ptr != last, "Could not convert '{}' to an integer", next_word);
 
                 tokens.push_back(std::make_shared<Num>(i, result));
 
@@ -148,19 +148,19 @@ std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
                     keyword key = str_key_map.at(after);
                     id = key_vfunc_map.at(key);
                 } catch (std::out_of_range& e) {
-                    c_info.err.error("Could not convert '{}' to evaluable function\n", after);
+                    c_info.err.error("Could not convert '{}' to evaluable function", after);
                 }
 
                 tokens.push_back(std::make_shared<Call>(i, id));
             } else if (next_word == ";") {
                 tokens.push_back(std::make_shared<Sep>(i));
             } else if (size_t open, close; (open = next_word.find('{') != std::string_view::npos) && (close = next_word.find('}') != std::string_view::npos)) {
-                c_info.err.on_false(next_word.ends_with('}'), "Expected '}}' at the end of word '{}'\n", next_word);
+                c_info.err.on_false(next_word.ends_with('}'), "Expected '}}' at the end of word '{}'", next_word);
 
                 std::vector<std::shared_ptr<Token>> parsed_inside = do_lex(next_word.substr(open + 1, close - open + 1), c_info, true);
 
                 c_info.err.on_true(parsed_inside.empty(),
-                    "Could not parse format parameter to tokens\n");
+                    "Could not parse format parameter to tokens");
                 /* Remove eol from end */
                 parsed_inside.pop_back();
 

@@ -42,7 +42,7 @@ int main(int argc, char** argv)
     Filename fn(argv[argc - 1]);
     CompileInfo c_info(fn.base());
 
-    c_info.err.on_false(argc >= 2, "No input file provided\n");
+    c_info.err.on_false(argc >= 2, "No input file provided");
 
     c_info.err.set_file(fn.base());
 

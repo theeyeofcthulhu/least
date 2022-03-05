@@ -68,8 +68,8 @@ void ErrorHandler::error(T&& format, args&&... fargs)
 template<typename T, typename... args>
 void ErrorHandler::print_error(T&& format, args&&... fargs)
 {
-    fmt::print(std::cerr, "{}\n{}:{}: ", RED_ARG("Compiler error!"), m_file, m_line + 1);
-    fmt::print(std::cerr, std::forward<T>(format), std::forward<args>(fargs)...);
+    fmt::print(std::cerr, "{}\n{}:{}: {}\n", RED_ARG("Compiler error!"), m_file, m_line + 1,
+        fmt::vformat(std::forward<T>(format), fmt::make_format_args(std::forward<args>(fargs)...)));
 }
 
 #endif // ERROR_H_
