@@ -152,8 +152,5 @@ std::string Filename::extension(std::string_view ext) const
     if (ext.empty())
         return std::string(m_noext);
 
-    std::stringstream res;
-    res << m_noext << ext;
-
-    return res.str();
+    return fmt::format("{}{}", m_noext, ext);
 }
