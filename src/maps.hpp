@@ -6,6 +6,8 @@
 
 #include "dictionary.hpp"
 
+void assert_map_sizes();
+
 namespace lexer {
 enum token_type : int;
 

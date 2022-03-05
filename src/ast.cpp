@@ -640,8 +640,11 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         fmt::print(dot, "\tNode_{} [label=\"cmp\"]\n", ++node);
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"cmp\"]\n", parent_body_id, node);
-        fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, cmp_str_map.at(t_cmp->get_cmp()));
-        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"cond\"]\n", node - 1, node);
+
+        if (t_cmp->get_cmp() != CMP_OPERATION_ENUM_END) {
+            fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, cmp_str_map.at(t_cmp->get_cmp()));
+            fmt::print(dot, "\tNode_{} -> Node_{} [label=\"cond\"]\n", node - 1, node);
+        }
 
         int s_node = node;
 

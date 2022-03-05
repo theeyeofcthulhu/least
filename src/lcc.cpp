@@ -17,6 +17,8 @@
 /* TODO: observe blocks when looking at variable definitions */
 int main(int argc, char** argv)
 {
+    assert_map_sizes();
+
     bool run_after_compile = false;
     /* Handle command line input with getopt */
     int flag;

@@ -1,6 +1,55 @@
+#include <cassert>
+
 #include "maps.hpp"
 #include "lexer.hpp"
 #include "ast.hpp"
+
+void assert_map_sizes()
+{
+    const int n_tokens = 12;
+
+    assert(lexer::token_type_enum_map.size() == n_tokens);
+    assert(lexer::token_str_map.size() == n_tokens);
+
+    const int n_nodes = 15;
+
+    assert(ast::tree_type_enum_map.size() == n_nodes);
+
+    const int n_keys = 19;
+
+    assert(str_key_map.size() == n_keys);
+    assert(key_str_map.size() == n_keys);
+
+    const int n_comps = 6;
+
+    assert(cmp_map.size() == n_comps);
+    assert(cmp_str_map.size() == n_comps);
+
+    const int n_logs = 2;
+
+    assert(log_map.size() == n_logs);
+    assert(log_str_map.size() == n_logs);
+
+    const int n_funcs = 12;
+
+    assert(func_str_map.size() == n_funcs);
+    assert(key_func_map.size() == n_funcs);
+
+    const int n_types = 4;
+
+    assert(var_type_str_map.size() == n_types);
+
+    const int n_vfuncs = 2;
+
+    assert(vfunc_str_map.size() == n_vfuncs);
+    assert(key_vfunc_map.size() == n_vfuncs);
+    assert(vfunc_var_type_map.size() == n_vfuncs);
+
+    const int n_str_tokens = 7;
+
+    assert(str_tokens.size() == n_str_tokens);
+    assert(str_tokens_char.size() == n_str_tokens);
+}
 
 namespace lexer {
 
@@ -26,14 +75,12 @@ const std::map<token_type, std::string_view> token_str_map {
     std::make_pair(TK_LOG, "log"),
     std::make_pair(TK_STR, "str"),
     std::make_pair(TK_LSTR, "lstr"),
-    std::make_pair(TK_CHAR, "char"),
     std::make_pair(TK_NUM, "num"),
     std::make_pair(TK_VAR, "var"),
     std::make_pair(TK_ACCESS, "access"),
     std::make_pair(TK_SEP, "sep"),
     std::make_pair(TK_CALL, "call"),
     std::make_pair(TK_EOL, "eol"),
-    std::make_pair(TK_INV, "inv"),
 };
 
 } // namespace lexer
@@ -120,7 +167,6 @@ const std::map<cmp_op, std::string_view> cmp_str_map {
     std::make_pair(LESS, "<"),
     std::make_pair(LESS_OR_EQ, "<="),
     std::make_pair(NOT_EQUAL, "!="),
-    std::make_pair(CMP_OPERATION_ENUM_END, "no operation"),
 };
 
 const std::map<std::string_view, arit_op> arit_map {
@@ -147,7 +193,6 @@ const std::map<std::string_view, log_op> log_map {
 const std::map<log_op, std::string_view> log_str_map {
     std::make_pair(AND, "&&"),
     std::make_pair(OR, "||"),
-    std::make_pair(LOGICAL_OPS_END, "no log"),
 };
 
 const std::map<func_id, std::string_view> func_str_map {
@@ -162,7 +207,6 @@ const std::map<func_id, std::string_view> func_str_map {
     std::make_pair(F_SUB, "sub"),
     std::make_pair(F_BREAK, "break"),
     std::make_pair(F_CONT, "continue"),
-    std::make_pair(F_CALL, "call"),
     std::make_pair(F_ARRAY, "array"),
 };
 

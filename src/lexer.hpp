@@ -26,7 +26,6 @@ enum token_type : int {
     TK_LOG,
     TK_STR,
     TK_LSTR,
-    TK_CHAR,
     TK_NUM,
     TK_VAR,
     TK_ACCESS,

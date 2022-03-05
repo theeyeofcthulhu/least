@@ -17,7 +17,6 @@ enum func_id {
     F_INT,
     F_ARRAY,
     F_STR,
-    F_CALL,
 };
 
 enum value_func_id {
