@@ -2,3 +2,4 @@
 Second instruction inside if block
 nested if
 1 as 'true'
+anything as 'false'

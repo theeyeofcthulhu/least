@@ -576,9 +576,9 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         if (cmp->left->get_type() == ast::T_CONST && !cmp->right) {
             auto cnst = AST_SAFE_CAST(ast::Const, cmp->left);
 
-            if (cnst->get_value() == 1 && cmp_log_or) {
+            if (cnst->get_value() != 0 && cmp_log_or) {
                 fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
-            } else if (cnst->get_value() != 1) {
+            } else if (cnst->get_value() == 0) {
                 fmt::print(out, "jmp .end{}\n", body_id);
             }
 
@@ -604,8 +604,8 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             op = cmp->get_cmp();
         } else {
             /* If we are not comparing something: just check against one */
-            regs[1] = "1";
-            op = EQUAL;
+            regs[1] = "0";
+            op = NOT_EQUAL;
         }
         /* Why the opposite jump of what we are doing?
          * lets say:
