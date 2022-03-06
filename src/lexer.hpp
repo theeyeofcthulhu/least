@@ -316,12 +316,6 @@ private:
  */
 void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts);
 
-/*
- * Checks if the list of tokens supplies another function argument
- */
-bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len);
-
-
 #define LEXER_SAFE_CAST(type, tk) lexer::safe_cast_core<type>((tk), __FILE__, __LINE__)
 
 /*

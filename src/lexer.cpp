@@ -42,13 +42,13 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts)
     fmt::print("---------------------------------\n");
 }
 
-bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len)
-{
-    while ((ts[len]->get_type() != lexer::TK_SEP) && (ts[len]->get_type() != lexer::TK_EOL))
-        len += 1;
+// bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len)
+// {
+//     while ((ts[len]->get_type() != lexer::TK_SEP) && (ts[len]->get_type() != lexer::TK_EOL))
+//         len += 1;
 
-    return ts[len]->get_type() == lexer::TK_SEP;
-}
+//     return ts[len]->get_type() == lexer::TK_SEP;
+// }
 
 void LexContext::checkbanned(std::string_view s)
 {
