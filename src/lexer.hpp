@@ -275,11 +275,11 @@ private:
     static const token_type m_type = lexer::TK_EOL;
 };
 
+/* Provides a context to lexically analyse a string of source code
+ * and generate a list (vector) of 'tokens' from it */
 class LexContext {
 public:
-/*
- * Lexes the source code in source to list of tokens
- */
+/* Lexes the source code in source to list of tokens */
 std::vector<std::shared_ptr<Token>> lex_and_get_tokens();
 
 LexContext(std::string_view p_source_code, CompileInfo& p_c_info, bool no_set_line = false)
@@ -290,18 +290,23 @@ LexContext(std::string_view p_source_code, CompileInfo& p_c_info, bool no_set_li
 }
 
 private:
+    /* String manipulation */
     void checkbanned(std::string_view s);
     static size_t find_next_word_ending_char(std::string_view line);
+    size_t find_closing_bracket(Bracket::Purpose purp, size_t after_open);
     static void remove_leading_space(std::string_view& sv);
+
+    /* Extraction of strings from strings */
     std::pair<std::string_view, size_t> extract_string(std::string_view line);
     static std::optional<std::pair<std::string_view, size_t>> extract_symbol_beginning(std::string_view sv);
     std::optional<std::string_view> next_word(std::string_view& line);
-    std::shared_ptr<Token> token_from_word(std::string_view word, int line);
-    size_t find_closing_bracket(Bracket::Purpose purp, size_t after_open);
 
+    /* Token generation */
+    std::shared_ptr<Token> token_from_word(std::string_view word, int line);
     std::shared_ptr<Lstr> parse_string(std::string_view string, int line);
     std::shared_ptr<Num> parse_char(std::string_view string, int line);
 
+    /* Token manipulation */
     void consolidate();
     void consolidate(std::vector<std::shared_ptr<Token>>& p_tokens);
 
