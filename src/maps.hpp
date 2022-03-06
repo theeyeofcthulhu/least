@@ -10,9 +10,17 @@ void assert_map_sizes();
 
 namespace lexer {
 enum token_type : int;
+class Bracket;
+struct BracketTemplate;
 
 extern const std::map<const size_t, token_type> token_type_enum_map;
 extern const std::map<token_type, std::string_view> token_str_map;
+
+extern const std::map<std::string_view, BracketTemplate> bracket_map;
+extern const std::map<std::string_view, token_type> str_symbol_map;
+
+/* Declare type-deduced std::array in header */
+extern const std::array<char, 7> word_ending_chars;
 }
 
 namespace ast {

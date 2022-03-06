@@ -65,8 +65,8 @@ std::shared_ptr<Lstr> parse_string(std::string_view string, int line, CompileInf
 
             c_info.err.on_true(parsed_inside.empty(),
                 "Could not parse format parameter to tokens");
-            c_info.err.on_true(parsed_inside.size() <= 0 || parsed_inside.size() >= 3,
-                "No or more than one token in format parameter");
+            // c_info.err.on_true(parsed_inside.size() <= 0 || parsed_inside.size() >= 3,
+            //     "No or more than one token in format parameter");
 
             /* Remove eol from end */
             parsed_inside.pop_back();

@@ -99,14 +99,14 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
     } else if (tk->get_type() == lexer::TK_NUM) {
         res = std::make_shared<ast::Const>(tk->get_line(),
             LEXER_SAFE_CAST(lexer::Num, tk)->get_num());
-    } else if (tk->get_type() == lexer::TK_CALL) {
-        const auto& call = LEXER_SAFE_CAST(lexer::Call, tk);
+    } else if (tk->get_type() == lexer::TK_COM_CALL) {
+        const auto& call = LEXER_SAFE_CAST(lexer::CompleteCall, tk);
 
-        var_type ret_type = vfunc_var_type_map.at(call->get_value_func());
+        var_type ret_type = vfunc_var_type_map.at(call->get_vfunc());
         c_info.err.on_false(ret_type == V_INT, "'{}' does not return an integer",
-            vfunc_str_map.at(call->get_value_func()));
+            vfunc_str_map.at(call->get_vfunc()));
 
-        res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_value_func(), ret_type);
+        res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_vfunc(), ret_type);
     } else if (tk->get_type() == lexer::TK_ACCESS) {
         const auto& access = LEXER_SAFE_CAST(lexer::Access, tk);
 
@@ -475,7 +475,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                     case lexer::TK_NUM:
                     case lexer::TK_VAR:
                     case lexer::TK_ACCESS:
-                    case lexer::TK_CALL: {
+                    case lexer::TK_COM_CALL: {
                         std::vector<std::shared_ptr<lexer::Token>> slc = slice(tokens, i, next_sep);
 
                         new_func->args.push_back(parse_arit_expr(slc, c_info));

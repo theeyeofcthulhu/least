@@ -30,7 +30,9 @@ enum token_type : int {
     TK_VAR,
     TK_ACCESS,
     TK_SEP,
+    TK_BRACKET,
     TK_CALL,
+    TK_COM_CALL,
     TK_EOL,
     TK_INV,
 };
@@ -186,16 +188,29 @@ private:
 
 class Call : public Token {
 public:
-    Call(int line, value_func_id vfunc)
+    Call(int line)
         : Token(line)
-        , m_vfunc(vfunc)
     {
     }
-    value_func_id get_value_func() const { return m_vfunc; };
     token_type get_type() const override { return m_type; };
 
 private:
     static const token_type m_type = lexer::TK_CALL;
+};
+
+class CompleteCall : public Token {
+public:
+    CompleteCall(int line, value_func_id vfunc_id)
+        : Token(line)
+        , m_vfunc(vfunc_id)
+    {
+    }
+
+    token_type get_type() const override { return m_type; };
+    value_func_id get_vfunc() const { return m_vfunc; };
+
+private:
+    static const token_type m_type = lexer::TK_COM_CALL;
     value_func_id m_vfunc;
 };
 
@@ -205,10 +220,46 @@ public:
         : Token(line)
     {
     }
+
     token_type get_type() const override { return m_type; };
 
 private:
     static const token_type m_type = lexer::TK_SEP;
+};
+
+class Bracket : public Token {
+public:
+    enum class Purpose {
+        Access,
+        Math,
+    };
+    enum class Kind {
+        Open,
+        Close,
+    };
+
+    Bracket(int line, Purpose purpose, Kind kind)
+        : Token(line)
+        , m_purpose(purpose)
+        , m_kind(kind)
+    {
+    }
+    Bracket(int line, BracketTemplate templ);
+
+    token_type get_type() const override { return m_type; };
+    Purpose get_purpose() const { return m_purpose; };
+    Kind get_kind() const { return m_kind; };
+
+private:
+    static const token_type m_type = lexer::TK_BRACKET;
+
+    Purpose m_purpose;
+    Kind m_kind;
+};
+
+struct BracketTemplate {
+    Bracket::Purpose purpose;
+    Bracket::Kind kind;
 };
 
 class Eol : public Token {
@@ -263,7 +314,7 @@ std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view fi
 
 inline bool could_be_num(lexer::token_type tt)
 {
-    return tt == TK_NUM || tt == TK_VAR || tt == TK_CALL || tt == TK_ACCESS;
+    return tt == TK_NUM || tt == TK_VAR || tt == TK_COM_CALL || tt == TK_ACCESS || tt == TK_BRACKET;
 }
 
 } // namespace lexer

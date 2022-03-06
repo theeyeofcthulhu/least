@@ -6,7 +6,7 @@
 
 void assert_map_sizes()
 {
-    const int n_tokens = 12;
+    const int n_tokens = 14;
 
     assert(lexer::token_type_enum_map.size() == n_tokens);
     assert(lexer::token_str_map.size() == n_tokens);
@@ -53,7 +53,22 @@ void assert_map_sizes()
 
 namespace lexer {
 
-const std::map<const size_t, token_type> token_type_enum_map = {
+const std::map<std::string_view, BracketTemplate> bracket_map {
+    std::make_pair("{", BracketTemplate{Bracket::Purpose::Access, Bracket::Kind::Open}),
+    std::make_pair("}", BracketTemplate{Bracket::Purpose::Access, Bracket::Kind::Close}),
+    std::make_pair("(", BracketTemplate{Bracket::Purpose::Math, Bracket::Kind::Open}),
+    std::make_pair(")", BracketTemplate{Bracket::Purpose::Math, Bracket::Kind::Close}),
+};
+
+const std::map<std::string_view, token_type> str_symbol_map {
+    std::make_pair("->", TK_CALL),
+    std::make_pair("{", TK_BRACKET),
+    std::make_pair("}", TK_BRACKET),
+    std::make_pair("(", TK_BRACKET),
+    std::make_pair(")", TK_BRACKET),
+};
+
+const std::map<const size_t, token_type> token_type_enum_map {
     std::make_pair(typeid(Key).hash_code(), TK_KEY),
     std::make_pair(typeid(Arit).hash_code(), TK_ARIT),
     std::make_pair(typeid(Cmp).hash_code(), TK_CMP),
@@ -64,7 +79,9 @@ const std::map<const size_t, token_type> token_type_enum_map = {
     std::make_pair(typeid(Var).hash_code(), TK_VAR),
     std::make_pair(typeid(Access).hash_code(), TK_ACCESS),
     std::make_pair(typeid(Call).hash_code(), TK_CALL),
+    std::make_pair(typeid(CompleteCall).hash_code(), TK_COM_CALL),
     std::make_pair(typeid(Sep).hash_code(), TK_SEP),
+    std::make_pair(typeid(Bracket).hash_code(), TK_BRACKET),
     std::make_pair(typeid(Eol).hash_code(), TK_EOL),
 };
 
@@ -79,15 +96,27 @@ const std::map<token_type, std::string_view> token_str_map {
     std::make_pair(TK_VAR, "var"),
     std::make_pair(TK_ACCESS, "access"),
     std::make_pair(TK_SEP, "sep"),
+    std::make_pair(TK_BRACKET, "bracket"),
     std::make_pair(TK_CALL, "call"),
+    std::make_pair(TK_COM_CALL, "complete call"),
     std::make_pair(TK_EOL, "eol"),
+};
+
+const std::array<char, 7> word_ending_chars {
+    ' ',
+    '{',
+    '}',
+    '[',
+    ']',
+    '(',
+    ')',
 };
 
 } // namespace lexer
 
 namespace ast {
 
-const std::map<const size_t, ts_class> tree_type_enum_map = {
+const std::map<const size_t, ts_class> tree_type_enum_map {
     std::make_pair(typeid(Node).hash_code(), T_BASE),
     std::make_pair(typeid(If).hash_code(), T_IF),
     std::make_pair(typeid(Else).hash_code(), T_ELSE),
