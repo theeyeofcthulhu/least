@@ -54,7 +54,8 @@ int main(int argc, char** argv)
 
     /* Lex file into tokens */
     fmt::print("[INFO] Lexical analysis\n");
-    std::vector<std::shared_ptr<lexer::Token>> ts = lexer::do_lex(input_source, c_info);
+    lexer::LexContext lex_context(input_source, c_info);
+    auto ts = lex_context.lex_and_get_tokens();
 
     fmt::print("[INFO] Generating abstract syntax tree\n");
     /* Convert tokens to abstract syntax tree */

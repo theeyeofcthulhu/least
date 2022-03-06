@@ -11,6 +11,7 @@
 #include <typeindex>
 #include <typeinfo>
 #include <vector>
+#include <optional>
 
 #include "dictionary.hpp"
 #include "maps.hpp"
@@ -274,6 +275,42 @@ private:
     static const token_type m_type = lexer::TK_EOL;
 };
 
+class LexContext {
+public:
+/*
+ * Lexes the source code in source to list of tokens
+ */
+std::vector<std::shared_ptr<Token>> lex_and_get_tokens();
+
+LexContext(std::string_view p_source_code, CompileInfo& p_c_info, bool no_set_line = false)
+    : source_code(p_source_code)
+    , c_info(p_c_info)
+    , m_no_set_line(no_set_line)
+{
+}
+
+private:
+    void checkbanned(std::string_view s);
+    static size_t find_next_word_ending_char(std::string_view line);
+    static void remove_leading_space(std::string_view& sv);
+    std::pair<std::string_view, size_t> extract_string(std::string_view line);
+    static std::optional<std::pair<std::string_view, size_t>> extract_symbol_beginning(std::string_view sv);
+    std::optional<std::string_view> next_word(std::string_view& line);
+    std::shared_ptr<Token> token_from_word(std::string_view word, int line);
+    size_t find_closing_bracket(Bracket::Purpose purp, size_t after_open);
+
+    std::shared_ptr<Lstr> parse_string(std::string_view string, int line);
+    std::shared_ptr<Num> parse_char(std::string_view string, int line);
+
+    void consolidate();
+    void consolidate(std::vector<std::shared_ptr<Token>>& p_tokens);
+
+    std::string_view source_code;
+    CompileInfo& c_info;
+    std::vector<std::shared_ptr<Token>> tokens{};
+    bool m_no_set_line;
+};
+
 /*
  * Print the type of each token to stdout
  */
@@ -284,12 +321,6 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts);
  */
 bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len);
 
-/*
- * Lexes the source code in source to list of tokens
- */
-std::vector<std::shared_ptr<Token>> do_lex(std::string_view source,
-    CompileInfo& c_info,
-    bool no_set_line = false);
 
 #define LEXER_SAFE_CAST(type, tk) lexer::safe_cast_core<type>((tk), __FILE__, __LINE__)
 
@@ -314,7 +345,7 @@ std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view fi
 
 inline bool could_be_num(lexer::token_type tt)
 {
-    return tt == TK_NUM || tt == TK_VAR || tt == TK_COM_CALL || tt == TK_ACCESS || tt == TK_BRACKET;
+    return tt == TK_NUM || tt == TK_VAR || tt == TK_COM_CALL || tt == TK_ACCESS;
 }
 
 } // namespace lexer
