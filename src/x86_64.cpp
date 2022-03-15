@@ -66,8 +66,6 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
  * ensures variable is a number */
 std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info)
 {
-    std::stringstream var_or_const;
-
     assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_CONST);
     if (node->get_type() == ast::T_VAR) {
         auto t_var = AST_SAFE_CAST(ast::Var, node);
@@ -75,12 +73,12 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
         c_info.error_on_undefined(t_var);
         c_info.error_on_wrong_type(t_var, V_INT);
 
-        fmt::print(var_or_const, "qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
+        return fmt::format("qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
     } else if (node->get_type() == ast::T_CONST) {
-        fmt::print(var_or_const, "{}", AST_SAFE_CAST(ast::Const, node)->get_value());
+        return fmt::format("{}", AST_SAFE_CAST(ast::Const, node)->get_value());
+    } else {
+        assert(false);
     }
-
-    return var_or_const.str();
 }
 
 void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info)
