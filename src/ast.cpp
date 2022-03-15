@@ -79,7 +79,7 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, Compi
             break;
         }
         default:
-            assert(false);
+            UNREACHABLE();
             break;
         }
     }
@@ -514,7 +514,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             default:
             case K_NOKEY:
-                c_info.err.error("Invalid instruction");
+                UNREACHABLE();
                 break;
             }
         }
@@ -747,7 +747,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
     case T_NUM_GENERAL:
     case T_BASE:
     default: {
-        c_info.err.error("Invalid tree node");
+        UNREACHABLE();
         break;
     }
     }

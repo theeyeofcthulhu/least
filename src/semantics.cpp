@@ -264,7 +264,7 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
     case ast::T_NUM_GENERAL:
     case ast::T_BASE:
     default: {
-        c_info.err.error("Invalid tree node");
+        UNREACHABLE();
         break;
     }
     }

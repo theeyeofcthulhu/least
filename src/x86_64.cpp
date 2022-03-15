@@ -77,7 +77,7 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
     } else if (node->get_type() == ast::T_CONST) {
         return fmt::format("{}", AST_SAFE_CAST(ast::Const, node)->get_value());
     } else {
-        assert(false);
+        UNREACHABLE();
     }
 }
 
@@ -112,8 +112,7 @@ inline void print_mov_if_req(std::string_view target,
 
 void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
     std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info)
+    std::ofstream& out)
 {
     auto vfunc = vfunc_nd->get_value_func();
 
@@ -132,7 +131,7 @@ void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
         break;
     }
     default:
-        c_info.err.error("Unknown vfunc");
+        UNREACHABLE();
         break;
     }
 }
@@ -163,11 +162,12 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
             vfunc_str_map.at(vfunc->get_value_func()),
             var_type_str_map.at(vfunc->get_return_type()));
 
-        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, nd), reg, out, c_info);
+        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, nd), reg, out);
         break;
     }
     default:
-        c_info.err.error("UNREACHABLE: Unexpected node_type");
+        UNREACHABLE();
+        break;
     }
 }
 
@@ -239,7 +239,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     case ast::T_VFUNC: {
         if (value_in_rax)
             fmt::print(out, "push rax\n");
-        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out, c_info);
+        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out);
         if (value_in_rax)
             fmt::print(out, "pop rax\n");
         break;
@@ -280,7 +280,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
         print_mov_if_req(reg, "rax", out);
         break;
     default:
-        assert(false);
+        UNREACHABLE();
         break;
     }
 }
@@ -474,8 +474,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                         break;
                     }
                     default: {
-                        assert(false && "Defined variable not assigned "
-                                        "type, unreachable");
+                        UNREACHABLE();
                         break;
                     }
                     }
@@ -512,7 +511,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             } else if (t_func->args[0]->get_type() == ast::T_VAR) {
                 print_mov_if_req(asm_from_int_or_const(t_func->args[0], c_info), input, out);
             } else {
-                assert(false);
+                UNREACHABLE();
             }
             break;
         }
@@ -560,7 +559,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         default:
-            c_info.err.error("TODO: unimplemented");
+            UNREACHABLE();
             break;
         }
         break;
@@ -662,7 +661,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         default:
-            c_info.err.error("Unexpected tree node");
+            UNREACHABLE();
             break;
         }
 
@@ -676,7 +675,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     default:
-        c_info.err.error("Unexpected tree node");
+        UNREACHABLE();
         break;
     }
 }
