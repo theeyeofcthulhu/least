@@ -100,7 +100,6 @@ private:
 
 std::vector<std::string_view> split(std::string_view str, char delim);
 std::string read_source_code(std::string_view filename, CompileInfo& c_info);
-std::string_view get_next_word(std::string_view str, int index, size_t& spc_idx);
 size_t next_of_type_on_line(const std::vector<std::shared_ptr<lexer::Token>>& ts,
     size_t start,
     lexer::token_type ty);

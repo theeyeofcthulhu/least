@@ -42,14 +42,6 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts)
     fmt::print("---------------------------------\n");
 }
 
-// bool has_next_arg(const std::vector<std::shared_ptr<Token>>& ts, size_t& len)
-// {
-//     while ((ts[len]->get_type() != lexer::TK_SEP) && (ts[len]->get_type() != lexer::TK_EOL))
-//         len += 1;
-
-//     return ts[len]->get_type() == lexer::TK_SEP;
-// }
-
 void LexContext::checkbanned(std::string_view s)
 {
     for (char c : s) {
@@ -148,6 +140,7 @@ out_ret:
 
     return std::make_optional(word);
 }
+
 /* Check validity of string and insert escape sequences */
 /* Also parse any '[var]' blocks and insert variable tokens */
 std::shared_ptr<Lstr> LexContext::parse_string(std::string_view string, int line)

@@ -9,20 +9,6 @@
 #include "maps.hpp"
 #include "util.hpp"
 
-/* Get the next word starting from index and store the next space
- * in spc_idx */
-std::string_view get_next_word(std::string_view str, int index, size_t& spc_idx)
-{
-    std::string_view from_index = str.substr(index);
-
-    spc_idx = from_index.find(' ');
-
-    if (spc_idx == std::string_view::npos)
-        spc_idx = from_index.size();
-
-    return from_index.substr(0, spc_idx);
-}
-
 std::vector<std::string_view> split(std::string_view str, char delim)
 {
     std::vector<std::string_view> res;
