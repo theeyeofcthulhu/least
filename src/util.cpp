@@ -28,7 +28,7 @@ std::vector<std::string_view> split(std::string_view str, char delim)
     return res;
 }
 
-/* Memory map a file and return the contents */
+/* Read a file and return the contents */
 std::string read_source_code(std::string_view filename, CompileInfo& c_info)
 {
     /* FIXME: there is a proposal in C++ to make std::ifstream constructable from

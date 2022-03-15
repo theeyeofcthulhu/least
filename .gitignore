@@ -16,3 +16,4 @@ build
 src/.ccls
 compile_commands.json
 tests/time_results.txt
+.cache
