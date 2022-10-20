@@ -138,6 +138,7 @@ void check_correct_function_call(const FunctionSpec& spec,
     }
 }
 
+/* Check usage of undefined variables and incorrect function calls, etc. */
 void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
 {
     c_info.err.set_line(root->get_line());

@@ -27,7 +27,12 @@ if [[ $1 = "reload" ]]; then
         executable=$(echo "$file" | sed 's/\..*//')
         txt="${executable}_results.txt"
         echo -e "Generating results to ${txt}\n"
-        $executable > "${txt}"
+
+        if [ "$executable" == "tests/yourname" ]; then
+            $executable <<< 'tests.sh' > "${txt}"
+        else
+            $executable > "${txt}"
+        fi
     done
 
     exit

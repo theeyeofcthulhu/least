@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -124,11 +125,15 @@ void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& t
     for (size_t i = 0; i < ts.size(); i++) {
         const auto& t = ts[i];
 
+        // TODO: ensure correct number and direction of brackets here?
+        if (t->get_type() == lexer::TK_BRACKET)
+            continue;
+
         if (expect_operator) {
             c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator");
         } else {
             c_info.err.on_false(lexer::could_be_num(t->get_type()),
-                "Expected variable, constant or inline call");
+                "Expected variable, parenthesis, constant or inline call");
         }
 
         expect_operator = !expect_operator;
@@ -143,14 +148,64 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
     ensure_arit_correctness(ts, c_info);
 
     std::vector<std::shared_ptr<Node>> s2;
+    std::vector<int> s2_ignore; // bracket expressions that will be ignored in later code
 
     arit_op last_op = ARIT_OPERATION_ENUM_END;
 
     int len = ts.size();
 
+    bool made_bracket_sub = false;
+    bool put_into_last = false;
+
     /* Group '/' and '*' expressions together and leave '+', '-' and constants
      * in place */
     for (int i = 0; i < len; i++) {
+        if (ts[i]->get_type() == lexer::TK_BRACKET) {
+            auto bracket = LEXER_SAFE_CAST(lexer::Bracket, ts[i]);
+
+            c_info.err.on_false(bracket->get_kind() == lexer::Bracket::Kind::Open &&
+                                bracket->get_purpose() == lexer::Bracket::Purpose::Math,
+                                "Expected opening '('");
+
+            size_t closing_index = i;
+            size_t stack = 1;
+
+            for (int j = i + 1; j < len; j++) {
+                if (ts[j]->get_type() == lexer::TK_BRACKET) {
+                    auto closing = LEXER_SAFE_CAST(lexer::Bracket, ts[j]);
+                    if (closing->get_kind() == lexer::Bracket::Kind::Open)
+                        stack += 1;
+                    else
+                        stack -= 1;
+
+                    if (stack == 0) {
+                        closing_index = j;
+                        break;
+                    }
+                }
+            }
+
+            c_info.err.on_true((int) closing_index == i, "Could not find closing parenthesis");
+
+            if (!put_into_last) {
+                s2.push_back(parse_arit_expr(slice(ts, i + 1, closing_index), c_info));
+                s2_ignore.push_back(i);
+            } else {
+                // the last expression wants this bracket expression
+
+                assert(s2.back()->get_type() == T_ARIT);
+                auto arit = AST_SAFE_CAST(ast::Arit, s2.back());
+                arit->right = parse_arit_expr(slice(ts, i + 1, closing_index), c_info);
+
+                put_into_last = false;
+            }
+
+            i = closing_index;
+
+            made_bracket_sub = true;
+            continue;
+        }
+
         /* If we have '/' or '*' next and are not currently an operator:
          * continue because we belong to that operator */
         arit_op next_op = ARIT_OPERATION_ENUM_END;
@@ -170,15 +225,17 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             /* Make new multiplication */
             if (has_precedence(op->get_op())) {
                 assert(i > 0 && i + 1 < len);
-                c_info.err.on_false(lexer::could_be_num(ts[i - 1]->get_type()),
-                    "Expected number before '{}' operator",
-                    arit_str_map.at(op->get_op()));
-                c_info.err.on_false(lexer::could_be_num(ts[i + 1]->get_type()),
-                    "Expected number after '{}' operator",
-                    arit_str_map.at(op->get_op()));
 
-                if (has_precedence(last_op)) {
-                    /* If we follow another multiplication:
+                // FIXME: error checking here
+                // c_info.err.on_false(lexer::could_be_num(ts[i - 1]->get_type()),
+                //     "Expected number before '{}' operator",
+                //     arit_str_map.at(op->get_op()));
+                // c_info.err.on_false(lexer::could_be_num(ts[i + 1]->get_type()),
+                //     "Expected number after '{}' operator",
+                //     arit_str_map.at(op->get_op()));
+
+                if (has_precedence(last_op) || made_bracket_sub) {
+                    /* If we follow another multiplication or a bracket expression:
                      * incorporate previous into ourselves and replace that
                      * previous one in the array */
                     std::shared_ptr<Arit> new_arit = std::make_shared<Arit>(
@@ -188,15 +245,26 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                 } else {
                     /* We follow a +/-, hence we can freely take the last number
                      */
-                    s2.push_back(std::make_shared<Arit>(
-                        op->get_line(), node_from_numeric_token(ts[i - 1], c_info),
-                        node_from_numeric_token(ts[i + 1], c_info), op->get_op()));
+                    if (ts[i + 1]->get_type() == lexer::TK_BRACKET) {
+                        // After us is a bracket, we need to wait for that to be compiled and set a flag
+                        // for that code to put the compiled bracket expression into our 'right' attribute
+                        s2.push_back(std::make_shared<Arit>(
+                            op->get_line(), node_from_numeric_token(ts[i - 1], c_info),
+                            nullptr, op->get_op()));
+                        put_into_last = true;
+                    } else {
+                        s2.push_back(std::make_shared<Arit>(
+                            op->get_line(), node_from_numeric_token(ts[i - 1], c_info),
+                            node_from_numeric_token(ts[i + 1], c_info), op->get_op()));
+                    }
                 }
+
             } else {
                 /* Make empty +/-, filled in stage two */
                 s2.push_back(
                     std::make_shared<Arit>(op->get_line(), nullptr, nullptr, op->get_op()));
             }
+            made_bracket_sub = false; // reset flag
             last_op = op->get_op();
         } else {
             /* If we follow a multiplication:
@@ -221,6 +289,11 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
     /* Parse everything into a tree */
     for (size_t i = 0; i < s2.size(); i++) {
         if (s2[i]->get_type() == T_ARIT) {
+            // This is a compiled bracket expression, ignore it
+            if (std::find(s2_ignore.begin(), s2_ignore.end(), i) != s2_ignore.end()) {
+                continue;
+            }
+
             std::shared_ptr<Arit> cur_arit = AST_SAFE_CAST(Arit, s2[i]);
             if (!has_precedence(cur_arit->get_arit())) {
                 if (!root) {
@@ -475,6 +548,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                     case lexer::TK_NUM:
                     case lexer::TK_VAR:
                     case lexer::TK_ACCESS:
+                    case lexer::TK_BRACKET:
                     case lexer::TK_COM_CALL: {
                         std::vector<std::shared_ptr<lexer::Token>> slc = slice(tokens, i, next_sep);
 
