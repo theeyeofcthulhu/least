@@ -11,4 +11,6 @@
 
 #define UNREACHABLE() assert(false && "unreachable")
 
+#define HAS(v, x) (std::find((v).begin(), (v).end(), (x)) != v.end())
+
 #endif // MACROS_H_
