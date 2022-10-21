@@ -5,6 +5,8 @@ function test_program_compile {
     local status=$?
     if (( status != 0 )); then
         echo "error with $1"
+        echo -e "${SHELL_RED}Compilation for $1 failed${SHELL_WHITE}"
+        exit 1
     fi
     return $status
 }
