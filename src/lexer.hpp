@@ -291,10 +291,10 @@ LexContext(std::string_view p_source_code, CompileInfo& p_c_info, bool no_set_li
 
 private:
     /* String manipulation */
-    void checkbanned(std::string_view s);
+    void check_correct_var_name(std::string_view s);
     static size_t find_next_word_ending_char(std::string_view line);
     size_t find_closing_bracket(Bracket::Purpose purp, size_t after_open);
-    static void remove_leading_space(std::string_view& sv);
+    static void remove_leading_space(std::string_view& sv); // manipulates string
 
     /* Extraction of strings from strings */
     std::pair<std::string_view, size_t> extract_string(std::string_view line);
@@ -324,8 +324,9 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts);
 #define LEXER_SAFE_CAST(type, tk) lexer::safe_cast_core<type>((tk), __FILE__, __LINE__)
 
 /*
- * Cast token to desired polymorphic subtype
- * Ensures that tk was declared as a type T originally
+ * Cast token to desired polymorphic subtype.
+ * Ensures that tk was declared as a type T originally by checking the
+ * static method 'get_type()'.
  */
 template<typename T>
 std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view file, int line)

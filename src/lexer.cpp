@@ -42,11 +42,18 @@ void debug_tokens(const std::vector<std::shared_ptr<Token>>& ts)
     fmt::print("---------------------------------\n");
 }
 
-void LexContext::checkbanned(std::string_view s)
+// Variables must start with a letter,
+// afterwards, letters, numbers, underscores are allowed.
+void LexContext::check_correct_var_name(std::string_view s)
 {
-    for (char c : s) {
-        c_info.err.on_true((isdigit(c) || !isascii(c) || ispunct(c)),
-            "Invalid character in variable name: '{}'", s);
+    c_info.err.on_false(isalpha(s[0]), "Variables must begin with a letter: '{}'", s);
+
+    // We can always do s.substr(1), even when s only has one character, because
+    // it just return an empty view, which will just not start the for loop,
+    // instead of raising the usual std::out_of_range.
+    for (char c : s.substr(1)) {
+        c_info.err.on_false(isalpha(c) || isdigit(c) || c == '_',
+                           "Invalid character '{}' in variable name: '{}'", c, s);
     }
 }
 
@@ -308,7 +315,7 @@ std::shared_ptr<Token> LexContext::token_from_word(std::string_view word, int li
     } else if (bracket_map.find(word) != bracket_map.end()) {
         return std::make_shared<Bracket>(line, bracket_map.at(word));
     } else {
-        checkbanned(word);
+        check_correct_var_name(word);
         return std::make_shared<Var>(line, word);
     }
 }
@@ -318,7 +325,7 @@ void LexContext::consolidate()
     consolidate(tokens);
 }
 
-/* Consolidates array accesses and VFunc calls.
+/* Consolidates array accesses and VFunc calls into those respective objects.
  * Tail recursive, because after modifying the vector,
  * the indexes are going to get messed up. */
 void LexContext::consolidate(std::vector<std::shared_ptr<Token>>& p_tokens)
@@ -339,7 +346,7 @@ void LexContext::consolidate(std::vector<std::shared_ptr<Token>>& p_tokens)
                 size_t index = find_closing_bracket(Bracket::Purpose::Access, i + 1);
 
                 /* NOTE: is there a better way to extract a range of tokens from the original
-                 * vector and move it into the new vector */
+                 * vector and move it into the new vector? */
                 std::vector<std::shared_ptr<Token>> extract(p_tokens.begin() + i + 1, p_tokens.begin() + index - 1);
                 consolidate(extract); /* Make sure nested accesses don't get overlooked */
 
