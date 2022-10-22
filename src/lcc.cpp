@@ -20,20 +20,26 @@ int main(int argc, char** argv)
     assert_map_sizes();
 
     bool run_after_compile = false;
+    bool output_dot = false;
+
     /* Handle command line input with getopt */
     int flag;
-    while ((flag = getopt(argc, argv, "hr")) != -1) {
+    while ((flag = getopt(argc, argv, "hrd")) != -1) {
         switch (flag) {
         case 'h':
             fmt::print("Least Complicated Compiler - lcc\n"
                        "Copyright (C) 2021-2022 - theeyeofcthulhu on GitHub\n\n"
                        "usage: {} [-hr] FILE\n\n"
                        "-h: display this message and exit\n"
-                       "-r: run program after compilation\n",
+                       "-r: run program after compilation\n"
+                       "-d: output graphical (SVG) representation of AST via Graphviz\n",
                 argv[0]);
             return 0;
         case 'r':
             run_after_compile = true;
+            break;
+        case 'd':
+            output_dot = true;
             break;
         case '?':
         default:
@@ -63,14 +69,16 @@ int main(int argc, char** argv)
 
     std::string dot_filename = fn.extension(".dot");
 
-    /* Generate graphviz diagram from abstract syntax tree */
-    fmt::print("[INFO] Generating tree diagram to: {}\n", GREEN_ARG(dot_filename));
-    tree_to_dot(ast_root, dot_filename, c_info);
+    if (output_dot) {
+        /* Generate graphviz diagram from abstract syntax tree */
+        fmt::print("[INFO] Generating tree diagram to: {}\n", GREEN_ARG(dot_filename));
+        ast::tree_to_dot(ast_root, dot_filename, c_info);
 
-    std::string svg_filename = fn.extension(".svg");
+        std::string svg_filename = fn.extension(".svg");
 
-    ECHO_CMD("dot -Tsvg -o {} {}", GREEN_ARG(svg_filename), RED_ARG(dot_filename));
-    RUN_CMD("dot -Tsvg -o {} {}", svg_filename, dot_filename);
+        ECHO_CMD("dot -Tsvg -o {} {}", GREEN_ARG(svg_filename), RED_ARG(dot_filename));
+        RUN_CMD("dot -Tsvg -o {} {}", svg_filename, dot_filename);
+    }
 
     std::string asm_filename = fn.extension(".asm");
 
