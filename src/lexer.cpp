@@ -393,6 +393,10 @@ std::vector<std::shared_ptr<Token>> LexContext::lex_and_get_tokens()
         if (!m_no_set_line)
             c_info.err.set_line(i);
 
+        // Ignore comments
+        if (size_t comment_start = line.find("//"); comment_start != std::string_view::npos)
+            line = line.substr(0, comment_start);
+
         std::optional<std::string_view> word;
 
         while((word = next_word(line))) {

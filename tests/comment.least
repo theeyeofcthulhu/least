@@ -1,0 +1,5 @@
+// this is a comment
+int a ; 2 ; // another comment
+int b ; 3 ;// third comment
+
+print "[a], [b]\n" ;
