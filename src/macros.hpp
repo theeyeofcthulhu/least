@@ -11,6 +11,7 @@
 
 #define UNREACHABLE() assert(false && "unreachable")
 
+// Does container v have element x
 #define HAS(v, x) (std::find((v).begin(), (v).end(), (x)) != v.end())
 
 #endif // MACROS_H_

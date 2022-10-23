@@ -199,7 +199,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                 break;
             }
             default:
-                assert(false);
+                UNREACHABLE();
                 break;
             }
         }
