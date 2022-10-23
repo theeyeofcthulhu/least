@@ -50,7 +50,7 @@ echo -e "\nCompiling tests\n"
 
 for file in "${FILES[@]}" ; do
     echo "Compiling $file"
-    test_program_compile "$VALGRIND ./lcc $file"
+    test_program_compile "$VALGRIND ./lcc -q $file"
 done
 
 echo ""

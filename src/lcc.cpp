@@ -21,18 +21,20 @@ int main(int argc, char** argv)
 
     bool run_after_compile = false;
     bool output_dot = false;
+    bool print_info = true;
 
     /* Handle command line input with getopt */
     int flag;
-    while ((flag = getopt(argc, argv, "hrd")) != -1) {
+    while ((flag = getopt(argc, argv, "hrdq")) != -1) {
         switch (flag) {
         case 'h':
             fmt::print("Least Complicated Compiler - lcc\n"
                        "Copyright (C) 2021-2022 - theeyeofcthulhu on GitHub\n\n"
-                       "usage: {} [-hr] FILE\n\n"
+                       "usage: {} [-hrdq] FILE\n\n"
                        "-h: display this message and exit\n"
                        "-r: run program after compilation\n"
-                       "-d: output graphical (SVG) representation of AST via Graphviz\n",
+                       "-d: output graphical (SVG) representation of AST via Graphviz\n"
+                       "-q: do not print information about program activity\n",
                 argv[0]);
             return 0;
         case 'r':
@@ -41,11 +43,21 @@ int main(int argc, char** argv)
         case 'd':
             output_dot = true;
             break;
+        case 'q':
+            print_info = false;
+            break;
         case '?':
         default:
             return 1;
         }
     }
+
+    // Print msg, if user wants it
+    auto info = [print_info](auto msg) {
+        if (print_info) {
+            std::cout << msg;
+        }
+    };
 
     Filename fn(argv[argc - 1]);
     CompileInfo c_info(fn.base());
@@ -55,15 +67,15 @@ int main(int argc, char** argv)
     c_info.err.set_file(fn.base());
 
     /* Map contents of file into a std::string via mmap */
-    fmt::print("[INFO] Input file: {}\n", GREEN_ARG(fn.base()));
+    info(fmt::format("[INFO] Input file: {}\n", GREEN_ARG(fn.base())));
     std::string input_source = read_source_code(fn.base(), c_info);
 
     /* Lex file into tokens */
-    fmt::print("[INFO] Lexical analysis\n");
+    info(fmt::format("[INFO] Lexical analysis\n"));
     lexer::LexContext lex_context(input_source, c_info);
     auto ts = lex_context.lex_and_get_tokens();
 
-    fmt::print("[INFO] Generating abstract syntax tree\n");
+    info(fmt::format("[INFO] Generating abstract syntax tree\n"));
     /* Convert tokens to abstract syntax tree */
     std::shared_ptr<ast::Body> ast_root = ast::gen_ast(ts, c_info);
 
@@ -71,35 +83,35 @@ int main(int argc, char** argv)
 
     if (output_dot) {
         /* Generate graphviz diagram from abstract syntax tree */
-        fmt::print("[INFO] Generating tree diagram to: {}\n", GREEN_ARG(dot_filename));
+        info(fmt::format("[INFO] Generating tree diagram to: {}\n", GREEN_ARG(dot_filename)));
         ast::tree_to_dot(ast_root, dot_filename, c_info);
 
         std::string svg_filename = fn.extension(".svg");
 
-        ECHO_CMD("dot -Tsvg -o {} {}", GREEN_ARG(svg_filename), RED_ARG(dot_filename));
+        info(COLOR_CMD("dot -Tsvg -o {} {}", GREEN_ARG(svg_filename), RED_ARG(dot_filename)));
         RUN_CMD("dot -Tsvg -o {} {}", svg_filename, dot_filename);
     }
 
     std::string asm_filename = fn.extension(".asm");
 
-    fmt::print("[INFO] Semantical analysis\n");
+    info(fmt::format("[INFO] Semantical analysis\n"));
     semantic::semantic_analysis(ast_root, c_info);
 
-    fmt::print("[INFO] Generating assembly to: {}\n", GREEN_ARG(asm_filename));
+    info(fmt::format("[INFO] Generating assembly to: {}\n", GREEN_ARG(asm_filename)));
     ast_to_x86_64(ast_root, asm_filename, c_info);
 
     std::string object_filename = fn.extension(".o");
 
-    ECHO_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename));
+    info(COLOR_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename)));
     RUN_CMD("nasm -g -felf64 -o {} {}", object_filename, asm_filename);
 
     std::string exe_filename = fn.extension("");
 
-    ECHO_CMD("ld -o {} {} {}", GREEN_ARG(exe_filename), RED_ARG(object_filename), LIBSTDLEAST);
+    info(COLOR_CMD("ld -o {} {} {}", GREEN_ARG(exe_filename), RED_ARG(object_filename), LIBSTDLEAST));
     RUN_CMD("ld -o {} {} {}", exe_filename, object_filename, LIBSTDLEAST);
 
     if (run_after_compile) {
-        ECHO_CMD("./{}", GREEN_ARG(exe_filename));
+        info(COLOR_CMD("./{}", GREEN_ARG(exe_filename)));
         RUN_CMD("./{}", exe_filename);
     }
 

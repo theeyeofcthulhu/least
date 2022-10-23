@@ -7,18 +7,18 @@ while i < 100
         continue ;
     end
 
-    int flag ; 1 ;
+    int is_prime ; 1 ;
     int j ; 2 ;
 
     while j < i / 2 + 1
         if i % j == 0
-            set flag ; 0 ;
+            set is_prime ; 0 ;
             break ;
         end
         add j ; 1 ;
     end
 
-    if flag
+    if is_prime
         print "[i] is a prime number\n" ;
     end
 
