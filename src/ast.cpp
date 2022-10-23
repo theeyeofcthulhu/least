@@ -180,7 +180,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             c_info.err.on_true(closing_index == i, "Could not find closing parenthesis");
 
             s1.push_back(parse_arit_expr(slice(ts, i + 1, closing_index), c_info));
-            s1_brackets.push_back(i);
+            s1_brackets.push_back(s1.size() - 1);
 
             i = closing_index;
             continue;
@@ -218,10 +218,6 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
 
         bool is_bracket = HAS(s1_brackets, i);
 
-        if (is_bracket) {
-            s2_ignore.push_back(i);
-        }
-
         arit_op next_op = ARIT_OPERATION_ENUM_END;
         for (size_t j = i + 1; j < s1.size(); j++) {
             if (s1[j]->get_type() == T_ARIT && !HAS(s1_brackets, j)) {
@@ -238,8 +234,8 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             if (has_precedence(op->get_arit())) {
                 assert(i > 0 && i + 1 < s1.size());
 
-                if (HAS(s1_brackets, i - 1) || !has_precedence(last_op)) {
-                    /* We follow a bracket expression or +/-, take last */
+                if (!has_precedence(last_op)) {
+                    /* We follow a +/-, take last */
                     s2.push_back(std::make_shared<Arit>(
                         op->get_line(), s1[i - 1],
                         s1[i + 1], op->get_arit()));
@@ -264,7 +260,10 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
              * array */
             if (has_precedence(last_op))
                 continue;
+
             s2.push_back(s1[i]);
+            if (is_bracket)
+                s2_ignore.push_back(s2.size() - 1);
         }
     }
     if (s2.size() == 1) {
