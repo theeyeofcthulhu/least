@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "ast.hpp"
+#include "dictionary.hpp"
 #include "lexer.hpp"
 #include "maps.hpp"
 #include "util.hpp"
@@ -281,7 +282,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
     for (size_t i = 0; i < s2.size(); i++) {
         if (s2[i]->get_type() == T_ARIT) {
             // This is a compiled bracket expression, ignore it
-            if (std::find(s2_ignore.begin(), s2_ignore.end(), i) != s2_ignore.end()) {
+            if (HAS(s2_ignore, i)) {
                 continue;
             }
 

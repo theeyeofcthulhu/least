@@ -60,7 +60,7 @@ void LexContext::check_correct_var_name(std::string_view s)
 size_t LexContext::find_next_word_ending_char(std::string_view line)
 {
     auto index = std::find_if(line.begin(), line.end(), [](char c) {
-        return std::find(word_ending_chars.begin(), word_ending_chars.end(), c) != word_ending_chars.end();
+        return HAS(word_ending_chars, c);
     });
 
     if (index == line.end()) {
