@@ -119,6 +119,8 @@ std::optional<std::pair<std::string_view, size_t>> LexContext::extract_symbol_be
 
 std::optional<std::string_view> LexContext::next_word(std::string_view& line)
 {
+    remove_leading_space(line);
+
     if (line.empty())
         return std::nullopt;
 
@@ -126,8 +128,7 @@ std::optional<std::string_view> LexContext::next_word(std::string_view& line)
     size_t next_terminator;
     std::optional<std::pair<std::string_view, size_t>> symbol;
 
-    remove_leading_space(line);
-
+    // If next token is a string
     if (line.starts_with('"')) {
         std::tie(word, next_terminator) = extract_string(line);
         goto out_ret;
