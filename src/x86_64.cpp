@@ -316,8 +316,7 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, Compile
     }
 
     /* Reserved string variables */
-    auto is_str = [](VarInfo v) { return v.type == V_STR; };
-    if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(), is_str) != c_info.known_vars.end()) {
+    if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(), [](VarInfo v) { return v.type == V_STR; }) != c_info.known_vars.end()) {
         fmt::print(out, "section .bss\n");
         for (size_t i = 0; i < c_info.known_vars.size(); i++) {
             auto v = c_info.known_vars[i];
