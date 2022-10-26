@@ -291,16 +291,32 @@ std::shared_ptr<Token> LexContext::token_from_word(std::string_view word, int li
     } else if (word.starts_with('\'')) {
         return parse_char(word, line);
     } else if (std::isdigit(word[0])) {
-        int result;
-        const char* last = word.data() + word.size();
+        // Float constant
+        if (word.ends_with('f')) {
+            double result;
+            const char *last = word.data() + word.size() - 1; // Exclude 'f'
 
-        /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
-        auto [ptr, ec] = std::from_chars(word.data(), last, result);
+            auto [ptr, ec] = std::from_chars(word.data(), last, result);
 
-        /* The end of the word was not reached or the beginning not left: conversion failed */
-        c_info.err.on_true(ec == std::errc::invalid_argument || ec == std::errc::result_out_of_range || ptr != last, "Could not convert '{}' to an integer", word);
+            c_info.err.on_true(ec == std::errc::invalid_argument
+                               || ec == std::errc::result_out_of_range
+                               || ptr != last, "Could not convert '{}' to a double", word);
 
-        return std::make_shared<Num>(line, result);
+            return std::make_shared<DoubleNum>(line, result);
+        } else {
+            int result;
+            const char* last = word.data() + word.size();
+
+            /* '0' base makes it possible to convert hexadecimal, decimal and octal numbers alike */
+            auto [ptr, ec] = std::from_chars(word.data(), last, result);
+
+            /* The end of the word was not reached or the beginning not left: conversion failed */
+            c_info.err.on_true(ec == std::errc::invalid_argument
+                            || ec == std::errc::result_out_of_range
+                            || ptr != last, "Could not convert '{}' to an integer", word);
+
+            return std::make_shared<Num>(line, result);
+        }
     } else if (word == ";") {
         return std::make_shared<Sep>(line);
     } else if (word == "->") {

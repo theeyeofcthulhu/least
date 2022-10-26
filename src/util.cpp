@@ -105,6 +105,18 @@ int CompileInfo::check_str(std::string_view str)
     return known_strings.size() - 1;
 }
 
+int CompileInfo::check_double_const(double d)
+{
+    for (size_t i = 0; i < known_double_consts.size(); i++) {
+        if (d == known_double_consts[i])
+            return i;
+    }
+
+    known_double_consts.push_back(d);
+
+    return known_double_consts.size() - 1;
+}
+
 size_t CompileInfo::get_stack_size_and_append(size_t new_offset)
 {
     stack_size += new_offset;

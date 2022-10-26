@@ -7,16 +7,16 @@
 
 void assert_map_sizes()
 {
-    const int n_tokens = 14;
+    const int n_tokens = 15;
 
     assert(lexer::token_type_enum_map.size() == n_tokens);
     assert(lexer::token_str_map.size() == n_tokens);
 
-    const int n_nodes = 15;
+    const int n_nodes = 16;
 
     assert(ast::tree_type_enum_map.size() == n_nodes);
 
-    const int n_keys = 19;
+    const int n_keys = 21;
 
     assert(str_key_map.size() == n_keys);
     assert(key_str_map.size() == n_keys);
@@ -31,12 +31,12 @@ void assert_map_sizes()
     assert(log_map.size() == n_logs);
     assert(log_str_map.size() == n_logs);
 
-    const int n_funcs = 12;
+    const int n_funcs = 14;
 
     assert(func_str_map.size() == n_funcs);
     assert(key_func_map.size() == n_funcs);
 
-    const int n_types = 4;
+    const int n_types = 6;
 
     assert(var_type_str_map.size() == n_types);
 
@@ -77,6 +77,7 @@ const std::map<const size_t, token_type> token_type_enum_map {
     std::make_pair(typeid(Str).hash_code(), TK_STR),
     std::make_pair(typeid(Lstr).hash_code(), TK_LSTR),
     std::make_pair(typeid(Num).hash_code(), TK_NUM),
+    std::make_pair(typeid(DoubleNum).hash_code(), TK_DOUBLE_NUM),
     std::make_pair(typeid(Var).hash_code(), TK_VAR),
     std::make_pair(typeid(Access).hash_code(), TK_ACCESS),
     std::make_pair(typeid(Call).hash_code(), TK_CALL),
@@ -94,6 +95,7 @@ const std::map<token_type, std::string_view> token_str_map {
     std::make_pair(TK_STR, "str"),
     std::make_pair(TK_LSTR, "lstr"),
     std::make_pair(TK_NUM, "num"),
+    std::make_pair(TK_DOUBLE_NUM, "double num"),
     std::make_pair(TK_VAR, "var"),
     std::make_pair(TK_ACCESS, "access"),
     std::make_pair(TK_SEP, "sep"),
@@ -123,6 +125,7 @@ const std::map<const size_t, ts_class> tree_type_enum_map {
     std::make_pair(typeid(Else).hash_code(), T_ELSE),
     std::make_pair(typeid(While).hash_code(), T_WHILE),
     std::make_pair(typeid(Const).hash_code(), T_CONST),
+    std::make_pair(typeid(DoubleConst).hash_code(), T_DOUBLE_CONST),
     std::make_pair(typeid(Cmp).hash_code(), T_CMP),
     std::make_pair(typeid(Log).hash_code(), T_LOG),
     std::make_pair(typeid(Func).hash_code(), T_FUNC),
@@ -146,9 +149,11 @@ const std::map<std::string_view, keyword> str_key_map {
     std::make_pair("while", K_WHILE),
     std::make_pair("end", K_END),
     std::make_pair("int", K_INT),
+    std::make_pair("double", K_DOUBLE),
     std::make_pair("str", K_STR),
     std::make_pair("read", K_READ),
     std::make_pair("set", K_SET),
+    std::make_pair("setd", K_SETD),
     std::make_pair("putchar", K_PUTCHAR),
     std::make_pair("add", K_ADD),
     std::make_pair("sub", K_SUB),
@@ -168,9 +173,11 @@ const std::map<keyword, std::string_view> key_str_map {
     std::make_pair(K_WHILE, "while"),
     std::make_pair(K_END, "end"),
     std::make_pair(K_INT, "int"),
+    std::make_pair(K_DOUBLE, "double"),
     std::make_pair(K_STR, "str"),
     std::make_pair(K_READ, "read"),
     std::make_pair(K_SET, "set"),
+    std::make_pair(K_SETD, "setd"),
     std::make_pair(K_PUTCHAR, "putchar"),
     std::make_pair(K_ADD, "add"),
     std::make_pair(K_SUB, "sub"),
@@ -230,8 +237,10 @@ const std::map<func_id, std::string_view> func_str_map {
     std::make_pair(F_EXIT, "exit"),
     std::make_pair(F_READ, "read"),
     std::make_pair(F_SET, "set"),
+    std::make_pair(F_SETD, "setd"),
     std::make_pair(F_PUTCHAR, "putchar"),
     std::make_pair(F_INT, "int"),
+    std::make_pair(F_DOUBLE, "double"),
     std::make_pair(F_STR, "str"),
     std::make_pair(F_ADD, "add"),
     std::make_pair(F_SUB, "sub"),
@@ -245,8 +254,10 @@ const std::map<keyword, func_id> key_func_map {
     std::make_pair(K_EXIT, F_EXIT),
     std::make_pair(K_READ, F_READ),
     std::make_pair(K_SET, F_SET),
+    std::make_pair(K_SETD, F_SETD),
     std::make_pair(K_PUTCHAR, F_PUTCHAR),
     std::make_pair(K_INT, F_INT),
+    std::make_pair(K_DOUBLE, F_DOUBLE),
     std::make_pair(K_ARRAY, F_ARRAY),
     std::make_pair(K_STR, F_STR),
     std::make_pair(K_ADD, F_ADD),
@@ -257,8 +268,10 @@ const std::map<keyword, func_id> key_func_map {
 
 const std::map<var_type, std::string_view> var_type_str_map {
     std::make_pair(V_INT, "int"),
+    std::make_pair(V_DOUBLE, "double"),
     std::make_pair(V_STR, "str"),
     std::make_pair(V_ARR, "array"),
+    std::make_pair(V_INT_OR_DOUBLE, "int or double"),
     std::make_pair(V_UNSURE, "untyped"),
 };
 

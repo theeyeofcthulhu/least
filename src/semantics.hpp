@@ -34,6 +34,7 @@ struct FunctionSpec {
 };
 
 void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info);
+var_type get_number_type(std::shared_ptr<ast::Node> nd, CompileInfo &c_info);
 
 }
 

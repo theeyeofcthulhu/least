@@ -101,6 +101,9 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
     } else if (tk->get_type() == lexer::TK_NUM) {
         res = std::make_shared<ast::Const>(tk->get_line(),
             LEXER_SAFE_CAST(lexer::Num, tk)->get_num());
+    } else if (tk->get_type() == lexer::TK_DOUBLE_NUM) {
+        res = std::make_shared<ast::DoubleConst>(tk->get_line(),
+            LEXER_SAFE_CAST(lexer::DoubleNum, tk)->get_num());
     } else if (tk->get_type() == lexer::TK_COM_CALL) {
         const auto& call = LEXER_SAFE_CAST(lexer::CompleteCall, tk);
 
@@ -194,6 +197,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             case lexer::TK_COM_CALL:
             case lexer::TK_ACCESS:
             case lexer::TK_NUM:
+            case lexer::TK_DOUBLE_NUM:
             case lexer::TK_VAR: {
                 s1.push_back(node_from_numeric_token(ts[i], c_info));
                 break;
@@ -508,6 +512,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
             case K_EXIT:
             case K_READ:
             case K_SET:
+            case K_SETD:
             case K_ADD:
             case K_SUB:
             case K_PUTCHAR:
@@ -515,6 +520,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
             case K_ARRAY:
             case K_STR:
             case K_BREAK:
+            case K_DOUBLE:
             case K_CONT: {
                 std::shared_ptr<Func> new_func = std::make_shared<Func>(
                     key->get_line(), key_func_map.at(key->get_key()));
@@ -537,6 +543,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                         break;
                     }
                     case lexer::TK_NUM:
+                    case lexer::TK_DOUBLE_NUM:
                     case lexer::TK_VAR:
                     case lexer::TK_ACCESS:
                     case lexer::TK_BRACKET:
@@ -744,6 +751,12 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"const\"]\n", parent_body_id, node);
         break;
     }
+    case T_DOUBLE_CONST: {
+        std::shared_ptr<DoubleConst> num = AST_SAFE_CAST(DoubleConst, root);
+        fmt::print(dot, "\tNode_{} [label=\"{:.6f}\"]\n", ++node, num->get_value());
+        fmt::print(dot, "\tNode_{} -> Node_{} [label=\"const\"]\n", parent_body_id, node);
+        break;
+    }
     case T_VAR: {
         std::shared_ptr<Var> t_var = AST_SAFE_CAST(Var, root);
         fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, t_var->get_var_id());
@@ -809,7 +822,8 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         }
         break;
     }
-    case T_NUM_GENERAL:
+    case T_INT_GENERAL:
+    case T_DOUBLE_GENERAL:
     case T_BASE:
     default: {
         UNREACHABLE();

@@ -14,6 +14,7 @@
 #include "maps.hpp"
 #include "util.hpp"
 #include "x86_64.hpp"
+#include "semantics.hpp"
 
 #define MAX_DIGITS 32
 #define STR_RESERVED_SIZE 128
@@ -39,12 +40,17 @@ void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
 void number_in_register(std::shared_ptr<ast::Node> nd,
     std::string_view reg,
     std::ofstream& out,
-    CompileInfo& c_info);
+    CompileInfo& c_info, bool double_in_memory = false);
 
 void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     std::string_view reg,
     std::ofstream& out,
     CompileInfo& c_info);
+void arithmetic_tree_to_x86_64_double(std::shared_ptr<ast::Node> root,
+    std::string_view reg,
+    std::ofstream& out,
+    CompileInfo& c_info);
+
 void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
     std::ofstream& out,
     CompileInfo& c_info,
@@ -62,6 +68,15 @@ const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
     { GREATER_OR_EQ, "jge", "jl" },
 };
 
+const cmp_operation comisd_operation_structs[CMP_OPERATION_ENUM_END] = {
+    { EQUAL, "je", "jne" },
+    { NOT_EQUAL, "jne", "je" },
+    { LESS, "jb", "jae" },
+    { LESS_OR_EQ, "jbe", "ja" },
+    { GREATER, "ja", "jbe" },
+    { GREATER_OR_EQ, "jae", "jb" },
+};
+
 /* Get an assembly reference to a numeric variable or a constant
  * ensures variable is a number */
 std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info)
@@ -76,6 +91,29 @@ std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& 
         return fmt::format("qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
     } else if (node->get_type() == ast::T_CONST) {
         return fmt::format("{}", AST_SAFE_CAST(ast::Const, node)->get_value());
+    } else {
+        UNREACHABLE();
+    }
+}
+
+std::string double_const_ref(std::shared_ptr<ast::DoubleConst> node, CompileInfo &c_info)
+{
+    double d = node->get_value();
+    return fmt::format("[double{}]", c_info.check_double_const(d));
+}
+
+std::string asm_from_double_or_const(std::shared_ptr<ast::Node> node, CompileInfo &c_info)
+{
+    assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_DOUBLE_CONST);
+    if (node->get_type() == ast::T_VAR) {
+        auto t_var = AST_SAFE_CAST(ast::Var, node);
+
+        c_info.error_on_undefined(t_var);
+        c_info.error_on_wrong_type(t_var, V_DOUBLE);
+
+        return fmt::format("qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
+    } else if (node->get_type() == ast::T_DOUBLE_CONST) {
+        return double_const_ref(AST_SAFE_CAST(ast::DoubleConst, node), c_info);
     } else {
         UNREACHABLE();
     }
@@ -110,6 +148,23 @@ inline void print_mov_if_req(std::string_view target,
         fmt::print(out, "mov {}, {}\n", target, source);
 }
 
+/* Print assembly mov from source to target if they are not equal */
+inline void print_movsd_if_req(std::string_view target,
+    std::string_view source,
+    std::ofstream& out)
+{
+    if (target != source)
+        fmt::print(out, "movsd {}, {}\n", target, source);
+}
+
+inline void print_movq_if_req(std::string_view target,
+    std::string_view source,
+    std::ofstream& out)
+{
+    if (target != source)
+        fmt::print(out, "movq {}, {}\n", target, source);
+}
+
 void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
     std::string_view reg,
     std::ofstream& out)
@@ -136,19 +191,42 @@ void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
     }
 }
 
+void move_double_const_into_memory(std::shared_ptr<ast::DoubleConst> d, std::string_view memory, std::ofstream &out, CompileInfo &c_info)
+{
+    fmt::print(out, "movsd xmm0, {}\n"
+                    "movsd {}, xmm0\n", double_const_ref(d, c_info), memory);
+}
+
 /* Move a tree_node, which evaluates to a number into a register */
 void number_in_register(std::shared_ptr<ast::Node> nd,
     std::string_view reg,
     std::ofstream& out,
-    CompileInfo& c_info)
+    CompileInfo& c_info, bool double_in_memory)
 {
     assert(ast::could_be_num(nd->get_type()));
 
     switch (nd->get_type()) {
     case ast::T_ARIT:
-        arithmetic_tree_to_x86_64(nd, reg, out, c_info);
+        if (semantic::get_number_type(nd, c_info) == V_INT)
+            arithmetic_tree_to_x86_64(nd, reg, out, c_info);
+        else if (semantic::get_number_type(nd, c_info) == V_DOUBLE)
+            arithmetic_tree_to_x86_64_double(nd, reg, out, c_info);
         break;
-    case ast::T_VAR:
+    case ast::T_VAR: {
+        auto var = AST_SAFE_CAST(ast::Var, nd);
+        if (c_info.known_vars[var->get_var_id()].type == V_INT) {
+            print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
+        } else if (c_info.known_vars[var->get_var_id()].type == V_DOUBLE) {
+            print_movsd_if_req(reg, asm_from_double_or_const(nd, c_info), out);
+        }
+        break;
+    }
+    case ast::T_DOUBLE_CONST:
+        if (double_in_memory)
+            move_double_const_into_memory(AST_SAFE_CAST(ast::DoubleConst, nd), reg, out, c_info);
+        else
+            print_movsd_if_req(reg, asm_from_double_or_const(nd, c_info), out);
+        break;
     case ast::T_CONST:
         print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
         break;
@@ -173,6 +251,108 @@ void number_in_register(std::shared_ptr<ast::Node> nd,
 
 /* Parse a tree representing an arithmetic expression into assembly recursively
  */
+void arithmetic_tree_to_x86_64_double(std::shared_ptr<ast::Node> root,
+    std::string_view reg,
+    std::ofstream& out,
+    CompileInfo& c_info)
+{
+    /* If we are only a number: mov us into the target and leave */
+    if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_DOUBLE_CONST) {
+        print_movsd_if_req(reg, asm_from_double_or_const(root, c_info), out);
+        return;
+    }
+
+    assert(root->get_type() == ast::T_ARIT);
+
+    std::shared_ptr<ast::Arit> arit = AST_SAFE_CAST(ast::Arit, root);
+
+    std::string_view second_value = "xmm2";
+
+    assert(ast::could_be_num(arit->left->get_type()) && ast::could_be_num(arit->right->get_type()));
+
+    bool value_in_xmm0 = false;
+
+    /* If our children are also calculations: recurse */
+    if (arit->left->get_type() == ast::T_ARIT) {
+        arithmetic_tree_to_x86_64_double(arit->left, "xmm0", out, c_info);
+        value_in_xmm0 = true;
+    }
+    if (arit->right->get_type() == ast::T_ARIT) {
+        /* Preserve rax */
+        if (value_in_xmm0)
+            fmt::print(out, "sub rsp, 8\n"
+                            "movq [rsp], xmm0\n");
+        arithmetic_tree_to_x86_64_double(arit->right, "xmm2", out, c_info);
+        if (value_in_xmm0)
+            fmt::print(out, "movq xmm0, [rsp]\n"
+                            "add rsp, 8\n");
+    }
+
+    /* If our children are numbers: mov them into the target
+     * Only check for this the second time around because the numbers
+     * could get overwritten if we moved before doing another calculation */
+    if (arit->left->get_type() == ast::T_DOUBLE_CONST || arit->left->get_type() == ast::T_VAR || arit->left->get_type() == ast::T_VFUNC || arit->left->get_type() == ast::T_ACCESS) {
+        number_in_register(arit->left, "xmm0", out, c_info);
+
+        value_in_xmm0 = true;
+    }
+
+    switch (arit->right->get_type()) {
+    case ast::T_DOUBLE_CONST:
+    case ast::T_VAR: {
+        fmt::print(out, "movsd xmm2, {}\n", asm_from_double_or_const(arit->right, c_info));
+        break;
+    }
+    case ast::T_ACCESS: {
+        assert("double arrays are not implemented yet" && false);
+        number_in_register(arit->left, "xmm2", out, c_info);
+        break;
+    }
+    case ast::T_VFUNC: {
+        assert("double vfuncs are not implemented yet" && false);
+        // if (value_in_rax)
+        //     fmt::print(out, "push rax\n");
+        // print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out);
+        // if (value_in_rax)
+        //     fmt::print(out, "pop rax\n");
+        break;
+    }
+    default:
+        break;
+    }
+
+    /* NOTE: Switch to i- div, mul once signed numbers
+     * are supported */
+
+    /* Execute the calculation */
+    switch (arit->get_arit()) {
+    case ADD:
+        fmt::print(out, "addsd xmm0, {}\n", second_value);
+        print_movsd_if_req(reg, "xmm0", out);
+        break;
+    case SUB:
+        fmt::print(out, "subsd xmm0, {}\n", second_value);
+        print_movsd_if_req(reg, "xmm0", out);
+        break;
+    case DIV:
+        fmt::print(out, "divsd xmm0, {}\n", second_value);
+        print_movsd_if_req(reg, "xmm0", out);
+        break;
+    case MOD:
+        c_info.err.error("'{}' not allowed in floating point operations", arit_str_map.at(arit->get_arit()));
+        break;
+    case MUL:
+        fmt::print(out, "mulsd xmm0, {}\n", second_value);
+        print_movsd_if_req(reg, "xmm0", out);
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+}
+
+/* Parse a tree representing an arithmetic expression into assembly recursively
+ */
 void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
     std::string_view reg,
     std::ofstream& out,
@@ -180,7 +360,7 @@ void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
 {
     /* If we are only a number: mov us into the target and leave */
     if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
-        fmt::print(out, "mov {}, {}\n", reg, asm_from_int_or_const(root, c_info));
+        print_mov_if_req(reg, asm_from_int_or_const(root, c_info), out);
         return;
     }
 
@@ -315,6 +495,10 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, Compile
             i, c_info.known_strings[i]);
     }
 
+    for (size_t i = 0; i < c_info.known_double_consts.size(); i++) {
+        fmt::print(out, "double{}: dq {:.6f}\n", i, c_info.known_double_consts[i]);
+    }
+
     /* Reserved string variables */
     if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(), [](VarInfo v) { return v.type == V_STR; }) != c_info.known_vars.end()) {
         fmt::print(out, "section .bss\n");
@@ -328,8 +512,9 @@ void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, Compile
         }
     }
 
-    fmt::print(out, "extern uprint\n");
-    fmt::print(out, "extern putchar\n");
+    fmt::print(out, "extern uprint\n"
+                    "extern fprint\n"
+                    "extern putchar\n");
 
     out.close();
 }
@@ -434,6 +619,11 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                 asm_from_int_or_const(t_func->args[0], c_info), out, c_info);
             break;
         }
+        case F_DOUBLE: {
+            number_in_register(t_func->args[1],
+                asm_from_double_or_const(t_func->args[0], c_info), out, c_info, true);
+            break;
+        }
         case F_PRINT: {
             std::shared_ptr<ast::Lstr> ls = AST_SAFE_CAST(ast::Lstr, t_func->args[0]);
 
@@ -457,6 +647,12 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     c_info.error_on_undefined(the_var);
 
                     switch (the_var_info.type) {
+                    case V_DOUBLE: {
+                        fmt::print(out, "movsd xmm0, {}\n"
+                                        "call fprint\n",
+                            asm_from_double_or_const(format, c_info));
+                        break;
+                    }
                     case V_INT: {
                         fmt::print(out, "mov rdi, {}\n"
                                         "call uprint\n",
@@ -479,6 +675,7 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                     }
                     break;
                 }
+                case ast::T_DOUBLE_CONST:
                 case ast::T_CONST:
                 case ast::T_ACCESS: {
                     number_in_register(format, "rdi", out, c_info);
@@ -509,6 +706,31 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                 mov_reg_into_array_access(AST_SAFE_CAST(ast::Access, t_func->args[0]), input, "rbx", out, c_info);
             } else if (t_func->args[0]->get_type() == ast::T_VAR) {
                 print_mov_if_req(asm_from_int_or_const(t_func->args[0], c_info), input, out);
+            } else {
+                UNREACHABLE();
+            }
+            break;
+        }
+        // TODO: make this function obsolete by overloading F_SET
+        case F_SETD: {
+            std::string input;
+
+            if (t_func->args[1]->get_type() == ast::T_ACCESS) {
+                assert(false && "double array accesses are not implemented yet");
+                // array_access_into_register(AST_SAFE_CAST(ast::Access, t_func->args[1]), "rax", "rbx", out, c_info);
+                // input = "rax";
+            } else if (t_func->args[1]->get_type() == ast::T_DOUBLE_CONST) {
+                input = double_const_ref(AST_SAFE_CAST(ast::DoubleConst, t_func->args[1]), c_info);
+            } else {
+                number_in_register(t_func->args[1], "xmm0", out, c_info);
+                input = "xmm0";
+            }
+
+            if (t_func->args[0]->get_type() == ast::T_ACCESS) {
+                assert(false && "double array accesses are not implemented yet");
+                // mov_reg_into_array_access(AST_SAFE_CAST(ast::Access, t_func->args[0]), input, "rbx", out, c_info);
+            } else if (t_func->args[0]->get_type() == ast::T_VAR) {
+                print_movq_if_req(asm_from_double_or_const(t_func->args[0], c_info), input, out);
             } else {
                 UNREACHABLE();
             }
@@ -569,69 +791,125 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
                                           * from asm_from_int_or_const() go out of scope. */
         cmp_op op;
 
-        if (cmp->left->get_type() == ast::T_CONST && !cmp->right) {
-            auto cnst = AST_SAFE_CAST(ast::Const, cmp->left);
-
-            if (cnst->get_value() != 0 && cmp_log_or) {
-                fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
-            } else if (cnst->get_value() == 0) {
-                fmt::print(out, "jmp .end{}\n", body_id);
-            }
-
-            break;
-        }
-
-        /* Cannot use immediate value as first operand to 'cmp' */
-        if (cmp->left->get_type() == ast::T_VAR) {
-            regs[0] = asm_from_int_or_const(cmp->left, c_info);
-        } else {
-            arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
-            regs[0] = "r8";
-        }
-
+        var_type type = semantic::get_number_type(cmp->left, c_info);
         if (cmp->right) {
-            if (cmp->right->get_type() == ast::T_CONST) {
-                regs[1] = asm_from_int_or_const(cmp->right, c_info);
-            } else {
-                arithmetic_tree_to_x86_64(cmp->right, "r9", out, c_info);
-                regs[1] = "r9";
+            c_info.err.on_false(type == semantic::get_number_type(cmp->right, c_info), "Mismatched types in comparison: '{}' and '{}'"
+                                                                                    , var_type_str_map.at(type)
+                                                                                    , var_type_str_map.at(semantic::get_number_type(cmp->right, c_info)));
+        }
+
+        if (type == V_INT) {
+            if (cmp->left->get_type() == ast::T_CONST && !cmp->right) {
+                auto cnst = AST_SAFE_CAST(ast::Const, cmp->left);
+
+                if (cnst->get_value() != 0 && cmp_log_or) {
+                    fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
+                } else if (cnst->get_value() == 0) {
+                    fmt::print(out, "jmp .end{}\n", body_id);
+                }
+
+                break;
             }
 
-            op = cmp->get_cmp();
-        } else {
-            /* If we are not comparing something: just check against one */
-            regs[1] = "0";
-            op = NOT_EQUAL;
-        }
-        /* Why the opposite jump of what we are doing?
-         * lets say:
-         * if 2 == 2
-         *     ....
-         * end
-         * we don't want to do:
-         * cmp 2, 2
-         * je beginning of if block
-         * jmp end of if block
-         * beginning
-         * ....
-         * end
-         *
-         * just:
-         * cmp 2, 2
-         * jne end of if block
-         * ....
-         * end */
+            /* Cannot use immediate value as first operand to 'cmp' */
+            if (cmp->left->get_type() == ast::T_VAR) {
+                regs[0] = asm_from_int_or_const(cmp->left, c_info);
+            } else {
+                arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
+                regs[0] = "r8";
+            }
 
-        if (cmp_log_or) {
-            /* We are part of an or-condition, meaning that if we conceed,
-             * we immediately go to the beginning of the body */
-            fmt::print(out, "cmp {}, {}\n"
-                            "{} .cond_entry{}\n",
-                regs[0], regs[1], cmp_operation_structs[op].asm_name, cond_entry);
+            if (cmp->right) {
+                if (cmp->right->get_type() == ast::T_CONST) {
+                    regs[1] = asm_from_int_or_const(cmp->right, c_info);
+                } else {
+                    arithmetic_tree_to_x86_64(cmp->right, "r9", out, c_info);
+                    regs[1] = "r9";
+                }
+
+                op = cmp->get_cmp();
+            } else {
+                /* If we are not comparing something: just check against one */
+                regs[1] = "0";
+                op = NOT_EQUAL;
+            }
+            /* Why the opposite jump of what we are doing?
+            * lets say:
+            * if 2 == 2
+            *     ....
+            * end
+            * we don't want to do:
+            * cmp 2, 2
+            * je beginning of if block
+            * jmp end of if block
+            * beginning
+            * ....
+            * end
+            *
+            * just:
+            * cmp 2, 2
+            * jne end of if block
+            * ....
+            * end */
+
+            if (cmp_log_or) {
+                /* We are part of an or-condition, meaning that if we conceed,
+                * we immediately go to the beginning of the body */
+                fmt::print(out, "cmp {}, {}\n"
+                                "{} .cond_entry{}\n",
+                    regs[0], regs[1], cmp_operation_structs[op].asm_name, cond_entry);
+            } else {
+                fmt::print(out, "cmp {}, {}\n"
+                                "{} .end{}\n",
+                    regs[0], regs[1], cmp_operation_structs[op].opposite_asm_name, body_id);
+            }
+        } else if (type == V_DOUBLE) {
+            if (cmp->left->get_type() == ast::T_DOUBLE_CONST && !cmp->right) {
+                auto cnst = AST_SAFE_CAST(ast::DoubleConst, cmp->left);
+
+                if (cnst->get_value() != 0.0f && cmp_log_or) {
+                    fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
+                } else if (cnst->get_value() == 0.0f) {
+                    fmt::print(out, "jmp .end{}\n", body_id);
+                }
+
+                break;
+            }
+
+            // TODO: check for unordered values
+
+            /* Cannot use immediate value or memory access as first operand to 'cmp' */
+            arithmetic_tree_to_x86_64_double(cmp->left, "xmm8", out, c_info);
+            regs[0] = "xmm8";
+
+            if (cmp->right) {
+                if (cmp->right->get_type() == ast::T_DOUBLE_CONST) {
+                    regs[1] = asm_from_double_or_const(cmp->right, c_info);
+                } else {
+                    arithmetic_tree_to_x86_64_double(cmp->right, "xmm9", out, c_info);
+                    regs[1] = "xmm9";
+                }
+
+                op = cmp->get_cmp();
+            } else {
+                /* If we are not comparing something: just check against one */
+                regs[1] = "0";
+                op = NOT_EQUAL;
+            }
+
+            if (cmp_log_or) {
+                /* We are part of an or-condition, meaning that if we conceed,
+                * we immediately go to the beginning of the body */
+                fmt::print(out, "comisd {}, {}\n"
+                                "{} .cond_entry{}\n",
+                    regs[0], regs[1], comisd_operation_structs[op].asm_name, cond_entry);
+            } else {
+                fmt::print(out, "comisd {}, {}\n"
+                                "{} .end{}\n",
+                    regs[0], regs[1], comisd_operation_structs[op].opposite_asm_name, body_id);
+            }
         } else {
-            fmt::print(out, "cmp {}, {}\n"
-                            "{} .end{}\n",
-                regs[0], regs[1], cmp_operation_structs[op].opposite_asm_name, body_id);
+            UNREACHABLE();
         }
 
         break;

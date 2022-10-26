@@ -60,6 +60,7 @@ class CompileInfo {
 public:
     std::vector<VarInfo> known_vars;
     std::vector<std::string_view> known_strings;
+    std::vector<double> known_double_consts;
 
     ErrorHandler err;
 
@@ -74,6 +75,7 @@ public:
     int check_var(std::string_view var);
     int check_array(std::string_view array);
     int check_str(std::string_view str);
+    int check_double_const(double d);
 
     size_t get_stack_size() const { return stack_size; }
     size_t get_stack_size_and_append(size_t length_to_append);

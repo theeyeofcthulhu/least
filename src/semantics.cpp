@@ -9,26 +9,50 @@
 
 namespace semantic {
 
+static inline bool is_single_number(std::shared_ptr<ast::Node> nd);
+static inline bool is_int(std::shared_ptr<ast::Node> nd);
+static inline bool is_double(std::shared_ptr<ast::Node> nd);
 /* Check if the supplied args comply with spec */
 void check_correct_function_call(const FunctionSpec& spec,
     const std::vector<std::shared_ptr<ast::Node>>& args,
     CompileInfo& c_info);
+var_type check_arit_types(std::shared_ptr<ast::Arit> arit, CompileInfo &c_info, var_type type = V_UNSURE);
 
 /* How each function needs to be called */
 const std::map<func_id, FunctionSpec> func_spec_map = {
     std::make_pair<func_id, FunctionSpec>(F_PRINT, { "print", 1, { ast::T_LSTR }, {}, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_EXIT, { "exit", 1, { ast::T_NUM_GENERAL }, {}, {} }),
+    std::make_pair<func_id, FunctionSpec>(F_EXIT, { "exit", 1, { ast::T_INT_GENERAL }, {}, {} }),
     std::make_pair<func_id, FunctionSpec>(F_READ, { "read", 1, { ast::T_VAR }, { V_STR }, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_SET, { "set", 2, { ast::T_IN_MEMORY, ast::T_NUM_GENERAL }, { V_INT }, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_ADD, { "add", 2, { ast::T_IN_MEMORY, ast::T_NUM_GENERAL }, { V_INT }, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_SUB, { "sub", 2, { ast::T_IN_MEMORY, ast::T_NUM_GENERAL }, { V_INT }, {} }),
+    // TODO overloaded functions like set
+    std::make_pair<func_id, FunctionSpec>(F_SET, { "set", 2, { ast::T_IN_MEMORY, ast::T_INT_GENERAL }, { V_INT }, {} }),
+    std::make_pair<func_id, FunctionSpec>(F_SETD, { "setd", 2, { ast::T_IN_MEMORY, ast::T_DOUBLE_GENERAL }, { V_DOUBLE }, {} }),
+    std::make_pair<func_id, FunctionSpec>(F_ADD, { "add", 2, { ast::T_IN_MEMORY, ast::T_INT_GENERAL }, { V_INT }, {} }),
+    std::make_pair<func_id, FunctionSpec>(F_SUB, { "sub", 2, { ast::T_IN_MEMORY, ast::T_INT_GENERAL }, { V_INT }, {} }),
     std::make_pair<func_id, FunctionSpec>(F_BREAK, { "break", 0, {}, {}, {} }),
     std::make_pair<func_id, FunctionSpec>(F_CONT, { "continue", 0, {}, {}, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_PUTCHAR, { "putchar", 1, { ast::T_NUM_GENERAL }, {}, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_INT, { "int", 2, { ast::T_VAR, ast::T_NUM_GENERAL }, { V_INT }, { { 0, V_INT } } }),
+    std::make_pair<func_id, FunctionSpec>(F_PUTCHAR, { "putchar", 1, { ast::T_INT_GENERAL }, {}, {} }),
+    std::make_pair<func_id, FunctionSpec>(F_INT, { "int", 2, { ast::T_VAR, ast::T_INT_GENERAL }, { V_INT }, { { 0, V_INT } } }),
+    std::make_pair<func_id, FunctionSpec>(F_DOUBLE, { "double", 2, { ast::T_VAR, ast::T_DOUBLE_GENERAL }, { V_DOUBLE }, { { 0, V_DOUBLE } } }),
     std::make_pair<func_id, FunctionSpec>(F_ARRAY, { "array", 2, { ast::T_VAR, ast::T_CONST }, { V_ARR }, { { 0, V_ARR } } }),
     std::make_pair<func_id, FunctionSpec>(F_STR, { "str", 1, { ast::T_VAR }, { V_STR }, { { 0, V_STR } } }),
 };
+
+static inline bool is_single_number(std::shared_ptr<ast::Node> nd)
+{
+    return nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_DOUBLE_CONST || nd->get_type() == ast::T_VAR
+                             || nd->get_type() == ast::T_ACCESS || nd->get_type() == ast::T_VFUNC;
+}
+
+static inline bool is_int(std::shared_ptr<ast::Node> nd)
+{
+    return nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_ACCESS || nd->get_type() == ast::T_VFUNC || nd->get_type() == ast::T_ARIT;
+}
+
+// TODO: array doubles
+static inline bool is_double(std::shared_ptr<ast::Node> nd)
+{
+    return nd->get_type() == ast::T_DOUBLE_CONST || nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_VFUNC || nd->get_type() == ast::T_ARIT;
+}
 
 /* Give information about how a correct function call looks like and check for
  * it */
@@ -68,41 +92,61 @@ void check_correct_function_call(const FunctionSpec& spec,
     for (size_t i = 0; i < args.size(); i++) {
         const auto& arg = args[i];
 
-        if (spec.types[i] == ast::T_NUM_GENERAL) {
-            /* NUM_GENERAL means that arg has to evaluate to a number */
-            c_info.err.on_false(arg->get_type() == ast::T_VAR || arg->get_type() == ast::T_CONST || arg->get_type() == ast::T_ARIT || arg->get_type() == ast::T_VFUNC,
-                "Argument {} to '{}' has to evaluate to a number", i, spec.name);
+        if (spec.types[i] == ast::T_INT_GENERAL) {
+            c_info.err.on_false(is_int(arg),
+                "Argument {} to '{}' has to evaluate to an integer", i, spec.name);
 
             /* If we are var: check that we are int */
             if (arg->get_type() == ast::T_VAR) {
                 auto t_var = AST_SAFE_CAST(ast::Var, args[i]);
-                auto v_info = c_info.known_vars[t_var->get_var_id()];
 
-                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time", v_info.name);
-                c_info.err.on_false(
-                    v_info.type == V_INT, "Argument {} to '{}' has to have type '{}' but has '{}'", i,
-                    spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type));
+                c_info.error_on_undefined(t_var);
+                c_info.error_on_wrong_type(t_var, V_INT);
             } else if (arg->get_type() == ast::T_VFUNC) {
                 auto vfunc = AST_SAFE_CAST(ast::VFunc, args[i]);
                 c_info.err.on_false(vfunc->get_return_type() == V_INT,
-                    "Argument {} to '{}' has to evaluate to a number"
+                    "Argument {} to '{}' has to evaluate to an integer"
                     "Got '{}' returning '{}'",
                     i, spec.name, vfunc_str_map.at(vfunc->get_value_func()),
                     var_type_str_map.at(vfunc->get_return_type()));
+            } else if (arg->get_type() == ast::T_ARIT) {
+                auto arit = AST_SAFE_CAST(ast::Arit, args[i]);
+                c_info.err.on_false(check_arit_types(arit, c_info) == V_INT,
+                                    "Argument {} to '{}' has to evaluate to an integer", i, spec.name);
+            }
+        } else if (spec.types[i] == ast::T_DOUBLE_GENERAL) {
+            c_info.err.on_false(is_double(arg),
+                "Argument {} to '{}' has to evaluate to a double", i, spec.name);
+
+            /* If we are var: check that we are double */
+            if (arg->get_type() == ast::T_VAR) {
+                auto t_var = AST_SAFE_CAST(ast::Var, args[i]);
+
+                c_info.error_on_undefined(t_var);
+                c_info.error_on_wrong_type(t_var, V_DOUBLE);
+            } else if (arg->get_type() == ast::T_VFUNC) {
+                assert(false && "double vfuncs not implemented yet");
+                // auto vfunc = AST_SAFE_CAST(ast::VFunc, args[i]);
+                // c_info.err.on_false(vfunc->get_return_type() == V_DOUBLE,
+                //     "Argument {} to '{}' has to evaluate to a double"
+                //     "Got '{}' returning '{}'",
+                //     i, spec.name, vfunc_str_map.at(vfunc->get_value_func()),
+                //     var_type_str_map.at(vfunc->get_return_type()));
+            } else if (arg->get_type() == ast::T_ARIT) {
+                auto arit = AST_SAFE_CAST(ast::Arit, args[i]);
+                c_info.err.on_false(check_arit_types(arit, c_info) == V_DOUBLE,
+                                    "Argument {} to '{}' has to evaluate to a double", i, spec.name);
             }
         } else if (spec.types[i] == ast::T_IN_MEMORY) {
             c_info.err.on_false(arg->get_type() == ast::T_VAR || arg->get_type() == ast::T_ACCESS, "Argument {} to '{}' has to have a memory address", i, spec.name);
 
-            /* If we are var: check that we are int */
             if (arg->get_type() == ast::T_VAR) {
                 auto t_var = AST_SAFE_CAST(ast::Var, args[i]);
-                auto v_info = c_info.known_vars[t_var->get_var_id()];
-
-                c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time",
-                    v_info.name);
-                c_info.err.on_false(
+                c_info.error_on_undefined(t_var);
+                // TODO: do we need this error check?
+                /* c_info.err.on_false(
                     v_info.type == V_INT, "Argument {} to '{}' has to have type '{}' but has '{}'", i,
-                    spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type));
+                    spec.name, var_type_str_map.at(V_INT), var_type_str_map.at(v_info.type)); */
             } else if (arg->get_type() == ast::T_ACCESS) {
                 auto access = AST_SAFE_CAST(ast::Access, args[i]);
                 auto v_info = c_info.known_vars[access->get_array_id()];
@@ -120,18 +164,14 @@ void check_correct_function_call(const FunctionSpec& spec,
 
         /* If we are a var: check the provided 'info' type information if the
          * type is correct */
-        if (arg->get_type() == ast::T_VAR && spec.types[i] != ast::T_NUM_GENERAL) {
+        if (arg->get_type() == ast::T_VAR && spec.types[i] != ast::T_INT_GENERAL && spec.types[i] != ast::T_DOUBLE_GENERAL) {
             auto t_var = AST_SAFE_CAST(ast::Var, args[i]);
-            auto v_info = c_info.known_vars[t_var->get_var_id()];
 
             c_info.err.on_true(info_it == spec.info.end() || spec.info.empty(),
                 "Could not parse arguments to function '{}'", spec.name);
 
-            c_info.err.on_false(v_info.defined, "Var '{}' is undefined at this time", v_info.name);
-            c_info.err.on_false(v_info.type == *info_it.base(),
-                "Argument {} to '{}' has to have type '{}' but has '{}'", i,
-                v_info.name, var_type_str_map.at(v_info.type),
-                var_type_str_map.at(*info_it.base()));
+            c_info.error_on_undefined(t_var);
+            c_info.error_on_wrong_type(t_var, *info_it.base());
 
             info_it++;
         }
@@ -182,6 +222,11 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
             c_info.known_vars[t_var->get_var_id()].stack_offset = c_info.get_stack_size_and_append(1);
             break;
         }
+        case F_DOUBLE: {
+            auto t_var = AST_SAFE_CAST(ast::Var, t_func->args[0]);
+            c_info.known_vars[t_var->get_var_id()].stack_offset = c_info.get_stack_size_and_append(1);
+            break;
+        }
         case F_ARRAY: {
             auto t_var = AST_SAFE_CAST(ast::Var, t_func->args[0]);
             auto t_size = AST_SAFE_CAST(ast::Const, t_func->args[1]);
@@ -204,6 +249,8 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
     case ast::T_CMP: {
         std::shared_ptr<ast::Cmp> t_cmp = AST_SAFE_CAST(ast::Cmp, root);
 
+        // TODO: type error checking
+
         if (t_cmp->left)
             semantic_analysis(t_cmp->left, c_info);
         if (t_cmp->right)
@@ -219,6 +266,7 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
             semantic_analysis(log->right, c_info);
         break;
     }
+    case ast::T_DOUBLE_CONST:
     case ast::T_CONST: {
         break;
     }
@@ -243,6 +291,10 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
     case ast::T_ARIT: {
         std::shared_ptr<ast::Arit> t_arit = AST_SAFE_CAST(ast::Arit, root);
 
+        // TODO: do not check arits twice
+        // i.e.: put checked arits into an array
+        check_arit_types(t_arit, c_info);
+
         semantic_analysis(t_arit->left, c_info);
         semantic_analysis(t_arit->right, c_info);
         break;
@@ -262,13 +314,81 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
         }
         break;
     }
-    case ast::T_NUM_GENERAL:
+    case ast::T_INT_GENERAL:
+    case ast::T_DOUBLE_GENERAL:
     case ast::T_BASE:
     default: {
         UNREACHABLE();
         break;
     }
     }
+}
+
+var_type get_number_type(std::shared_ptr<ast::Node> nd, CompileInfo &c_info)
+{
+    if (nd->get_type() == ast::T_CONST) {
+        return V_INT;
+    } else if (nd->get_type() == ast::T_DOUBLE_CONST) {
+        return V_DOUBLE;
+    } else if (nd->get_type() == ast::T_VAR) {
+        const VarInfo &var = c_info.known_vars[AST_SAFE_CAST(ast::Var, nd)->get_var_id()];
+
+        c_info.err.on_false(var.defined, "Variable '{}' is undefined at this time", var.name);
+        c_info.err.on_false(var.type == V_INT || var.type == V_DOUBLE, "Expected int or double");
+
+        return var.type;
+    } else if (nd->get_type() == ast::T_ACCESS) {
+        // TODO: implement double arrays here
+        return V_INT;
+    } else if (nd->get_type() == ast::T_VFUNC) {
+        auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
+
+        return vfunc_var_type_map.at(vfunc->get_value_func());
+    } else if (nd->get_type() == ast::T_ARIT) {
+        auto arit = AST_SAFE_CAST(ast::Arit, nd);
+
+        return check_arit_types(arit, c_info);
+    }
+
+    UNREACHABLE();
+    return V_UNSURE;
+}
+
+/* Checks if all types are equal and returns the type */
+
+// TODO: only have this function called once for every expression
+var_type check_arit_types(std::shared_ptr<ast::Arit> arit, CompileInfo &c_info, var_type type)
+{
+    if (type == V_UNSURE) {
+        if (is_single_number(arit->left))
+            type = get_number_type(arit->left, c_info);
+        else if (is_single_number(arit->right))
+            type = get_number_type(arit->right, c_info);
+    }
+
+    if (type != V_UNSURE) {
+        if (is_single_number(arit->left)) {
+            var_type ltype = get_number_type(arit->left, c_info);
+            c_info.err.on_true(ltype != type, "Type mismatch: '{}' and '{}'", var_type_str_map.at(ltype), var_type_str_map.at(type));
+        } else {
+            check_arit_types(AST_SAFE_CAST(ast::Arit, arit->left), c_info, type);
+        }
+        if (is_single_number(arit->right)) {
+            var_type rtype = get_number_type(arit->right, c_info);
+            c_info.err.on_true(rtype != type, "Type mismatch: '{}' and '{}'", var_type_str_map.at(type), var_type_str_map.at(rtype));
+        } else {
+            check_arit_types(AST_SAFE_CAST(ast::Arit, arit->right), c_info, type);
+        }
+    } else {
+        // Try to get the type from recursive call
+        type = check_arit_types(AST_SAFE_CAST(ast::Arit, arit->left), c_info, type);
+        if (type == V_UNSURE)
+            type = check_arit_types(AST_SAFE_CAST(ast::Arit, arit->right), c_info, type);
+        else
+            check_arit_types(AST_SAFE_CAST(ast::Arit, arit->right), c_info, type);
+    }
+
+    return type;
 }
 
 } // namespace semantic

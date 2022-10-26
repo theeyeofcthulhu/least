@@ -14,4 +14,7 @@
 // Does container v have element x
 #define HAS(v, x) (std::find((v).begin(), (v).end(), (x)) != v.end())
 
+// For debugging with valgrind
+#define SEGFAULT() *(int *) 0x0 = 0;
+
 #endif // MACROS_H_

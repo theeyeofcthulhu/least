@@ -28,6 +28,7 @@ enum token_type : int {
     TK_STR,
     TK_LSTR,
     TK_NUM,
+    TK_DOUBLE_NUM,
     TK_VAR,
     TK_ACCESS,
     TK_SEP,
@@ -153,6 +154,21 @@ public:
 private:
     static const token_type m_type = lexer::TK_NUM;
     int m_num;
+};
+
+class DoubleNum : public Token {
+public:
+    DoubleNum(int line, double t_num)
+        : Token(line)
+        , m_num(t_num)
+    {
+    }
+    double get_num() const { return m_num; };
+    token_type get_type() const override { return m_type; };
+
+private:
+    static const token_type m_type = lexer::TK_DOUBLE_NUM;
+    double m_num;
 };
 
 class Var : public Token {
@@ -345,7 +361,7 @@ std::shared_ptr<T> safe_cast_core(std::shared_ptr<Token> tk, std::string_view fi
 
 inline bool could_be_num(lexer::token_type tt)
 {
-    return tt == TK_NUM || tt == TK_VAR || tt == TK_COM_CALL || tt == TK_ACCESS;
+    return tt == TK_DOUBLE_NUM || tt == TK_NUM || tt == TK_VAR || tt == TK_COM_CALL || tt == TK_ACCESS;
 }
 
 } // namespace lexer

@@ -27,6 +27,7 @@ enum ts_class : int {
     T_ELSE,
     T_WHILE,
     T_CONST,
+    T_DOUBLE_CONST,
     T_CMP,
     T_LOG,
     T_FUNC,
@@ -37,8 +38,9 @@ enum ts_class : int {
     T_STR,
     T_LSTR,
     T_ARIT,
-    T_NUM_GENERAL, /* Stands for int var, const and arit, i.e. anything that
+    T_INT_GENERAL, /* Stands for int var, const and arit, i.e. anything that
                       would be a number */
+    T_DOUBLE_GENERAL,
     T_IN_MEMORY,
 };
 
@@ -149,6 +151,23 @@ public:
 private:
     int m_value;
     static const ts_class m_type = T_CONST;
+};
+
+class DoubleConst : public Node {
+public:
+    double get_value() const { return m_value; };
+
+    ts_class get_type() const override { return m_type; };
+
+    DoubleConst(int line, double value)
+        : Node(line)
+        , m_value(value)
+    {
+    }
+
+private:
+    double m_value;
+    static const ts_class m_type = T_DOUBLE_CONST;
 };
 
 class Cmp : public Node {
@@ -372,7 +391,7 @@ inline bool has_precedence(arit_op op)
 
 inline bool could_be_num(ts_class type)
 {
-    return type == ast::T_ARIT || type == ast::T_CONST || type == ast::T_VFUNC || type == ast::T_VAR || type == ast::T_ACCESS;
+    return type == ast::T_ARIT || type == ast::T_CONST || type == ast::T_VFUNC || type == ast::T_VAR || type == ast::T_ACCESS || type == ast::T_DOUBLE_CONST;
 }
 
 } // namespace ast
