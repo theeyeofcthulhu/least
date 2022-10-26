@@ -1,10 +1,9 @@
 double x ; 2.0f ;
-double root ; 1000.0f ; // TODO abs function
-int a ; 2 ;
+double root ; 10.0f ; // TODO abs function
 
 while 1
     setd root ; 0.5f * (root + (x / root)) ;
-    if root * root - x < 0.001f
+    if root * root - x < 0.000001f
         break ;
     end
 end
