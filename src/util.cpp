@@ -31,11 +31,7 @@ std::vector<std::string_view> split(std::string_view str, char delim)
 /* Read a file and return the contents */
 std::string read_source_code(std::string_view filename, CompileInfo& c_info)
 {
-    /* FIXME: there is a proposal in C++ to make std::ifstream constructable from
-     * std::string_view, once this happens, simplify this. */
-    const std::string temp(filename);
-
-    std::ifstream fs(temp);
+    std::ifstream fs(filename.data());
     c_info.err.on_false(fs.is_open(), "{}: {}", filename, std::strerror(errno));
 
     std::string res;
