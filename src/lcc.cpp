@@ -77,14 +77,15 @@ int main(int argc, char** argv)
 
     info(fmt::format("[INFO] Generating abstract syntax tree\n"));
     /* Convert tokens to abstract syntax tree */
-    std::shared_ptr<ast::Body> ast_root = ast::gen_ast(ts, c_info);
+    ast::AstContext ast_context(ts, c_info);
+    std::shared_ptr<ast::Body> ast_root = ast_context.gen_ast();
 
     std::string dot_filename = fn.extension(".dot");
 
     if (output_dot) {
         /* Generate graphviz diagram from abstract syntax tree */
         info(fmt::format("[INFO] Generating tree diagram to: {}\n", GREEN_ARG(dot_filename)));
-        ast::tree_to_dot(ast_root, dot_filename, c_info);
+        ast_context.tree_to_dot(ast_root, dot_filename);
 
         std::string svg_filename = fn.extension(".svg");
 

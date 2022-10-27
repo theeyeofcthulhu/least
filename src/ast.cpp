@@ -16,58 +16,26 @@
 
 namespace ast {
 
-std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token> tk,
-    CompileInfo& c_info);
-
-void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    CompileInfo& c_info);
-std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    CompileInfo& c_info);
-
-std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    size_t& i,
-    CompileInfo& c_info);
-std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    CompileInfo& c_info);
-std::shared_ptr<If> parse_condition_to_if(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    size_t& i,
-    std::shared_ptr<Body> root,
-    CompileInfo& c_info,
-    bool is_elif);
-std::shared_ptr<While> parse_condition_to_while(
-    const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    size_t& i,
-    std::shared_ptr<Body> root,
-    CompileInfo& c_info);
-
-void tree_to_dot_core(std::shared_ptr<Node> root,
-    int& node,
-    int& tbody_id,
-    int parent_body_id,
-    std::ofstream& dot,
-    CompileInfo& c_info);
-
-Body::Body(int line, std::shared_ptr<Body> t_parent, CompileInfo& c_info)
-    : Node(line)
-    , parent(t_parent)
+std::shared_ptr<Body> AstContext::make_body(int line, std::shared_ptr<Body> t_parent)
 {
-    m_body_id = c_info.get_next_body_id();
+    return std::make_shared<Body>(line, t_parent, m_c_info.get_next_body_id());
 }
 
-Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, CompileInfo& c_info)
-    : Node(line)
+std::shared_ptr<Lstr> AstContext::make_lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts)
 {
+    std::vector<std::shared_ptr<Node>> format;
+
     for (const auto& tk : ts) {
         switch (tk->get_type()) {
         case lexer::TK_STR: {
             auto string = LEXER_SAFE_CAST(lexer::Str, tk);
-            format.push_back(std::make_shared<Str>(line, c_info.check_str(string->get_str())));
+            format.push_back(std::make_shared<Str>(line, m_c_info.check_str(string->get_str())));
             break;
         }
         case lexer::TK_VAR: {
             auto token_var = LEXER_SAFE_CAST(lexer::Var, tk);
             format.push_back(
-                std::make_shared<Var>(line, c_info.check_var(token_var->get_name())));
+                std::make_shared<Var>(line, m_c_info.check_var(token_var->get_name())));
             break;
         }
         case lexer::TK_NUM: {
@@ -77,7 +45,7 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, Compi
         }
         case lexer::TK_ACCESS: {
             auto access = LEXER_SAFE_CAST(lexer::Access, tk);
-            format.push_back(std::make_shared<Access>(line, c_info.check_array(access->get_array_name()), parse_arit_expr(access->expr, c_info)));
+            format.push_back(std::make_shared<Access>(line, m_c_info.check_array(access->get_array_name()), parse_arit_expr(access->expr)));
             break;
         }
         default:
@@ -85,11 +53,12 @@ Lstr::Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, Compi
             break;
         }
     }
+
+    return std::make_shared<Lstr>(line, format);
 }
 
 /* Tree node from variable or constant */
-std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token> tk,
-    CompileInfo& c_info)
+std::shared_ptr<ast::Node> AstContext::node_from_numeric_token(std::shared_ptr<lexer::Token> tk)
 {
     assert(lexer::could_be_num(tk->get_type()));
 
@@ -97,7 +66,7 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
 
     if (tk->get_type() == lexer::TK_VAR) {
         res = std::make_shared<ast::Var>(
-            tk->get_line(), c_info.check_var(LEXER_SAFE_CAST(lexer::Var, tk)->get_name()));
+            tk->get_line(), m_c_info.check_var(LEXER_SAFE_CAST(lexer::Var, tk)->get_name()));
     } else if (tk->get_type() == lexer::TK_NUM) {
         res = std::make_shared<ast::Const>(tk->get_line(),
             LEXER_SAFE_CAST(lexer::Num, tk)->get_num());
@@ -108,22 +77,21 @@ std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token>
         const auto& call = LEXER_SAFE_CAST(lexer::CompleteCall, tk);
 
         var_type ret_type = vfunc_var_type_map.at(call->get_vfunc());
-        c_info.err.on_false(ret_type == V_INT, "'{}' does not return an integer",
+        m_c_info.err.on_false(ret_type == V_INT, "'{}' does not return an integer",
             vfunc_str_map.at(call->get_vfunc()));
 
         res = std::make_shared<ast::VFunc>(tk->get_line(), call->get_vfunc(), ret_type);
     } else if (tk->get_type() == lexer::TK_ACCESS) {
         const auto& access = LEXER_SAFE_CAST(lexer::Access, tk);
 
-        res = std::make_shared<ast::Access>(tk->get_line(), c_info.check_array(access->get_array_name()), parse_arit_expr(access->expr, c_info));
+        res = std::make_shared<ast::Access>(tk->get_line(), m_c_info.check_array(access->get_array_name()), parse_arit_expr(access->expr));
     }
 
     return res;
 }
 
 /* Ensure that the pattern: 'num op num op num ...' is met */
-void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    CompileInfo& c_info)
+void AstContext::ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& ts)
 {
     bool expect_operator = false;
     for (size_t i = 0; i < ts.size(); i++) {
@@ -134,9 +102,9 @@ void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& t
             continue;
 
         if (expect_operator) {
-            c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator");
+            m_c_info.err.on_false(t->get_type() == lexer::TK_ARIT, "Expected arithmetic operator");
         } else {
-            c_info.err.on_false(lexer::could_be_num(t->get_type()),
+            m_c_info.err.on_false(lexer::could_be_num(t->get_type()),
                 "Expected variable, parenthesis, constant or inline call");
         }
 
@@ -145,10 +113,9 @@ void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& t
 }
 
 /* Parse arithmetic expression respecting precedence and bracket expressions */
-std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-                                       CompileInfo& c_info)
+std::shared_ptr<Node> AstContext::parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>>& ts)
 {
-    ensure_arit_correctness(ts, c_info);
+    ensure_arit_correctness(ts);
 
     std::vector<std::shared_ptr<Node>> s1;
     std::vector<int> s1_brackets;
@@ -157,7 +124,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
         if (ts[i]->get_type() == lexer::TK_BRACKET) {
             auto bracket = LEXER_SAFE_CAST(lexer::Bracket, ts[i]);
 
-            c_info.err.on_false(bracket->get_kind() == lexer::Bracket::Kind::Open &&
+            m_c_info.err.on_false(bracket->get_kind() == lexer::Bracket::Kind::Open &&
                                 bracket->get_purpose() == lexer::Bracket::Purpose::Math,
                                 "Expected opening '('");
 
@@ -180,9 +147,9 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                 }
             }
 
-            c_info.err.on_true(closing_index == i, "Could not find closing parenthesis");
+            m_c_info.err.on_true(closing_index == i, "Could not find closing parenthesis");
 
-            s1.push_back(parse_arit_expr(slice(ts, i + 1, closing_index), c_info));
+            s1.push_back(parse_arit_expr(slice(ts, i + 1, closing_index)));
             s1_brackets.push_back(s1.size() - 1);
 
             i = closing_index;
@@ -199,7 +166,7 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
             case lexer::TK_NUM:
             case lexer::TK_DOUBLE_NUM:
             case lexer::TK_VAR: {
-                s1.push_back(node_from_numeric_token(ts[i], c_info));
+                s1.push_back(node_from_numeric_token(ts[i]));
                 break;
             }
             default:
@@ -305,12 +272,12 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
                 if (i + 1 >= s2.size() - 1) {
                     /* If we are the last thing: set our own right to the next
                      * number */
-                    c_info.err.on_true(i + 1 > s2.size() - 1, "Expected number after operand '{}'",
+                    m_c_info.err.on_true(i + 1 > s2.size() - 1, "Expected number after operand '{}'",
                         arit_str_map.at(cur_arit->get_arit()));
                     current->right = s2[i + 1];
                 } else if (s2[i + 1]->get_type() == T_ARIT) {
                     std::shared_ptr<Arit> next_arit = AST_SAFE_CAST(Arit, s2[i + 1]);
-                    c_info.err.on_false(has_precedence(next_arit->get_arit()),
+                    m_c_info.err.on_false(has_precedence(next_arit->get_arit()),
                         "+/- followed by another +/-");
                 }
             }
@@ -322,18 +289,16 @@ std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::T
 
 /* Parse logical expression (a && b || c) starting from i and update
  * i to end of line */
-std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    size_t& i,
-    CompileInfo& c_info)
+std::shared_ptr<Node> AstContext::parse_logical(size_t& i)
 {
     size_t last_i, next_i, eol;
     last_i = next_i = i;
 
-    eol = next_of_type_on_line(ts, i, lexer::TK_EOL);
+    eol = next_of_type_on_line(m_tokens, i, lexer::TK_EOL);
 
     /* Not a logical operation; pass on to parse_condition */
-    if (next_of_type_on_line(ts, i, lexer::TK_LOG) == ts.size()) {
-        auto res = parse_condition(slice(ts, i, eol), c_info);
+    if (next_of_type_on_line(m_tokens, i, lexer::TK_LOG) == m_tokens.size()) {
+        auto res = parse_condition(slice(m_tokens, i, eol));
         i = eol - 1;
 
         return res;
@@ -342,18 +307,18 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
     std::shared_ptr<Log> res = nullptr;
     std::shared_ptr<Log> current = nullptr;
 
-    for (; ts[next_i]->get_type() != lexer::TK_EOL; next_i++) {
-        if (ts[next_i]->get_type() == lexer::TK_LOG) {
-            auto log = LEXER_SAFE_CAST(lexer::Log, ts[next_i]);
+    for (; m_tokens[next_i]->get_type() != lexer::TK_EOL; next_i++) {
+        if (m_tokens[next_i]->get_type() == lexer::TK_LOG) {
+            auto log = LEXER_SAFE_CAST(lexer::Log, m_tokens[next_i]);
 
-            c_info.err.on_true(ts[next_i + 1]->get_type() == lexer::TK_EOL || ts[next_i + 1]->get_type() == lexer::TK_LOG,
+            m_c_info.err.on_true(m_tokens[next_i + 1]->get_type() == lexer::TK_EOL || m_tokens[next_i + 1]->get_type() == lexer::TK_LOG,
                 "Expected number after '{}'", log_str_map.at(log->get_log()));
-            c_info.err.on_true(next_i == i, "'{}' not expected at beginning of expression",
+            m_c_info.err.on_true(next_i == i, "'{}' not expected at beginning of expression",
                 log_str_map.at(log->get_log()));
 
-            auto left = parse_condition(slice(ts, last_i, next_i), c_info);
+            auto left = parse_condition(slice(m_tokens, last_i, next_i));
 
-            auto next = std::make_shared<Log>(ts[next_i]->get_line(), left, nullptr, log->get_log());
+            auto next = std::make_shared<Log>(m_tokens[next_i]->get_line(), left, nullptr, log->get_log());
             if (res == nullptr) {
                 res = next;
             } else {
@@ -364,8 +329,8 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
             last_i = next_i + 1;
         }
 
-        if (next_of_type_on_line(ts, next_i, lexer::TK_LOG) == ts.size()) {
-            current->right = parse_condition(slice(ts, last_i, eol), c_info);
+        if (next_of_type_on_line(m_tokens, next_i, lexer::TK_LOG) == m_tokens.size()) {
+            current->right = parse_condition(slice(m_tokens, last_i, eol));
             break;
         }
     }
@@ -378,8 +343,7 @@ std::shared_ptr<Node> parse_logical(const std::vector<std::shared_ptr<lexer::Tok
 /* Parse condition in vector
  * This vector can contain anything, this function only reads from i to the next
  * end of line and updates i towards the end of line */
-std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    CompileInfo& c_info)
+std::shared_ptr<Cmp> AstContext::parse_condition(const std::vector<std::shared_ptr<lexer::Token>>& ts)
 {
     std::shared_ptr<Node> left, right;
 
@@ -396,24 +360,24 @@ std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::To
         auto next = ts[i];
 
         if (next->get_type() == lexer::TK_CMP) {
-            c_info.err.on_false(comparator == nullptr, "Found two operators");
+            m_c_info.err.on_false(comparator == nullptr, "Found two operators");
             comparator = LEXER_SAFE_CAST(lexer::Cmp, next);
             operator_i = i;
         }
     }
-    c_info.err.on_true(operator_i == 0, "Expected constant, variable or arithmetic expression");
+    m_c_info.err.on_true(operator_i == 0, "Expected constant, variable or arithmetic expression");
 
     if (operator_i != -1) {
-        left = parse_arit_expr(slice(ts, 0, operator_i), c_info);
+        left = parse_arit_expr(slice(ts, 0, operator_i));
 
-        c_info.err.on_true((size_t)operator_i + 1 >= i, "Invalid expression");
-        right = parse_arit_expr(slice(ts, operator_i + 1, i), c_info);
+        m_c_info.err.on_true((size_t)operator_i + 1 >= i, "Invalid expression");
+        right = parse_arit_expr(slice(ts, operator_i + 1, i));
 
         res = std::make_shared<Cmp>(ts[0]->get_line(), left, right, comparator->get_cmp());
     } else {
         /* Create comparison which is really just one expression, since no
          * comparator was found */
-        left = parse_arit_expr(slice(ts, 0, i), c_info);
+        left = parse_arit_expr(slice(ts, 0, i));
         res = std::make_shared<Cmp>(ts[0]->get_line(), left, nullptr, CMP_OPERATION_ENUM_END);
     }
 
@@ -422,33 +386,24 @@ std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::To
 
 /* Wrappers for parse_condition to create if, elif and while */
 
-std::shared_ptr<If> parse_condition_to_if(const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    size_t& i,
-    std::shared_ptr<Body> root,
-    CompileInfo& c_info,
-    bool is_elif)
+std::shared_ptr<If> AstContext::parse_condition_to_if(size_t& i, std::shared_ptr<Body> root, bool is_elif)
 {
-    std::shared_ptr<Node> condition = parse_logical(ts, i, c_info);
-    return std::make_shared<If>(ts[i]->get_line(), condition,
-        std::make_shared<Body>(ts[i]->get_line(), root, c_info), is_elif);
+    std::shared_ptr<Node> condition = parse_logical(i);
+    return std::make_shared<If>(m_tokens[i]->get_line(), condition,
+        make_body(m_tokens[i]->get_line(), root), is_elif);
 }
 
-std::shared_ptr<While> parse_condition_to_while(
-    const std::vector<std::shared_ptr<lexer::Token>>& ts,
-    size_t& i,
-    std::shared_ptr<Body> root,
-    CompileInfo& c_info)
+std::shared_ptr<While> AstContext::parse_condition_to_while(size_t& i, std::shared_ptr<Body> root)
 {
-    std::shared_ptr<Node> condition = parse_logical(ts, i, c_info);
-    return std::make_shared<While>(ts[i]->get_line(), condition,
-        std::make_shared<Body>(ts[i]->get_line(), root, c_info));
+    std::shared_ptr<Node> condition = parse_logical(i);
+    return std::make_shared<While>(m_tokens[i]->get_line(), condition,
+        make_body(m_tokens[i]->get_line(), root));
 }
 
 /* Parse a vector of tokens to an abstract syntax tree */
-std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& tokens,
-    CompileInfo& c_info)
+std::shared_ptr<Body> AstContext::gen_ast()
 {
-    std::shared_ptr<Body> root = std::make_shared<Body>(tokens[0]->get_line(), nullptr, c_info);
+    std::shared_ptr<Body> root = make_body(m_tokens[0]->get_line(), nullptr);
     std::shared_ptr<Body> saved_root = root;
 
     std::shared_ptr<If> current_if = nullptr;
@@ -456,15 +411,15 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
     /* Stack of current blocks to go back up the blocks when exiting */
     std::stack<std::shared_ptr<Node>> blk_stk;
 
-    for (size_t i = 0; i < tokens.size(); i++) {
-        c_info.err.set_line(tokens[i]->get_line());
-        switch (tokens[i]->get_type()) {
+    for (size_t i = 0; i < m_tokens.size(); i++) {
+        m_c_info.err.set_line(m_tokens[i]->get_line());
+        switch (m_tokens[i]->get_type()) {
         case lexer::TK_KEY: {
-            auto key = LEXER_SAFE_CAST(lexer::Key, tokens[i]);
+            auto key = LEXER_SAFE_CAST(lexer::Key, m_tokens[i]);
 
             switch (key->get_key()) {
             case K_IF: {
-                std::shared_ptr<If> new_if = parse_condition_to_if(tokens, ++i, root, c_info, false);
+                std::shared_ptr<If> new_if = parse_condition_to_if(++i, root, false);
                 root->children.push_back(new_if);
                 root = new_if->body;
 
@@ -474,9 +429,9 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             }
             case K_ELIF: {
-                c_info.err.on_true(current_if == nullptr, "Unexpected elif");
+                m_c_info.err.on_true(current_if == nullptr, "Unexpected elif");
 
-                std::shared_ptr<If> new_if = parse_condition_to_if(tokens, ++i, root, c_info, true);
+                std::shared_ptr<If> new_if = parse_condition_to_if(++i, root, true);
 
                 current_if->elif = new_if;
                 root = new_if->body;
@@ -485,13 +440,13 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             }
             case K_ELSE: {
-                c_info.err.on_true(current_if == nullptr, "Unexpected else");
-                c_info.err.on_false(tokens[i + 1]->get_type() == lexer::TK_EOL,
+                m_c_info.err.on_true(current_if == nullptr, "Unexpected else");
+                m_c_info.err.on_false(m_tokens[i + 1]->get_type() == lexer::TK_EOL,
                     "Else accepts no arguments");
 
                 std::shared_ptr<Else> new_else = std::make_shared<Else>(
-                    tokens[i]->get_line(),
-                    std::make_shared<Body>(tokens[i]->get_line(), root, c_info));
+                    m_tokens[i]->get_line(),
+                    make_body(m_tokens[i]->get_line(), root));
 
                 current_if->elif = new_else;
 
@@ -500,7 +455,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             }
             case K_WHILE: {
-                std::shared_ptr<While> new_while = parse_condition_to_while(tokens, ++i, root, c_info);
+                std::shared_ptr<While> new_while = parse_condition_to_while(++i, root);
                 root->children.push_back(new_while);
 
                 root = new_while->body;
@@ -528,18 +483,18 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
 
                 i += 1;
 
-                if (tokens[i]->get_type() == lexer::TK_SEP) {
+                if (m_tokens[i]->get_type() == lexer::TK_SEP) {
                     break;
                 }
 
                 size_t next_sep;
-                while ((next_sep = next_of_type_on_line(tokens, i, lexer::TK_SEP)) < tokens.size()) {
-                    switch (tokens[i]->get_type()) {
+                while ((next_sep = next_of_type_on_line(m_tokens, i, lexer::TK_SEP)) < m_tokens.size()) {
+                    switch (m_tokens[i]->get_type()) {
                     case lexer::TK_LSTR: {
-                        c_info.err.on_true((next_sep - i) > 2, "Excess tokens after string argument");
-                        new_func->args.push_back(std::make_shared<Lstr>(
-                            tokens[i]->get_line(),
-                            LEXER_SAFE_CAST(lexer::Lstr, tokens[i])->ts, c_info));
+                        m_c_info.err.on_true((next_sep - i) > 2, "Excess tokens after string argument");
+                        new_func->args.push_back(make_lstr(
+                            m_tokens[i]->get_line(),
+                            LEXER_SAFE_CAST(lexer::Lstr, m_tokens[i])->ts));
                         break;
                     }
                     case lexer::TK_NUM:
@@ -548,14 +503,14 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                     case lexer::TK_ACCESS:
                     case lexer::TK_BRACKET:
                     case lexer::TK_COM_CALL: {
-                        std::vector<std::shared_ptr<lexer::Token>> slc = slice(tokens, i, next_sep);
+                        std::vector<std::shared_ptr<lexer::Token>> slc = slice(m_tokens, i, next_sep);
 
-                        new_func->args.push_back(parse_arit_expr(slc, c_info));
+                        new_func->args.push_back(parse_arit_expr(slc));
                         break;
                     }
                     default:
-                        c_info.err.error("Unexpected argument to function: {}",
-                            tokens[i]->get_type());
+                        m_c_info.err.error("Unexpected argument to function: {}",
+                            m_tokens[i]->get_type());
                         break;
                     }
                     i = next_sep + 1;
@@ -564,7 +519,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                 break;
             }
             case K_END:
-                c_info.err.on_true(root->parent == nullptr, "Unexpected end");
+                m_c_info.err.on_true(root->parent == nullptr, "Unexpected end");
                 if (!blk_stk.empty()) {
                     switch (blk_stk.top()->get_type()) {
                     case T_IF:
@@ -579,7 +534,7 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
                         blk_stk.pop();
                         break;
                     default:
-                        c_info.err.error("Exiting invalid block");
+                        m_c_info.err.error("Exiting invalid block");
                         break;
                     }
                 }
@@ -594,36 +549,23 @@ std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& 
         case lexer::TK_SEP:
             break;
         case lexer::TK_VAR: {
-            auto the_var = LEXER_SAFE_CAST(lexer::Var, tokens[i]);
-            c_info.err.error(
+            auto the_var = LEXER_SAFE_CAST(lexer::Var, m_tokens[i]);
+            m_c_info.err.error(
                 "Unexpected occurence of word expected to be variable: '{}'",
                 the_var->get_name());
             break;
         }
         default:
-            c_info.err.error("Unexpected token with enum value: {}", tokens[i]->get_type());
+            m_c_info.err.error("Unexpected token with enum value: {}", m_tokens[i]->get_type());
             break;
         }
     }
-    c_info.err.on_false(root == saved_root, "Unresolved blocks");
+    m_c_info.err.on_false(root == saved_root, "Unresolved blocks");
 
     return saved_root;
 }
 
-std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node)
-{
-    std::shared_ptr<Node> res = if_node;
-
-    for (;; res = AST_SAFE_CAST(If, res)->elif) {
-        if (res->get_type() == T_ELSE || AST_SAFE_CAST(If, res)->elif == nullptr) {
-            return res;
-        }
-    }
-
-    return nullptr;
-}
-
-void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c_info)
+void AstContext::tree_to_dot(std::shared_ptr<Body> root, std::string_view fn)
 {
     const std::string temp(fn);
 
@@ -635,19 +577,14 @@ void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c
 
     int tbody_id = root->get_body_id();
 
-    tree_to_dot_core(to_base(root), node, tbody_id, 0, out, c_info);
+    tree_to_dot_core(to_base(root), node, tbody_id, 0, out);
 
     fmt::print(out, "}}\n");
 
     out.close();
 }
 
-void tree_to_dot_core(std::shared_ptr<Node> root,
-    int& node,
-    int& tbody_id,
-    int parent_body_id,
-    std::ofstream& dot,
-    CompileInfo& c_info)
+void AstContext::tree_to_dot_core(std::shared_ptr<Node> root, int& node, int& tbody_id, int parent_body_id, std::ofstream& dot)
 {
     switch (root->get_type()) {
     case T_BODY: {
@@ -656,7 +593,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         tbody_id = body->get_body_id();
         fmt::print(dot, "\tNode_{}[label=\"body {}\"]\n", tbody_id, tbody_id);
         for (const auto& child : body->children) {
-            tree_to_dot_core(child, node, tbody_id, body->get_body_id(), dot, c_info);
+            tree_to_dot_core(child, node, tbody_id, body->get_body_id(), dot);
         }
         break;
     }
@@ -666,7 +603,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         fmt::print(dot, "\tNode_{} [label=\"else\"]\n", ++node);
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"else > body\"]\n", node, tbody_id + 1);
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"body > else\"]\n", parent_body_id, node);
-        tree_to_dot_core(t_else->body, node, tbody_id, parent_body_id, dot, c_info);
+        tree_to_dot_core(t_else->body, node, tbody_id, parent_body_id, dot);
         break;
     }
     case T_IF: {
@@ -679,13 +616,13 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         int s_node = node;
 
-        tree_to_dot_core(t_if->condition, node, tbody_id, s_node, dot, c_info);
+        tree_to_dot_core(t_if->condition, node, tbody_id, s_node, dot);
 
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"{} > body\"]\n", s_node, tbody_id + 1, if_name);
-        tree_to_dot_core(t_if->body, node, tbody_id, parent_body_id, dot, c_info);
+        tree_to_dot_core(t_if->body, node, tbody_id, parent_body_id, dot);
 
         if (t_if->elif)
-            tree_to_dot_core(t_if->elif, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(t_if->elif, node, tbody_id, s_node, dot);
         break;
     }
     case T_FUNC: {
@@ -696,7 +633,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         int s_node = node;
         for (const auto& arg : t_func->args) {
-            tree_to_dot_core(arg, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(arg, node, tbody_id, s_node, dot);
         }
         break;
     }
@@ -721,9 +658,9 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         int s_node = node;
 
         if (t_cmp->left)
-            tree_to_dot_core(t_cmp->left, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(t_cmp->left, node, tbody_id, s_node, dot);
         if (t_cmp->right)
-            tree_to_dot_core(t_cmp->right, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(t_cmp->right, node, tbody_id, s_node, dot);
         break;
     }
     case T_LOG: {
@@ -737,10 +674,10 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         int s_node = node;
 
         if (log->left) {
-            tree_to_dot_core(log->left, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(log->left, node, tbody_id, s_node, dot);
         }
         if (log->right) {
-            tree_to_dot_core(log->right, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(log->right, node, tbody_id, s_node, dot);
         }
 
         break;
@@ -774,7 +711,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         fmt::print(dot, "\tNode_{} [label=\"{}\"]\n", ++node, t_access->get_array_id());
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"array-id\"]\n", node - 1, node);
 
-        tree_to_dot_core(t_access->index, node, tbody_id, s_node, dot, c_info);
+        tree_to_dot_core(t_access->index, node, tbody_id, s_node, dot);
         break;
     }
     case T_STR: {
@@ -791,8 +728,8 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         int s_node = node;
 
-        tree_to_dot_core(t_arit->left, node, tbody_id, s_node, dot, c_info);
-        tree_to_dot_core(t_arit->right, node, tbody_id, s_node, dot, c_info);
+        tree_to_dot_core(t_arit->left, node, tbody_id, s_node, dot);
+        tree_to_dot_core(t_arit->right, node, tbody_id, s_node, dot);
         break;
     }
     case T_WHILE: {
@@ -803,11 +740,11 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         int s_node = node;
 
-        tree_to_dot_core(t_while->condition, node, tbody_id, s_node, dot, c_info);
+        tree_to_dot_core(t_while->condition, node, tbody_id, s_node, dot);
 
         fmt::print(dot, "\tNode_{} -> Node_{} [label=\"while > body\"]\n", s_node, tbody_id + 1);
 
-        tree_to_dot_core(t_while->body, node, tbody_id, parent_body_id, dot, c_info);
+        tree_to_dot_core(t_while->body, node, tbody_id, parent_body_id, dot);
         break;
     }
     case T_LSTR: {
@@ -818,7 +755,7 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
 
         int s_node = node;
         for (const auto& format : t_lstr->format) {
-            tree_to_dot_core(format, node, tbody_id, s_node, dot, c_info);
+            tree_to_dot_core(format, node, tbody_id, s_node, dot);
         }
         break;
     }
@@ -830,6 +767,19 @@ void tree_to_dot_core(std::shared_ptr<Node> root,
         break;
     }
     }
+}
+
+std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node)
+{
+    std::shared_ptr<Node> res = if_node;
+
+    for (;; res = AST_SAFE_CAST(If, res)->elif) {
+        if (res->get_type() == T_ELSE || AST_SAFE_CAST(If, res)->elif == nullptr) {
+            return res;
+        }
+    }
+
+    return nullptr;
 }
 
 } // namespace ast

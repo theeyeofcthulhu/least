@@ -71,7 +71,12 @@ public:
     ts_class get_type() const override { return m_type; };
     int get_body_id() const { return m_body_id; };
 
-    Body(int line, std::shared_ptr<Body> t_parent, CompileInfo& c_info);
+    Body(int line, std::shared_ptr<Body> t_parent, int body_id)
+        : Node(line)
+        , parent(t_parent)
+        , m_body_id(body_id)
+    {}
+
 
 private:
     static const ts_class m_type = T_BODY;
@@ -310,7 +315,10 @@ public:
     ts_class get_type() const override { return m_type; };
     std::vector<std::shared_ptr<Node>> format;
 
-    Lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts, CompileInfo& c_info);
+    Lstr(int line, std::vector<std::shared_ptr<Node>> p_format)
+        : Node(line)
+        , format(p_format)
+    {}
 
 private:
     static const ts_class m_type = T_LSTR;
@@ -337,22 +345,47 @@ private:
     static const ts_class m_type = T_ARIT;
 };
 
+
+class AstContext {
+public:
+
+    /* Generate an abstract syntax tree from tokens and return the root */
+    std::shared_ptr<Body> gen_ast();
+
+    // NOTE: should root be saved internally
+    /* Write a graphviz representation of the AST in root to fn */
+    void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn);
+
+    AstContext(const std::vector<std::shared_ptr<lexer::Token>>& tokens, CompileInfo &c_info)
+        : m_tokens(tokens)
+        , m_c_info(c_info)
+    {}
+
+private:
+    std::shared_ptr<ast::Node> node_from_numeric_token(std::shared_ptr<lexer::Token> tk);
+
+    void ensure_arit_correctness(const std::vector<std::shared_ptr<lexer::Token>>& ts);
+    std::shared_ptr<Node> parse_arit_expr(const std::vector<std::shared_ptr<lexer::Token>>& ts);
+    std::shared_ptr<Node> parse_logical(size_t& i);
+    std::shared_ptr<Cmp> parse_condition(const std::vector<std::shared_ptr<lexer::Token>>& ts);
+    std::shared_ptr<If> parse_condition_to_if(size_t& i, std::shared_ptr<Body> root, bool is_elif);
+    std::shared_ptr<While> parse_condition_to_while(size_t& i, std::shared_ptr<Body> root);
+
+    // Constructors require additional information/calculations
+    std::shared_ptr<Lstr> make_lstr(int line, const std::vector<std::shared_ptr<lexer::Token>>& ts);
+    std::shared_ptr<Body> make_body(int line, std::shared_ptr<Body> t_parent);
+
+    void tree_to_dot_core(std::shared_ptr<Node> root, int& node, int& tbody_id, int parent_body_id, std::ofstream& dot);
+
+    const std::vector<std::shared_ptr<lexer::Token>>& m_tokens;
+    CompileInfo& m_c_info;
+};
+
 /*
- * Traverse the pointers to elifs/elses on if_node until the
- * last one
- */
+* Traverse the pointers to elifs/elses on if_node until the
+* last one
+*/
 std::shared_ptr<Node> get_last_if(std::shared_ptr<If> if_node);
-
-/*
- * Write a graphviz representation of the AST in root to fn
- */
-void tree_to_dot(std::shared_ptr<Body> root, std::string_view fn, CompileInfo& c_info);
-
-/*
- * Generate an abstract syntax tree from tokens and return the root
- */
-std::shared_ptr<Body> gen_ast(const std::vector<std::shared_ptr<lexer::Token>>& tokens,
-    CompileInfo& c_info);
 
 #define AST_SAFE_CAST(type, tk) ast::safe_cast_core<type>((tk), __FILE__, __LINE__)
 
