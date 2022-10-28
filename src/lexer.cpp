@@ -91,7 +91,7 @@ std::pair<std::string_view, size_t> LexContext::extract_string(std::string_view 
 
     auto begin = line.begin() + 1;
 
-    auto it = std::find_if(begin, line.end(), [&](char c) mutable {
+    auto it = std::find_if(begin, line.end(), [&last_char](char c) mutable {
         bool ret = c == '"' && last_char != '\\';
 
         last_char = c;
