@@ -126,27 +126,27 @@ std::optional<std::string_view> LexContext::next_word(std::string_view& line)
 
     std::string_view word;
     size_t next_terminator;
-    std::optional<std::pair<std::string_view, size_t>> symbol;
+
+    auto remove_word = ScopeGuard([&line, &next_terminator]() {
+        line.remove_prefix(next_terminator <= line.size() ? next_terminator : line.size());
+    });
 
     // If next token is a string
     if (line.starts_with('"')) {
         std::tie(word, next_terminator) = extract_string(line);
-        goto out_ret;
+        return word;
     }
 
-    if ((symbol = extract_symbol_beginning(line))) {
+    if (auto symbol = extract_symbol_beginning(line); symbol.has_value()) {
         std::tie(word, next_terminator) = *symbol;
-        goto out_ret;
+        return word;
     }
 
     next_terminator = find_next_word_ending_char(line);
 
     word = line.substr(0, next_terminator);
 
-out_ret:
-    line.remove_prefix(next_terminator <= line.size() ? next_terminator : line.size());
-
-    return std::make_optional(word);
+    return word;
 }
 
 /* Check validity of string and insert escape sequences */

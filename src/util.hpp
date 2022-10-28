@@ -100,6 +100,25 @@ private:
     std::string_view m_noext;
 };
 
+template <typename Callback>
+class ScopeGuard {
+public:
+    ScopeGuard(Callback callback) : m_callback(callback)
+    {}
+
+    ~ScopeGuard()
+    {
+        if (m_call)
+            m_callback();
+    }
+
+    void dismiss() { m_call = false; }
+
+private:
+    Callback m_callback;
+    bool m_call = true;
+};
+
 std::vector<std::string_view> split(std::string_view str, char delim);
 std::string read_source_code(std::string_view filename, CompileInfo& c_info);
 size_t next_of_type_on_line(const std::vector<std::shared_ptr<lexer::Token>>& ts,
