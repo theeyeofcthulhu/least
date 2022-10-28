@@ -98,7 +98,7 @@ std::pair<std::string_view, size_t> LexContext::extract_string(std::string_view 
         return ret;
     });
 
-    c_info.err.on_true(it == line.end(), "Unterminated string-literal {}", line);
+    c_info.err.on_true(it == line.end(), "Unterminated string-literal: '{}'", line);
 
     return std::make_pair(line.substr(0, (it + 1) - (begin - 1)), (it - line.begin() + 1));
 }
