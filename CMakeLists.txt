@@ -5,7 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 project(lcc CXX ASM_NASM)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wshadow -std=c++20 -pedantic")
+set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wshadow -pedantic")
 
 set(CMAKE_ASM_NASM_OBJECT_FORMAT elf64)
 
