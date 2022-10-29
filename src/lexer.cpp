@@ -20,12 +20,6 @@
 
 namespace lexer {
 
-/*
- * Checks if s contains a banned character; errors out if that
- * is the case
- */
-void checkbanned(std::string_view s, CompileInfo& c_info);
-
 Bracket::Bracket(int line, BracketTemplate templ)
     : Token(line)
     , m_purpose(templ.purpose)
