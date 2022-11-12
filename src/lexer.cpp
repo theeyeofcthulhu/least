@@ -20,10 +20,7 @@
 
 namespace lexer {
 
-Bracket::Bracket(int line, BracketTemplate templ)
-    : Token(line)
-    , m_purpose(templ.purpose)
-    , m_kind(templ.kind)
+Bracket::Bracket(int line, BracketTemplate templ) : Token(line), m_purpose(templ.purpose), m_kind(templ.kind)
 {
 }
 
