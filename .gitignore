@@ -17,3 +17,6 @@ src/.ccls
 compile_commands.json
 tests/time_results.txt
 .cache
+elf-test/out*
+elf-test/elf
+elf-test/a.out
