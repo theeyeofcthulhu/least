@@ -9,56 +9,164 @@
 
 #include "instruction.hpp"
 
-// Returns std::string containing the four bytes of the number n
-std::vector<uint8_t> int32_to_pure_byte_string(int32_t n)
+const std::map<Instruction::Op, std::vector<uint8_t>> Instruction::op_opcode_map = {
+    {Op::mov, { 0xb8 }},
+    {Op::syscall, { 0x0f, 0x05 }},
+    {Op::call, { 0xe8 }},
+    {Op::jmp, { 0xe9 }},
+    {Op::je, { 0x0f, 0x84 }},
+    {Op::jne, { 0x0f, 0x85 }},
+    {Op::jl, { 0x0f, 0x8c }},
+    {Op::jle, { 0x0f, 0x8e }},
+    {Op::jg, { 0x0f, 0x8f }},
+    {Op::jge, { 0x0f, 0x8d }},
+    {Op::sub, { 0x81 }},
+    {Op::cmp, { 0x81 }},
+};
+
+// modrm second field 0x81 instruction
+const std::map<Instruction::Op, uint8_t> Instruction::op_modrm_modifier_map = {
+    {Op::sub, { 5 }},
+    {Op::cmp, { 7 }},
+};
+
+// register|modr/m and modr/m|register opcodes
+const std::map<Instruction::Op, std::pair<uint8_t, uint8_t>> Instruction::op_rrm_rmr_map = {
+    {Op::mov, { 0x8b, 0x89 }},
+    {Op::xor_, { 0x31, 0x33 }},
+};
+
+ModRM::ModRM(Register address_reg, AddressingMode sz, int reg_op, int p_imm) : address(address_reg), mode(sz), reg_op_field(reg_op), imm(p_imm)
 {
-    return std::vector<uint8_t> {
-        { (uint8_t) ((n & 0xFF000000) >> 24), (uint8_t) ((n & 0x00FF0000) >> 16), (uint8_t) ((n & 0x0000FF00) >> 8), (uint8_t) ((n & 0x000000FF)) }
-    };
+    // FIXME: rbp without addend doesn't exist, instead there is [rbp + disp32].
+    // implement a natural interface for this
+    if (address == Register::rbp && mode == AddressingMode::disp0) {
+        mode = AddressingMode::disp8;
+        imm = 0;
+    }
+}
+
+uint8_t ModRM::value() const
+{
+    return (uint8_t)mode << 6 | (uint8_t)reg_op_field << 3 | (uint8_t)address;
 }
 
 std::vector<uint8_t> Instruction::opcode()
 {
+    m_generated_opcodes = true;
+
+    if (m_op == Op::label)
+        return {};
+
     std::vector<uint8_t> res;
 
-    switch(m_op) {
-    case Op::syscall: {
-        res.push_back(0x0f);
-        res.push_back(0x05);
-        break;
-    }
-    case Op::mov: {
-        if (m_op1.first == OpType::Register && m_op2.first == OpType::Immediate) {
-            assert(m_op2.second >= 0); // for now
+    // Insert bytes of i into res in reverse order
+    auto parse_imm32 = [&res](int i) {
+         const std::vector<uint8_t> bytes = { (uint8_t) ((i & 0x000000FF)),
+                                              (uint8_t) ((i & 0x0000FF00) >>  8),
+                                              (uint8_t) ((i & 0x00FF0000) >> 16),
+                                              (uint8_t) ((i & 0xFF000000) >> 24), };
 
-            // MOV immediate into register
+        res.insert(res.end(), bytes.begin(), bytes.end());
+    };
 
-            const auto bytes = int32_to_pure_byte_string(bswap_32(m_op2.second));
-
-            res.push_back(0xb8 + m_op1.second);
-            res.insert(res.end(), bytes.begin(), bytes.end());
-        } else if (m_op1.first == OpType::Register && m_op2.first == OpType::String) {
-            assert(m_op2.second >= 0);
+    // Special case where Register is encoded in opcode
+    if (m_op1.first == OpType::Register && (m_op2.first == OpType::Immediate || m_op2.first == OpType::String)) {
+        if (m_op == Op::mov) {
+            // assert(m_op2.second.number >= 0);
 
             // MOV future relocated string into register
+            res.push_back((int) MovOpCodes::RegImm + m_op1.second.number);
 
-            m_rela_entries.push_back({1, m_op2.second});
+            if (m_op2.first == OpType::String) {
+                m_rela_entries.push_back(RelaEntry::string(1, m_op2.second.number));
+                parse_imm32(0);
+            } else {
+                parse_imm32(m_op2.second.number);
+            }
 
-            const auto bytes = int32_to_pure_byte_string(0); // Placeholder for relocation
-
-            res.push_back(0xb8 + m_op1.second);
-            res.insert(res.end(), bytes.begin(), bytes.end());
-        } else {
-            assert(false && "This mov combination is not implemented yet.");
+            return res;
         }
-        break;
-    }
-    default:
-        assert(false && "This instruction is not implemented yet.");
-        break;
+
     }
 
-    m_generated_opcodes = true;
+    auto is_modrm = [](OpType o) {
+        return o == OpType::Register || o == OpType::Memory;
+    };
+
+    auto make_modrm = [](const std::pair<OpType, OpContent> &o) {
+        ModRM modrm;
+        if (o.first == OpType::Register) {
+            modrm.mode = ModRM::AddressingMode::reg;
+            modrm.address = (Register) o.second.number;
+        } else if (o.first == OpType::Memory) {
+            if (o.second.memory.addend >= -(255/2) && o.second.memory.addend <= (255/2))
+                modrm.mode = ModRM::AddressingMode::disp8;
+            else
+                modrm.mode = ModRM::AddressingMode::disp32;
+            modrm.address = o.second.memory.reg;
+            modrm.imm = o.second.memory.addend;
+        }
+
+        return modrm;
+    };
+
+    auto parse_modrm = [&res, parse_imm32](ModRM m) {
+        res.push_back(m.value());
+
+        if (m.mode == ModRM::AddressingMode::disp8 || m.mode == ModRM::AddressingMode::disp32) {
+            if (m.mode == ModRM::AddressingMode::disp8) {
+                res.push_back((uint8_t)m.imm);
+            } else if (m.mode == ModRM::AddressingMode::disp32) {
+                parse_imm32(m.imm);
+            }
+        }
+    };
+
+    ModRM modrm;
+    if (is_modrm(m_op1.first)) {
+        modrm = make_modrm(m_op1);
+    } else if (is_modrm(m_op2.first)) {
+        modrm = make_modrm(m_op2);
+    }
+
+    if (m_op1.first == OpType::None && m_op2.first == OpType::None) {
+        res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
+    } else if (is_modrm(m_op1.first) && m_op2.first == OpType::Immediate) {
+        if (m_op == Op::sub || m_op == Op::cmp) {
+            res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
+
+            modrm.reg_op_field = op_modrm_modifier_map.at(m_op); // Turns opcode 0x81 into specific instruction
+
+            parse_modrm(modrm);
+            parse_imm32(m_op2.second.number);
+        } else if (m_op == Op::mov) {
+            res.push_back((int) MovOpCodes::RMImm);
+
+            parse_modrm(modrm);
+            parse_imm32(m_op2.second.number);
+        }
+    } else if (is_modrm(m_op1.first) && m_op2.first == OpType::Register) {
+        res.push_back((int) op_rrm_rmr_map.at(m_op).second);
+
+        modrm.reg_op_field = m_op2.second.number;
+        parse_modrm(modrm);
+    } else if (m_op1.first == OpType::Register && is_modrm(m_op2.first)) {
+        res.push_back((int) op_rrm_rmr_map.at(m_op).first);
+
+        modrm.reg_op_field = m_op1.second.number;
+        parse_modrm(modrm);
+    } else if (m_op1.first == OpType::SymbolName) {
+        /* NOTE:    Here, we differ from NASM in having the linker calculate the
+        *          relative JMP operand with .rela.text, like it does with a CALL
+        *          to an extern symbol. Why do work we don't have to? */
+        m_rela_entries.push_back(RelaEntry::call(op_opcode_map.at(m_op).size(), m_op1.second.symbol_name));
+
+        res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
+        parse_imm32(0);
+    } else {
+        assert(false && "Unrecognized combination");
+    }
 
     return res;
 }
@@ -74,6 +182,17 @@ std::vector<RelaEntry> Instruction::rela_entries(int base)
     return m_rela_entries; // TODO: do we need to return copy?
 }
 
+std::optional<LabelInfo> Instruction::label(int base)
+{
+    assert(m_generated_opcodes);
+
+    if (m_op != Op::label)
+        return std::nullopt;
+
+    m_op1.second.label.position = base;
+    return std::make_optional(m_op1.second.label);
+}
+
 std::vector<uint8_t> Instructions::opcodes()
 {
     std::vector<uint8_t> res;
@@ -84,9 +203,13 @@ std::vector<uint8_t> Instructions::opcodes()
         res.insert(res.end(), opcode.begin(), opcode.end());
 
         const auto entries = i.rela_entries(address);
+        const auto label = i.label(address);
 
         m_rela_entries.insert(m_rela_entries.end(), entries.begin(), entries.end());    // Get offset rela entries from i
                                                                                         // which were calculated in i.opcode()
+
+        if (label.has_value())
+            m_labels.push_back(*label);
 
         address += opcode.size();
     }

@@ -54,6 +54,11 @@ struct e64_section_header {
     e_word sh_info;
     e_xword sh_addralign;
     e_xword sh_entsize;
+
+    static e64_section_header null_symbol()
+    {
+        return { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    }
 };
 
 struct e64_sym {
@@ -63,6 +68,11 @@ struct e64_sym {
     e_half st_shndx;
     e_addr st_value;
     e_xword st_size;
+
+    static e64_sym null_symbol()
+    {
+        return { 0, 0, 0, 0, 0, 0 };
+    }
 };
 
 struct e64_rela {
@@ -194,24 +204,23 @@ void ElfGenerator::generate()
 
     const auto instructions = m_text.opcodes();
     const auto rela_entries = m_text.rela_entries();
+    const auto labels = m_text.labels();
 
     std::string rodata_string;
-    std::map<int, int> rodata_offsets; // map strids to offsets
+    std::map<int, int> rodata_offsets; // map strings to offsets
 
     for (const auto elfstring : m_rodata) {
         rodata_offsets[elfstring.id] = rodata_string.size();
         rodata_string.append(elfstring.sv);
     }
 
-    std::vector<e64_rela> rela;
-    for (const auto entry : rela_entries) {
-        // TODO: unhardcode symtab value for .rodata (3)
-        rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(3, R_X86_64_32), rodata_offsets[entry.strid] });
-    }
+    // An ELF string table is a string of null-terminated strings.
+    // It also starts with a null-terminator.
 
     std::vector<char> str_tab {};
     str_tab.push_back('\0');
 
+    // TODO
     const std::string file = "elf.cpp\0"s;
     str_tab.insert(str_tab.end(), file.begin(), file.end());
 
@@ -220,31 +229,58 @@ void ElfGenerator::generate()
         str_tab.insert(str_tab.end(), str.begin(), str.end());
         str_tab.push_back('\0');
     }
-    const std::string start = "_start\0"s;
-    str_tab.insert(str_tab.end(), start.begin(), start.end());
+    for (size_t i = 0; i < labels.size(); i++) {
+        str_tab.insert(str_tab.end(), labels[i].name.begin(), labels[i].name.end());
+        str_tab.push_back('\0');
+    }
 
     // TODO: unhardcode here
 
     std::vector<e64_sym> sym_tab {};
-    sym_tab.push_back({});
-    sym_tab.push_back({ strtab_offset(str_tab, "elf.cpp"), (STB_LOCAL << 4) + STT_FILE, 0, SHN_ABS, 0, 0 });
+    sym_tab.push_back({ strtab_offset(str_tab, "elf.cpp"), ELF64_ST_INFO(STB_LOCAL, STT_FILE), 0, SHN_ABS, 0, 0 });
     // TODO: unhardcode section indeces
     // .text and .rodata
-    sym_tab.push_back({ 0, (STB_LOCAL << 4) + STT_SECTION, 0, 1, 0, 0 });
-    sym_tab.push_back({ 0, (STB_LOCAL << 4) + STT_SECTION, 0, 2, 0, 0 });
+    sym_tab.push_back({ 0, ELF64_ST_INFO(STB_LOCAL, STT_SECTION), 0, 1, 0, 0 });
+    sym_tab.push_back({ 0, ELF64_ST_INFO(STB_LOCAL, STT_SECTION), 0, 2, 0, 0 });
     for (size_t i = 0; i < m_rodata.size(); i++) {
-        sym_tab.push_back({ strtab_offset(str_tab, fmt::format("str{}\0", i)), (STB_LOCAL << 4) + STT_NOTYPE, 0, 2, (e_addr)rodata_offsets[m_rodata[i].id], 0 });
+        sym_tab.push_back({ strtab_offset(str_tab, fmt::format("str{}\0", i)), ELF64_ST_INFO(STB_LOCAL, STT_NOTYPE), 0, 2, (e_addr)rodata_offsets[m_rodata[i].id], 0 });
     }
 
-    e_word n_local_symbols = sym_tab.size();
+    for (size_t i = 0; i < labels.size(); i++) {
+        sym_tab.push_back({ strtab_offset(str_tab, labels[i].name), (e_uchar)ELF64_ST_INFO(labels[i].visiblity, STT_NOTYPE), 0, (e_half)(labels[i].is_sh_undef ? SHN_UNDEF : 1), (e_addr)labels[i].position, 0 });
+    }
 
-    sym_tab.push_back({ strtab_offset(str_tab, "_start"), (STB_GLOBAL << 4) + STT_NOTYPE, 0, 1, 0, 0 });
+    // ST_GLOBAL symbols come after ST_LOCAL symbols
+    std::sort(sym_tab.begin(), sym_tab.end(), [](const auto& s1, const auto& s2) {
+        // LOCAL = 0, GLOBAL = 1
+        return ELF64_ST_BIND(s1.st_info) - ELF64_ST_BIND(s2.st_info) == -1;
+    });
+
+    sym_tab.insert(sym_tab.begin(), e64_sym::null_symbol());
+
+    // Needed for sh_info field of section header entry for symtab
+    const e_word n_local_symbols = std::find_if(sym_tab.begin(), sym_tab.end(), [](const auto& s) {
+        return ELF64_ST_BIND(s.st_info) == STB_GLOBAL;
+    }) - sym_tab.begin();
+
+    std::vector<e64_rela> rela;
+    for (const auto entry : rela_entries) {
+        // TODO: unhardcode symtab value for .rodata (3)
+        if (entry.is_call) {
+            // Use symtab index of symbol
+            rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(std::find_if(sym_tab.begin(), sym_tab.end(), [&](const auto &s) {
+                return s.st_name == strtab_offset(str_tab, entry.function_name);
+            }) - sym_tab.begin(), R_X86_64_PC32), -4 });
+        } else {
+            rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(3, R_X86_64_32), rodata_offsets[entry.strid] });
+        }
+    }
 
     e_addr section_offset = round_up_to_multiple(sizeof(header) + sizeof(e64_section_header) * shnum, default_align);
 
     std::vector<e64_section_header> sections {};
 
-    sections.push_back({});
+    sections.push_back(e64_section_header::null_symbol());
 
     sections.push_back({ strtab_offset(section_names, ".text"), SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR, 0, section_offset, instructions.size(), 0, 0, 16, 0 });
     section_offset += round_up_to_multiple(instructions.size(), default_align);
@@ -256,14 +292,14 @@ void ElfGenerator::generate()
     section_offset += round_up_to_multiple(section_names.size(), default_align);
 
     // TODO: unhardcode sh_link = 5 (strtab)
-    sections.push_back({ strtab_offset(section_names, ".symtab"), SHT_SYMTAB, 0, 0, section_offset, sym_tab.size() * sizeof(e64_sym), 5, n_local_symbols, 8, 0x18 });
+    sections.push_back({ strtab_offset(section_names, ".symtab"), SHT_SYMTAB, 0, 0, section_offset, sym_tab.size() * sizeof(e64_sym), 5, n_local_symbols, 8, sizeof(e64_sym) });
     section_offset += round_up_to_multiple(sym_tab.size() * sizeof(e64_sym), default_align);
 
     sections.push_back({ strtab_offset(section_names, ".strtab"), SHT_STRTAB, 0, 0, section_offset, str_tab.size(), 0, 0, 1, 0 });
     section_offset += round_up_to_multiple(str_tab.size(), default_align);
 
     // TODO: unhardcode sh_info? maybe not because section number of .text is always 1?
-    sections.push_back({ strtab_offset(section_names, ".rela.text"), SHT_RELA, 0, 0, section_offset, rela_entries.size() * sizeof(e64_rela), 4, 1, 8, 0x18 });
+    sections.push_back({ strtab_offset(section_names, ".rela.text"), SHT_RELA, 0, 0, section_offset, rela_entries.size() * sizeof(e64_rela), 4, 1, 8, sizeof(e64_rela) });
 
     print_table(sections);
 
@@ -296,14 +332,35 @@ int main()
 
     Instructions a {};
 
-    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rax), std::make_pair(Instruction::OpType::Immediate, 1) });
-    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rdi), std::make_pair(Instruction::OpType::Immediate, 1) });
-    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rsi), std::make_pair(Instruction::OpType::String, strings[0].id) });
-    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rdx), std::make_pair(Instruction::OpType::Immediate, strings[0].sv.length()) });
-    a.add({ Instruction::Op::syscall });
-    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rax), std::make_pair(Instruction::OpType::Immediate, 0x3c) });
-    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rdi), std::make_pair(Instruction::OpType::Immediate, 0) });
-    a.add({ Instruction::Op::syscall });
+    // a.add({ Instruction::Op::label, std::make_pair(Instruction::OpType::LabelInfo, LabelInfo::externsym("uprint") )});
+    // a.add({ Instruction::Op::label, std::make_pair(Instruction::OpType::LabelInfo, LabelInfo::infile("_start", STB_GLOBAL) )});
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::ModRM, ModRM { Register::rbp, ModRM::AddressingMode::disp8, -8 }), std::make_pair(Instruction::OpType::Immediate, 1) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::ModRM, ModRM { Register::rbp, ModRM::AddressingMode::disp0 }), std::make_pair(Instruction::OpType::Immediate, 1) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::ModRM, ModRM { Register::rax, ModRM::AddressingMode::disp0 }), std::make_pair(Instruction::OpType::Immediate, 1) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::ModRM, ModRM { Register::rax, ModRM::AddressingMode::disp32, 0xffffff }), std::make_pair(Instruction::OpType::Immediate, 1) });
+    // a.add({ Instruction::Op::jmp, std::make_pair(Instruction::OpType::SymbolName, (std::string_view)"_start.l1")});
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rax), std::make_pair(Instruction::OpType::Immediate, 1) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rdi), std::make_pair(Instruction::OpType::Immediate, 1) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rsi), std::make_pair(Instruction::OpType::String, strings[0].id) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rdx), std::make_pair(Instruction::OpType::Immediate, strings[0].sv.length()) });
+    // a.add({ Instruction::Op::syscall });
+    // a.add({ Instruction::Op::label, std::make_pair(Instruction::OpType::LabelInfo, LabelInfo::infile("_start.l1", STB_LOCAL) )});
+    // a.add({ Instruction::Op::jmp, std::make_pair(Instruction::OpType::SymbolName, (std::string_view)"_start.l1")});
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rax), std::make_pair(Instruction::OpType::Immediate, 0x3c) });
+    // a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rdi), std::make_pair(Instruction::OpType::Immediate, 0) });
+    // a.add({ Instruction::Op::syscall });
+    // a.add({ Instruction::Op::call, std::make_pair(Instruction::OpType::SymbolName, (std::string_view)"uprint") });
+
+    a.add({ Instruction::Op::label, std::make_pair(Instruction::OpType::LabelInfo, LabelInfo::infile("_start", STB_GLOBAL) )});
+    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rbp), std::make_pair(Instruction::OpType::Register, (int)Register::rsp) });
+    a.add({ Instruction::Op::sub, std::make_pair(Instruction::OpType::Register, (int)Register::rsp), std::make_pair(Instruction::OpType::Immediate, 8) });
+    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Memory, MemoryAccess { Register::rbp, -8 }), std::make_pair(Instruction::OpType::Immediate, 1) });
+    a.add({ Instruction::Op::label, std::make_pair(Instruction::OpType::LabelInfo, LabelInfo::infile("_start.entry1025", STB_LOCAL)) });
+    a.add({ Instruction::Op::cmp, std::make_pair(Instruction::OpType::Memory, MemoryAccess { Register::rbp, -8 }), std::make_pair(Instruction::OpType::Immediate, 100) });
+    a.add({ Instruction::Op::jge, std::make_pair(Instruction::OpType::SymbolName, (std::string_view)"_start.end1025") });
+    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rax), std::make_pair(Instruction::OpType::Memory, MemoryAccess { Register::rbp, -8 }) });
+    a.add({ Instruction::Op::mov, std::make_pair(Instruction::OpType::Register, (int)Register::rcx), std::make_pair(Instruction::OpType::Immediate, 15) });
+    a.add({ Instruction::Op::xor_, std::make_pair(Instruction::OpType::Register, (int)Register::rdx), std::make_pair(Instruction::OpType::Register, (int)Register::rdx) });
 
     ElfGenerator gen { "out.o", a, strings };
     gen.generate();
