@@ -123,8 +123,12 @@ std::vector<uint8_t> Instruction::opcode()
         }
     };
 
+    // Memory access has precedence over register when it comes to constructing ModR/M byte.
+    // As you cannot move from memory to memory, the assumption that if op2 is memory, it
+    // will be the ModR/M byte can safely be made.
+
     ModRM modrm;
-    if (is_modrm(m_op1.first)) {
+    if (is_modrm(m_op1.first) && m_op2.first != OpType::Memory) {
         modrm = make_modrm(m_op1);
     } else if (is_modrm(m_op2.first)) {
         modrm = make_modrm(m_op2);
@@ -157,9 +161,12 @@ std::vector<uint8_t> Instruction::opcode()
         modrm.reg_op_field = m_op1.second.number;
         parse_modrm(modrm);
     } else if (m_op1.first == OpType::SymbolName) {
-        /* NOTE:    Here, we differ from NASM in having the linker calculate the
-        *          relative JMP operand with .rela.text, like it does with a CALL
-        *          to an extern symbol. Why do work we don't have to? */
+        /* NOTE: Here, we differ from NASM in having the linker calculate the
+        *        relative JMP operand with .rela.text, like it does with a CALL
+        *        to an extern symbol. Why do work we don't have to?
+        *        Also avoid having to do two passes over the instructions to pre-calculate
+        *        the positions of the labels. (Here's to doing two passes later anyway
+        *        for some reason.) */
         m_rela_entries.push_back(RelaEntry::call(op_opcode_map.at(m_op).size(), m_op1.second.symbol_name));
 
         res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());

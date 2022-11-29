@@ -20,3 +20,4 @@ tests/time_results.txt
 elf-test/out*
 elf-test/elf
 elf-test/a.out
+elf-test/program
