@@ -141,6 +141,10 @@ public:
         sub,
         cmp,
         xor_,
+        jb,
+        jae,
+        jbe,
+        ja,
     };
 
     enum class OpType {
@@ -176,6 +180,16 @@ public:
         {}
     };
 
+    struct Operand {
+        OpType type;
+        OpContent cont;
+
+        Operand(OpType p_type, OpContent p_cont)
+            : type(p_type)
+            , cont(p_cont)
+        {}
+    };
+
     static const std::map<Op, std::vector<uint8_t>> op_opcode_map;
     static const std::map<Instruction::Op, uint8_t> op_modrm_modifier_map;
     static const std::map<Instruction::Op, std::pair<uint8_t, uint8_t>> op_rrm_rmr_map ;
@@ -183,10 +197,10 @@ public:
     Instruction(Op op) : m_op(op), m_op1(OpType::None, {}), m_op2(OpType::None, {})
     {}
 
-    Instruction(Op op, std::pair<OpType, OpContent> op1) : m_op(op), m_op1(op1), m_op2(OpType::None, {})
+    Instruction(Op op, Operand op1) : m_op(op), m_op1(op1), m_op2(OpType::None, {})
     {}
 
-    Instruction(Op op, std::pair<OpType, OpContent> op1, std::pair<OpType, OpContent> op2) : m_op(op), m_op1(op1), m_op2(op2)
+    Instruction(Op op, Operand op1, Operand op2) : m_op(op), m_op1(op1), m_op2(op2)
     {}
 
     std::vector<uint8_t> opcode();
@@ -196,8 +210,8 @@ public:
 private:
     Op m_op;
 
-    std::pair<OpType, OpContent> m_op1;
-    std::pair<OpType, OpContent> m_op2;
+    Operand m_op1;
+    Operand m_op2;
 
     std::vector<RelaEntry> m_rela_entries;
 
