@@ -10,6 +10,7 @@
 #include "semantics.hpp"
 #include "util.hpp"
 #include "x86_64.hpp"
+#include "elf.hpp"
 
 #define LIBSTDLEAST "lib/libstdleast.a"
 
@@ -98,13 +99,19 @@ int main(int argc, char** argv)
     info(fmt::format("[INFO] Semantical analysis\n"));
     semantic::semantic_analysis(ast_root, c_info);
 
-    info(fmt::format("[INFO] Generating assembly to: {}\n", GREEN_ARG(asm_filename)));
-    ast_to_x86_64(ast_root, asm_filename, c_info);
+    // info(fmt::format("[INFO] Generating assembly to: {}\n", GREEN_ARG(asm_filename)));
+
+    elf::X64Context asm_context(ast_root, c_info);
+    Instructions instructions = asm_context.gen_instructions();
 
     std::string object_filename = fn.extension(".o");
 
-    info(COLOR_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename)));
-    RUN_CMD("nasm -g -felf64 -o {} {}", object_filename, asm_filename);
+    info(fmt::format("[INFO] Generating object file\n"));
+    ElfGenerator elf_gen(object_filename, instructions);
+    elf_gen.generate();
+
+    // info(COLOR_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename)));
+    // RUN_CMD("nasm -g -felf64 -o {} {}", object_filename, asm_filename);
 
     std::string exe_filename = fn.extension("");
 

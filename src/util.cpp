@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <string_view>
+#include <cstring>
 
 #include "ast.hpp"
 #include "error.hpp"

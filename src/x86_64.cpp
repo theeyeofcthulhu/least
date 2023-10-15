@@ -1,611 +1,84 @@
 #include <algorithm>
-#include <cassert>
-#include <fstream>
-#include <iostream>
-#include <iterator>
-#include <sstream>
 #include <stack>
-#include <string>
-#include <string_view>
 
-#include <fmt/ostream.h>
-
-#include "ast.hpp"
-#include "maps.hpp"
 #include "util.hpp"
+#include "instruction.hpp"
+
 #include "x86_64.hpp"
-#include "semantics.hpp"
 
-#define MAX_DIGITS 32
-#define STR_RESERVED_SIZE 128
+namespace elf {
 
-static const size_t WORD_SIZE = 8;
-
-struct cmp_operation {
-    cmp_op op_enum;
-    std::string_view asm_name;
-    std::string_view opposite_asm_name;
-};
-
-std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info);
-
-void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info);
-void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info);
-
-void print_mov_if_req(std::string_view target, std::string_view source, std::ofstream& out);
-void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info);
-void number_in_register(std::shared_ptr<ast::Node> nd,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info, bool double_in_memory = false);
-
-void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info);
-void arithmetic_tree_to_x86_64_double(std::shared_ptr<ast::Node> root,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info);
-
-void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
-    std::ofstream& out,
-    CompileInfo& c_info,
-    int body_id,
-    int real_end_id,
-    bool cmp_log_or = false,
-    int cond_entry = -1);
-
-const cmp_operation cmp_operation_structs[CMP_OPERATION_ENUM_END] = {
-    { EQUAL, "je", "jne" },
-    { NOT_EQUAL, "jne", "je" },
-    { LESS, "jl", "jge" },
-    { LESS_OR_EQ, "jle", "jg" },
-    { GREATER, "jg", "jle" },
-    { GREATER_OR_EQ, "jge", "jl" },
-};
-
-const cmp_operation comisd_operation_structs[CMP_OPERATION_ENUM_END] = {
-    { EQUAL, "je", "jne" },
-    { NOT_EQUAL, "jne", "je" },
-    { LESS, "jb", "jae" },
-    { LESS_OR_EQ, "jbe", "ja" },
-    { GREATER, "ja", "jbe" },
-    { GREATER_OR_EQ, "jae", "jb" },
-};
-
-/* Get an assembly reference to a numeric variable or a constant
- * ensures variable is a number */
-std::string asm_from_int_or_const(std::shared_ptr<ast::Node> node, CompileInfo& c_info)
+Instructions X64Context::gen_instructions()
 {
-    assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_CONST);
-    if (node->get_type() == ast::T_VAR) {
-        auto t_var = AST_SAFE_CAST(ast::Var, node);
-
-        c_info.error_on_undefined(t_var);
-        c_info.error_on_wrong_type(t_var, V_INT);
-
-        return fmt::format("qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
-    } else if (node->get_type() == ast::T_CONST) {
-        return fmt::format("{}", AST_SAFE_CAST(ast::Const, node)->get_value());
-    } else {
-        UNREACHABLE();
-    }
-}
-
-std::string double_const_ref(std::shared_ptr<ast::DoubleConst> node, CompileInfo &c_info)
-{
-    double d = node->get_value();
-    return fmt::format("[double{}]", c_info.check_double_const(d));
-}
-
-std::string asm_from_double_or_const(std::shared_ptr<ast::Node> node, CompileInfo &c_info)
-{
-    assert(node->get_type() == ast::T_VAR || node->get_type() == ast::T_DOUBLE_CONST);
-    if (node->get_type() == ast::T_VAR) {
-        auto t_var = AST_SAFE_CAST(ast::Var, node);
-
-        c_info.error_on_undefined(t_var);
-        c_info.error_on_wrong_type(t_var, V_DOUBLE);
-
-        return fmt::format("qword [rbp - {}]", c_info.known_vars[t_var->get_var_id()].stack_offset * WORD_SIZE);
-    } else if (node->get_type() == ast::T_DOUBLE_CONST) {
-        return double_const_ref(AST_SAFE_CAST(ast::DoubleConst, node), c_info);
-    } else {
-        UNREACHABLE();
-    }
-}
-
-void mov_reg_into_array_access(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info)
-{
-    if (node->index->get_type() == ast::T_CONST) {
-        fmt::print(out, "mov qword [rbp - {}], {}\n", (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE), reg);
-    } else {
-        number_in_register(node->index, intermediate, out, c_info);
-        fmt::print(out, "mov qword [rbp - {} + {} * {}], {}\n", (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE), intermediate, WORD_SIZE, reg);
-    }
-}
-
-void array_access_into_register(std::shared_ptr<ast::Access> node, std::string_view reg, std::string_view intermediate, std::ofstream& out, CompileInfo& c_info)
-{
-    if (node->index->get_type() == ast::T_CONST) {
-        fmt::print(out, "mov {}, qword [rbp - {}]\n", reg, (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE) - (AST_SAFE_CAST(ast::Const, node->index)->get_value() * WORD_SIZE));
-    } else {
-        number_in_register(node->index, intermediate, out, c_info);
-        fmt::print(out, "mov {}, qword [rbp - {} + {} * {}]\n", reg, (c_info.known_vars[node->get_array_id()].stack_offset * WORD_SIZE), intermediate, WORD_SIZE);
-    }
-}
-
-/* Print assembly mov from source to target if they are not equal */
-inline void print_mov_if_req(std::string_view target,
-    std::string_view source,
-    std::ofstream& out)
-{
-    if (target != source)
-        fmt::print(out, "mov {}, {}\n", target, source);
-}
-
-/* Print assembly mov from source to target if they are not equal */
-inline void print_movsd_if_req(std::string_view target,
-    std::string_view source,
-    std::ofstream& out)
-{
-    if (target != source)
-        fmt::print(out, "movsd {}, {}\n", target, source);
-}
-
-inline void print_movq_if_req(std::string_view target,
-    std::string_view source,
-    std::ofstream& out)
-{
-    if (target != source)
-        fmt::print(out, "movq {}, {}\n", target, source);
-}
-
-void print_vfunc_in_reg(std::shared_ptr<ast::VFunc> vfunc_nd,
-    std::string_view reg,
-    std::ofstream& out)
-{
-    auto vfunc = vfunc_nd->get_value_func();
-
-    switch (vfunc) {
-    case VF_TIME: {
-        fmt::print(out, "mov rax, 201\n"
-                        "xor rdi, rdi\n"
-                        "syscall\n");
-        print_mov_if_req(reg, "rax", out);
-        break;
-    }
-    case VF_GETUID: {
-        fmt::print(out, "mov rax, 102\n"
-                        "syscall\n");
-        print_mov_if_req(reg, "rax", out);
-        break;
-    }
-    default:
-        UNREACHABLE();
-        break;
-    }
-}
-
-void move_double_const_into_memory(std::shared_ptr<ast::DoubleConst> d, std::string_view memory, std::ofstream &out, CompileInfo &c_info)
-{
-    fmt::print(out, "movsd xmm0, {}\n"
-                    "movsd {}, xmm0\n", double_const_ref(d, c_info), memory);
-}
-
-/* Move a tree_node, which evaluates to a number into a register */
-void number_in_register(std::shared_ptr<ast::Node> nd,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info, bool double_in_memory)
-{
-    assert(ast::could_be_num(nd->get_type()));
-
-    switch (nd->get_type()) {
-    case ast::T_ARIT:
-        if (semantic::get_number_type(nd, c_info) == V_INT)
-            arithmetic_tree_to_x86_64(nd, reg, out, c_info);
-        else if (semantic::get_number_type(nd, c_info) == V_DOUBLE)
-            arithmetic_tree_to_x86_64_double(nd, reg, out, c_info);
-        break;
-    case ast::T_VAR: {
-        auto var = AST_SAFE_CAST(ast::Var, nd);
-        if (c_info.known_vars[var->get_var_id()].type == V_INT) {
-            print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
-        } else if (c_info.known_vars[var->get_var_id()].type == V_DOUBLE) {
-            print_movsd_if_req(reg, asm_from_double_or_const(nd, c_info), out);
-        }
-        break;
-    }
-    case ast::T_DOUBLE_CONST:
-        if (double_in_memory)
-            move_double_const_into_memory(AST_SAFE_CAST(ast::DoubleConst, nd), reg, out, c_info);
-        else
-            print_movsd_if_req(reg, asm_from_double_or_const(nd, c_info), out);
-        break;
-    case ast::T_CONST:
-        print_mov_if_req(reg, asm_from_int_or_const(nd, c_info), out);
-        break;
-    case ast::T_ACCESS:
-        array_access_into_register(AST_SAFE_CAST(ast::Access, nd), reg, reg == "rax" ? "rbx" : "rax", out, c_info);
-        break;
-    case ast::T_VFUNC: {
-        auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
-        c_info.err.on_false(vfunc->get_return_type() == V_INT,
-            "'{}' has wrong return type '{}'",
-            vfunc_str_map.at(vfunc->get_value_func()),
-            var_type_str_map.at(vfunc->get_return_type()));
-
-        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, nd), reg, out);
-        break;
-    }
-    default:
-        UNREACHABLE();
-        break;
-    }
-}
-
-/* Parse a tree representing an arithmetic expression into assembly recursively
- */
-void arithmetic_tree_to_x86_64_double(std::shared_ptr<ast::Node> root,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info)
-{
-    /* If we are only a number: mov us into the target and leave */
-    if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_DOUBLE_CONST) {
-        print_movsd_if_req(reg, asm_from_double_or_const(root, c_info), out);
-        return;
-    }
-
-    assert(root->get_type() == ast::T_ARIT);
-
-    std::shared_ptr<ast::Arit> arit = AST_SAFE_CAST(ast::Arit, root);
-
-    std::string_view second_value = "xmm2";
-
-    assert(ast::could_be_num(arit->left->get_type()) && ast::could_be_num(arit->right->get_type()));
-
-    bool value_in_xmm0 = false;
-
-    /* If our children are also calculations: recurse */
-    if (arit->left->get_type() == ast::T_ARIT) {
-        arithmetic_tree_to_x86_64_double(arit->left, "xmm0", out, c_info);
-        value_in_xmm0 = true;
-    }
-    if (arit->right->get_type() == ast::T_ARIT) {
-        /* Preserve rax */
-        if (value_in_xmm0)
-            fmt::print(out, "sub rsp, 8\n"
-                            "movq [rsp], xmm0\n");
-        arithmetic_tree_to_x86_64_double(arit->right, "xmm2", out, c_info);
-        if (value_in_xmm0)
-            fmt::print(out, "movq xmm0, [rsp]\n"
-                            "add rsp, 8\n");
-    }
-
-    /* If our children are numbers: mov them into the target
-     * Only check for this the second time around because the numbers
-     * could get overwritten if we moved before doing another calculation */
-    if (arit->left->get_type() == ast::T_DOUBLE_CONST || arit->left->get_type() == ast::T_VAR || arit->left->get_type() == ast::T_VFUNC || arit->left->get_type() == ast::T_ACCESS) {
-        number_in_register(arit->left, "xmm0", out, c_info);
-
-        value_in_xmm0 = true;
-    }
-
-    switch (arit->right->get_type()) {
-    case ast::T_DOUBLE_CONST:
-    case ast::T_VAR: {
-        fmt::print(out, "movsd xmm2, {}\n", asm_from_double_or_const(arit->right, c_info));
-        break;
-    }
-    case ast::T_ACCESS: {
-        assert("double arrays are not implemented yet" && false);
-        number_in_register(arit->left, "xmm2", out, c_info);
-        break;
-    }
-    case ast::T_VFUNC: {
-        assert("double vfuncs are not implemented yet" && false);
-        // if (value_in_rax)
-        //     fmt::print(out, "push rax\n");
-        // print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out);
-        // if (value_in_rax)
-        //     fmt::print(out, "pop rax\n");
-        break;
-    }
-    default:
-        break;
-    }
-
-    /* NOTE: Switch to i- div, mul once signed numbers
-     * are supported */
-
-    /* Execute the calculation */
-    switch (arit->get_arit()) {
-    case ADD:
-        fmt::print(out, "addsd xmm0, {}\n", second_value);
-        print_movsd_if_req(reg, "xmm0", out);
-        break;
-    case SUB:
-        fmt::print(out, "subsd xmm0, {}\n", second_value);
-        print_movsd_if_req(reg, "xmm0", out);
-        break;
-    case DIV:
-        fmt::print(out, "divsd xmm0, {}\n", second_value);
-        print_movsd_if_req(reg, "xmm0", out);
-        break;
-    case MOD:
-        c_info.err.error("'{}' not allowed in floating point operations", arit_str_map.at(arit->get_arit()));
-        break;
-    case MUL:
-        fmt::print(out, "mulsd xmm0, {}\n", second_value);
-        print_movsd_if_req(reg, "xmm0", out);
-        break;
-    default:
-        UNREACHABLE();
-        break;
-    }
-}
-
-/* Parse a tree representing an arithmetic expression into assembly recursively
- */
-void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> root,
-    std::string_view reg,
-    std::ofstream& out,
-    CompileInfo& c_info)
-{
-    /* If we are only a number: mov us into the target and leave */
-    if (root->get_type() == ast::T_VAR || root->get_type() == ast::T_CONST) {
-        print_mov_if_req(reg, asm_from_int_or_const(root, c_info), out);
-        return;
-    }
-
-    assert(root->get_type() == ast::T_ARIT);
-
-    std::shared_ptr<ast::Arit> arit = AST_SAFE_CAST(ast::Arit, root);
-
-    bool rcx_can_be_immediate = !ast::has_precedence(arit->get_arit()); /* Only 'add' and 'sub' accept immediate values as
-                                                                           the second operand */
-    std::string_view second_value = "rcx";
-
-    assert(ast::could_be_num(arit->left->get_type()) && ast::could_be_num(arit->right->get_type()));
-
-    bool value_in_rax = false;
-
-    /* If our children are also calculations: recurse */
-    if (arit->left->get_type() == ast::T_ARIT) {
-        arithmetic_tree_to_x86_64(arit->left, "rax", out, c_info);
-        value_in_rax = true;
-    }
-    if (arit->right->get_type() == ast::T_ARIT) {
-        /* Preserve rax */
-        if (value_in_rax)
-            fmt::print(out, "push rax\n");
-        arithmetic_tree_to_x86_64(arit->right, "rcx", out, c_info);
-        if (value_in_rax)
-            fmt::print(out, "pop rax\n");
-    }
-
-    /* If our children are numbers: mov them into the target
-     * Only check for this the second time around because the numbers
-     * could get overwritten if we moved before doing another calculation */
-    if (arit->left->get_type() == ast::T_CONST || arit->left->get_type() == ast::T_VAR || arit->left->get_type() == ast::T_VFUNC || arit->left->get_type() == ast::T_ACCESS) {
-        number_in_register(arit->left, "rax", out, c_info);
-
-        value_in_rax = true;
-    }
-
-    switch (arit->right->get_type()) {
-    case ast::T_CONST: {
-        if (rcx_can_be_immediate) {
-            second_value = asm_from_int_or_const(arit->right, c_info);
-            break;
-        }
-        __attribute__((fallthrough)); /* If rcx can't be immediate: do the
-                                         same as you would for var */
-    }
-    case ast::T_VAR: {
-        fmt::print(out, "mov rcx, {}\n", asm_from_int_or_const(arit->right, c_info));
-        break;
-    }
-    case ast::T_ACCESS: {
-        number_in_register(arit->left, "rcx", out, c_info);
-        break;
-    }
-    case ast::T_VFUNC: {
-        if (value_in_rax)
-            fmt::print(out, "push rax\n");
-        print_vfunc_in_reg(AST_SAFE_CAST(ast::VFunc, arit->right), "rcx", out);
-        if (value_in_rax)
-            fmt::print(out, "pop rax\n");
-        break;
-    }
-    default:
-        break;
-    }
-
-    /* NOTE: Switch to i- div, mul once signed numbers
-     * are supported */
-
-    /* Execute the calculation */
-    switch (arit->get_arit()) {
-    case ADD:
-        fmt::print(out, "add rax, {}\n", second_value);
-        print_mov_if_req(reg, "rax", out);
-        break;
-    case SUB:
-        fmt::print(out, "sub rax, {}\n", second_value);
-        print_mov_if_req(reg, "rax", out);
-        break;
-    case DIV:
-        fmt::print(out, "xor rdx, rdx\n"
-                        "div {}\n",
-            second_value);
-        print_mov_if_req(reg, "rax", out);
-        break;
-    case MOD:
-        fmt::print(out, "xor rdx, rdx\n"
-                        "div {}\n",
-            second_value);
-        print_mov_if_req(reg, "rdx", out);
-        break;
-    case MUL:
-        fmt::print(out, "xor rdx, rdx\n"
-                        "mul {}\n",
-            second_value);
-        print_mov_if_req(reg, "rax", out);
-        break;
-    default:
-        UNREACHABLE();
-        break;
-    }
-}
-
-void ast_to_x86_64(std::shared_ptr<ast::Body> root, std::string_view fn, CompileInfo& c_info)
-{
-    std::ofstream out(fn.data());
-
-    fmt::print(out, ";; Generated by Least Complicated Compiler (lcc)\n"
-                    "global _start\n"
-                    "section .text\n"
-                    "_start:\n");
-
+    m_instructions.add(Instruction(Instruction::Op::label, Instruction::Operand(Instruction::OpType::LabelInfo, LabelInfo::infile("_start", STB_GLOBAL))));
     /* Allocate space var variables on stack */
-    if (!c_info.known_vars.empty()) {
-        fmt::print(out, "mov rbp, rsp\n"
-                        "sub rsp, {}\n",
-            c_info.get_stack_size() * WORD_SIZE);
+    if (!m_c_info.known_vars.empty()) {
+        m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rbp)),
+                                                             Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp))));
+        m_instructions.add(Instruction(Instruction::Op::sub, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp)),
+                                                             Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.get_stack_size() * WORD_SIZE))));
     }
 
-    ast_to_x86_64_core(ast::to_base(root), out, c_info, root->get_body_id(), root->get_body_id());
+    gen_instructions_core(ast::to_base(m_root), m_root->get_body_id());
 
-    fmt::print(out, "mov rax, 60\n"
-                    "xor rdi, rdi\n"
-                    "syscall\n"
-                    "section .data\n");
+    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+                                                         Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(60))));
+    m_instructions.add(Instruction(Instruction::Op::xor_, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
+                                                          Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi))));
+    m_instructions.add(Instruction(Instruction::Op::syscall));
 
-    for (size_t i = 0; i < c_info.known_strings.size(); i++) {
-        fmt::print(out, "str{0}: db \"{1}\"\n"
-                        "str{0}Len: equ $ - str{0}\n",
-            i, c_info.known_strings[i]);
+    for (size_t i = 0; i < m_c_info.known_strings.size(); i++) {
+        m_instructions.add_string(i, m_c_info.known_strings[i]);
     }
 
-    for (size_t i = 0; i < c_info.known_double_consts.size(); i++) {
-        fmt::print(out, "double{}: dq {:.6f}\n", i, c_info.known_double_consts[i]);
+    for (size_t i = 0; i < m_c_info.known_double_consts.size(); i++) {
+        fmt::print("TODO: reimplement doubles");
     }
 
     /* Reserved string variables */
-    if (std::find_if(c_info.known_vars.begin(), c_info.known_vars.end(), [](VarInfo v) { return v.type == V_STR; }) != c_info.known_vars.end()) {
-        fmt::print(out, "section .bss\n");
-        for (size_t i = 0; i < c_info.known_vars.size(); i++) {
-            auto v = c_info.known_vars[i];
-            if (v.type == V_STR) {
-                fmt::print(out, "strvar{0}: resb {1}\n"
-                                "strvar{0}len: resq 1\n",
-                    i, STR_RESERVED_SIZE);
-            }
-        }
+    if (std::find_if(m_c_info.known_vars.begin(), m_c_info.known_vars.end(), [](VarInfo v) { return v.type == V_STR; }) != m_c_info.known_vars.end()) {
+        fmt::print("TODO: reimplement .bss strings");
     }
 
-    fmt::print(out, "extern uprint\n"
-                    "extern fprint\n"
-                    "extern putchar\n");
+    m_instructions.add_label(LabelInfo::externsym("uprint"));
+    m_instructions.add_label(LabelInfo::externsym("fprint"));
+    m_instructions.add_label(LabelInfo::externsym("putchar"));
 
-    out.close();
+    return m_instructions;
 }
 
-void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
-    std::ofstream& out,
-    CompileInfo& c_info,
-    int body_id,
-    int real_end_id,
-    bool cmp_log_or,
-    int cond_entry)
+void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id)
 {
     static std::stack<int> while_ends {};
 
-    c_info.err.set_line(root->get_line());
-    switch (root->get_type()) {
+    m_c_info.err.set_line(root->get_line());
+    switch(root->get_type()) {
     case ast::T_BODY: {
         std::shared_ptr<ast::Body> body = AST_SAFE_CAST(ast::Body, root);
         for (const auto& child : body->children) {
-            ast_to_x86_64_core(child, out, c_info, body->get_body_id(), real_end_id);
+            gen_instructions_core(child, body->get_body_id());
         }
         break;
     }
     case ast::T_IF: {
-        std::shared_ptr<ast::If> t_if = AST_SAFE_CAST(ast::If, root);
-
-        /* Getting the end label for the whole block
-         * we jmp there if one if succeeded and we traversed its block */
-        if (!t_if->is_elif()) {
-            std::shared_ptr<ast::Node> last_if = ast::get_last_if(t_if);
-            if (last_if) {
-                if (last_if->get_type() == ast::T_ELSE) {
-                    real_end_id = AST_SAFE_CAST(ast::Else, last_if)->body->get_body_id();
-                } else if (last_if->get_type() == ast::T_IF) {
-                    real_end_id = AST_SAFE_CAST(ast::If, last_if)->body->get_body_id();
-                }
-            }
-        }
-
-        fmt::print(out, ";; {}\n", (t_if->is_elif() ? "elif" : "if"));
-        ast_to_x86_64_core(t_if->condition, out, c_info, t_if->body->get_body_id(),
-            real_end_id);
-        ast_to_x86_64_core(t_if->body, out, c_info, t_if->body->get_body_id(), real_end_id);
-
-        if (t_if->elif != nullptr) {
-            fmt::print(out, "jmp .end{}\n"
-                            ".end{}:\n",
-                real_end_id, t_if->body->get_body_id());
-            ast_to_x86_64_core(t_if->elif, out, c_info, t_if->body->get_body_id(), real_end_id);
-        } else {
-            fmt::print(out, ".end{}:\n", t_if->body->get_body_id());
-        }
-        break;
+        fmt::print("TODO: T_IF");
+        std::exit(1);
     }
     case ast::T_ELSE: {
-        std::shared_ptr<ast::Else> t_else = AST_SAFE_CAST(ast::Else, root);
-
-        fmt::print(out, ";; else\n");
-        ast_to_x86_64_core(t_else->body, out, c_info, t_else->body->get_body_id(), real_end_id);
-        fmt::print(out, ".end{}:\n", t_else->body->get_body_id());
-        break;
+        fmt::print("TODO: T_ELSE");
+        std::exit(1);
     }
     case ast::T_WHILE: {
-        std::shared_ptr<ast::While> t_while = AST_SAFE_CAST(ast::While, root);
-
-        while_ends.push(t_while->body->get_body_id());
-
-        fmt::print(out, ";; while\n");
-        fmt::print(out, ".entry{}:\n", t_while->body->get_body_id());
-
-        ast_to_x86_64_core(t_while->condition, out, c_info, t_while->body->get_body_id(),
-            real_end_id);
-        ast_to_x86_64_core(t_while->body, out, c_info, t_while->body->get_body_id(),
-            real_end_id);
-
-        fmt::print(out, "jmp .entry{}\n", t_while->body->get_body_id());
-        fmt::print(out, ".end{}:\n", t_while->body->get_body_id());
-
-        while_ends.pop();
-        break;
+        fmt::print("TODO: T_WHILE");
+        std::exit(1);
     }
     case ast::T_FUNC: {
         std::shared_ptr<ast::Func> t_func = AST_SAFE_CAST(ast::Func, root);
 
-        std::string_view func_name = func_str_map.at(t_func->get_func());
-        fmt::print(out, ";; {}\n", func_name);
-
         switch (t_func->get_func()) {
         case F_EXIT: {
-            number_in_register(t_func->args[0], "rdi", out, c_info);
-            fmt::print(out, "mov rax, 60\n"
-                            "syscall\n");
+            fmt::print("TODO: F_EXIT\n");
+            std::exit(1);
             break;
         }
         case F_ARRAY:
@@ -614,13 +87,13 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             break;
         }
         case F_INT: {
-            number_in_register(t_func->args[1],
-                asm_from_int_or_const(t_func->args[0], c_info), out, c_info);
+            fmt::print("TODO: F_INT\n");
+            std::exit(1);
             break;
         }
         case F_DOUBLE: {
-            number_in_register(t_func->args[1],
-                asm_from_double_or_const(t_func->args[0], c_info), out, c_info, true);
+            fmt::print("TODO: F_DOUBLE\n");
+            std::exit(1);
             break;
         }
         case F_PRINT: {
@@ -629,153 +102,76 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
             for (const auto& format : ls->format) {
                 switch (format->get_type()) {
                 case ast::T_STR: {
-                    std::shared_ptr<ast::Str> str = AST_SAFE_CAST(ast::Str, format);
-
-                    fmt::print(out, "mov rax, 1\n"
+                    /** fmt::print(out, "mov rax, 1\n"
                                     "mov rdi, 1\n"
                                     "mov rsi, str{0}\n"
                                     "mov rdx, str{0}Len\n"
                                     "syscall\n",
-                        str->get_str_id());
+                        str->get_str_id()); **/
+                    std::shared_ptr<ast::Str> str = AST_SAFE_CAST(ast::Str, format);
+
+                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+                                                                         Instruction::Operand(Instruction::OpType::Immediate, 1)));
+                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
+                                                                         Instruction::Operand(Instruction::OpType::Immediate, 1)));
+                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsi)),
+                                                                         Instruction::Operand(Instruction::OpType::String, Instruction::OpContent(str->get_str_id()))));
+                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdx)),
+                                                                         Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.known_strings[str->get_str_id()].length()))));
+                    m_instructions.add(Instruction(Instruction::Op::syscall));
+
                     break;
                 }
                 case ast::T_VAR: {
-                    auto the_var = AST_SAFE_CAST(ast::Var, format);
-                    auto the_var_info = c_info.known_vars[the_var->get_var_id()];
-
-                    c_info.error_on_undefined(the_var);
-
-                    switch (the_var_info.type) {
-                    case V_DOUBLE: {
-                        fmt::print(out, "movsd xmm0, {}\n"
-                                        "call fprint\n",
-                            asm_from_double_or_const(format, c_info));
-                        break;
-                    }
-                    case V_INT: {
-                        fmt::print(out, "mov rdi, {}\n"
-                                        "call uprint\n",
-                            asm_from_int_or_const(format, c_info));
-                        break;
-                    }
-                    case V_STR: {
-                        fmt::print(out, "mov rax, 1\n"
-                                        "mov rdi, 1\n"
-                                        "mov rsi, strvar{0}\n"
-                                        "mov rdx, [strvar{0}len]\n"
-                                        "syscall\n",
-                            the_var->get_var_id());
-                        break;
-                    }
-                    default: {
-                        UNREACHABLE();
-                        break;
-                    }
-                    }
+                    fmt::print("TODO: PRINT T_VAR\n");
+                    std::exit(1);
                     break;
                 }
                 case ast::T_DOUBLE_CONST:
                 case ast::T_CONST:
                 case ast::T_ACCESS: {
-                    number_in_register(format, "rdi", out, c_info);
-                    fmt::print(out, "call uprint\n");
+                    fmt::print("TODO: PRINT T_DOUBLE_CONST, T_CONST, T_ACCESS\n");
+                    std::exit(1);
                     break;
                 }
                 default:
-                    c_info.err.error("Unexpected format token in string");
+                    m_c_info.err.error("Unexpected format token in string");
                     break;
                 }
             }
             break;
         }
         case F_SET: {
-            std::string input;
-
-            if (t_func->args[1]->get_type() == ast::T_ACCESS) {
-                array_access_into_register(AST_SAFE_CAST(ast::Access, t_func->args[1]), "rax", "rbx", out, c_info);
-                input = "rax";
-            } else if (t_func->args[1]->get_type() == ast::T_CONST) {
-                input = std::to_string(AST_SAFE_CAST(ast::Const, t_func->args[1])->get_value());
-            } else {
-                number_in_register(t_func->args[1], "rax", out, c_info);
-                input = "rax";
-            }
-
-            if (t_func->args[0]->get_type() == ast::T_ACCESS) {
-                mov_reg_into_array_access(AST_SAFE_CAST(ast::Access, t_func->args[0]), input, "rbx", out, c_info);
-            } else if (t_func->args[0]->get_type() == ast::T_VAR) {
-                print_mov_if_req(asm_from_int_or_const(t_func->args[0], c_info), input, out);
-            } else {
-                UNREACHABLE();
-            }
+            fmt::print("TODO: F_SET\n");
+            std::exit(1);
             break;
         }
         // TODO: make this function obsolete by overloading F_SET
         case F_SETD: {
-            std::string input;
-
-            if (t_func->args[1]->get_type() == ast::T_ACCESS) {
-                assert(false && "double array accesses are not implemented yet");
-                // array_access_into_register(AST_SAFE_CAST(ast::Access, t_func->args[1]), "rax", "rbx", out, c_info);
-                // input = "rax";
-            } else if (t_func->args[1]->get_type() == ast::T_DOUBLE_CONST) {
-                input = double_const_ref(AST_SAFE_CAST(ast::DoubleConst, t_func->args[1]), c_info);
-            } else {
-                number_in_register(t_func->args[1], "xmm0", out, c_info);
-                input = "xmm0";
-            }
-
-            if (t_func->args[0]->get_type() == ast::T_ACCESS) {
-                assert(false && "double array accesses are not implemented yet");
-                // mov_reg_into_array_access(AST_SAFE_CAST(ast::Access, t_func->args[0]), input, "rbx", out, c_info);
-            } else if (t_func->args[0]->get_type() == ast::T_VAR) {
-                print_movq_if_req(asm_from_double_or_const(t_func->args[0], c_info), input, out);
-            } else {
-                UNREACHABLE();
-            }
+            fmt::print("TODO: F_SETD\n");
+            std::exit(1);
             break;
         }
         case F_ADD:
         case F_SUB: {
-            if (t_func->args[1]->get_type() == ast::T_CONST) {
-                /* In this case func name
-                ('add' or 'sub') is actually
-                the correct instruction */
-                fmt::print(out, "{} {}, {}\n", func_name, asm_from_int_or_const(t_func->args[0], c_info), asm_from_int_or_const(t_func->args[1], c_info));
-            } else {
-                number_in_register(t_func->args[1], "rax", out, c_info);
-                fmt::print(out, "{} {}, rax\n", func_name, asm_from_int_or_const(t_func->args[0], c_info));
-            }
+            fmt::print("TODO: F_ADD, F_SUB\n");
+            std::exit(1);
             break;
         }
         case F_READ: {
-            auto t_var = AST_SAFE_CAST(ast::Var, t_func->args[0]);
-
-            fmt::print(out, "xor rax, rax\n"
-                            "xor rdi, rdi\n"
-                            "mov rsi, strvar{0}\n"
-                            "mov rdx, {1}\n"
-                            "syscall\n"
-                            "dec rax\n"
-                            "mov [strvar{0}len], rax\n"  /* Move return value of read, i.e., length of input into the length variable */
-                            "mov byte [rsi + rax], 0\n", /* Clear newline at end of input */
-                t_var->get_var_id(), STR_RESERVED_SIZE);
-
+            fmt::print("TODO: F_READ\n");
+            std::exit(1);
             break;
         }
         case F_PUTCHAR: {
-            number_in_register(t_func->args[0], "rdi", out, c_info);
-            fmt::print(out, "call putchar\n");
-
+            fmt::print("TODO: F_PUTCHAR\n");
+            std::exit(1);
             break;
         }
         case F_BREAK:
         case F_CONT: {
-            c_info.err.on_true(while_ends.empty(), "'{}' outside of loop", func_name);
-
-            /* On *break*: Jump to after the loop
-             * On *continue*: Jump to the beginning of the loop */
-            fmt::print(out, "jmp .{}{}\n", t_func->get_func() == F_BREAK ? "end" : "entry", while_ends.top());
+            fmt::print("TODO: F_BREAK, F_CONT\n");
+            std::exit(1);
             break;
         }
         default:
@@ -785,173 +181,18 @@ void ast_to_x86_64_core(std::shared_ptr<ast::Node> root,
         break;
     }
     case ast::T_CMP: {
-        std::shared_ptr<ast::Cmp> cmp = AST_SAFE_CAST(ast::Cmp, root);
-        std::array<std::string, 2> regs; /* Have to use std::string here because the strings returned
-                                          * from asm_from_int_or_const() go out of scope. */
-        cmp_op op;
-
-        var_type type = semantic::get_number_type(cmp->left, c_info);
-        if (cmp->right) {
-            c_info.err.on_false(type == semantic::get_number_type(cmp->right, c_info), "Mismatched types in comparison: '{}' and '{}'"
-                                                                                    , var_type_str_map.at(type)
-                                                                                    , var_type_str_map.at(semantic::get_number_type(cmp->right, c_info)));
-        }
-
-        if (type == V_INT) {
-            if (cmp->left->get_type() == ast::T_CONST && !cmp->right) {
-                auto cnst = AST_SAFE_CAST(ast::Const, cmp->left);
-
-                if (cnst->get_value() != 0 && cmp_log_or) {
-                    fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
-                } else if (cnst->get_value() == 0) {
-                    fmt::print(out, "jmp .end{}\n", body_id);
-                }
-
-                break;
-            }
-
-            /* Cannot use immediate value as first operand to 'cmp' */
-            if (cmp->left->get_type() == ast::T_VAR) {
-                regs[0] = asm_from_int_or_const(cmp->left, c_info);
-            } else {
-                arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
-                regs[0] = "r8";
-            }
-
-            if (cmp->right) {
-                if (cmp->right->get_type() == ast::T_CONST) {
-                    regs[1] = asm_from_int_or_const(cmp->right, c_info);
-                } else {
-                    arithmetic_tree_to_x86_64(cmp->right, "r9", out, c_info);
-                    regs[1] = "r9";
-                }
-
-                op = cmp->get_cmp();
-            } else {
-                /* If we are not comparing something: just check against one */
-                regs[1] = "0";
-                op = NOT_EQUAL;
-            }
-            /* Why the opposite jump of what we are doing?
-            * lets say:
-            * if 2 == 2
-            *     ....
-            * end
-            * we don't want to do:
-            * cmp 2, 2
-            * je beginning of if block
-            * jmp end of if block
-            * beginning
-            * ....
-            * end
-            *
-            * just:
-            * cmp 2, 2
-            * jne end of if block
-            * ....
-            * end */
-
-            if (cmp_log_or) {
-                /* We are part of an or-condition, meaning that if we conceed,
-                * we immediately go to the beginning of the body */
-                fmt::print(out, "cmp {}, {}\n"
-                                "{} .cond_entry{}\n",
-                    regs[0], regs[1], cmp_operation_structs[op].asm_name, cond_entry);
-            } else {
-                fmt::print(out, "cmp {}, {}\n"
-                                "{} .end{}\n",
-                    regs[0], regs[1], cmp_operation_structs[op].opposite_asm_name, body_id);
-            }
-        } else if (type == V_DOUBLE) {
-            if (cmp->left->get_type() == ast::T_DOUBLE_CONST && !cmp->right) {
-                auto cnst = AST_SAFE_CAST(ast::DoubleConst, cmp->left);
-
-                if (cnst->get_value() != 0.0f && cmp_log_or) {
-                    fmt::print(out, "jmp .cond_entry{}\n", cond_entry);
-                } else if (cnst->get_value() == 0.0f) {
-                    fmt::print(out, "jmp .end{}\n", body_id);
-                }
-
-                break;
-            }
-
-            // TODO: check for unordered values
-
-            /* Cannot use immediate value or memory access as first operand to 'cmp' */
-            arithmetic_tree_to_x86_64_double(cmp->left, "xmm8", out, c_info);
-            regs[0] = "xmm8";
-
-            if (cmp->right) {
-                if (cmp->right->get_type() == ast::T_DOUBLE_CONST) {
-                    regs[1] = asm_from_double_or_const(cmp->right, c_info);
-                } else {
-                    arithmetic_tree_to_x86_64_double(cmp->right, "xmm9", out, c_info);
-                    regs[1] = "xmm9";
-                }
-
-                op = cmp->get_cmp();
-            } else {
-                /* If we are not comparing something: just check against one */
-                regs[1] = "0";
-                op = NOT_EQUAL;
-            }
-
-            if (cmp_log_or) {
-                /* We are part of an or-condition, meaning that if we conceed,
-                * we immediately go to the beginning of the body */
-                fmt::print(out, "comisd {}, {}\n"
-                                "{} .cond_entry{}\n",
-                    regs[0], regs[1], comisd_operation_structs[op].asm_name, cond_entry);
-            } else {
-                fmt::print(out, "comisd {}, {}\n"
-                                "{} .end{}\n",
-                    regs[0], regs[1], comisd_operation_structs[op].opposite_asm_name, body_id);
-            }
-        } else {
-            UNREACHABLE();
-        }
-
-        break;
+        fmt::print("TODO: T_CMP");
+        std::exit(1);
     }
     case ast::T_LOG: {
-        auto log = AST_SAFE_CAST(ast::Log, root);
-
-        bool need_entry = log->get_log() == OR && cond_entry == -1;
-        if (need_entry) {
-            cond_entry = c_info.get_next_body_id();
-        }
-
-        switch (log->get_log()) {
-        case AND: {
-            ast_to_x86_64_core(log->left, out, c_info, body_id, real_end_id, false,
-                cond_entry);
-            ast_to_x86_64_core(log->right, out, c_info, body_id, real_end_id, false,
-                cond_entry);
-            break;
-        }
-        case OR: {
-            ast_to_x86_64_core(log->left, out, c_info, body_id, real_end_id, true,
-                cond_entry);
-            ast_to_x86_64_core(log->right, out, c_info, body_id, real_end_id, false,
-                cond_entry);
-            break;
-        }
-        default:
-            UNREACHABLE();
-            break;
-        }
-
-        /* Is always going to be printed at the end of the whole conditional
-         * block, because the whole tree will be traversed at this point,
-         * even if we were not the first node */
-        if (need_entry) {
-            fmt::print(out, ".cond_entry{}:\n", cond_entry);
-        }
-
-        break;
+        fmt::print("TODO: T_LOG");
+        std::exit(1);
     }
-    default:
+    default: {
         UNREACHABLE();
         break;
     }
+    }
+}
+
 }

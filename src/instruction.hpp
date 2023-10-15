@@ -7,6 +7,7 @@
 #include <string_view>
 #include <optional>
 #include <map>
+#include <cstdint>
 
 #include "elf_consts.hpp"
 
@@ -27,6 +28,11 @@ enum class Register {
     r13 = 0b1101,
     r14 = 0b1110,
     r15 = 0b1111,
+};
+
+struct ElfString {
+    int id;
+    std::string_view sv;
 };
 
 struct RelaEntry {
@@ -138,13 +144,18 @@ public:
         jle,
         jg,
         jge,
+        add,
         sub,
+        div,
+        mul,
         cmp,
         xor_,
         jb,
         jae,
         jbe,
         ja,
+        push,
+        pop,
     };
 
     enum class OpType {
@@ -152,6 +163,7 @@ public:
         Register,
         Immediate,
         String,
+        DoubleConst,
         SymbolName,
         LabelInfo,
         Memory,
@@ -160,6 +172,11 @@ public:
     enum class MovOpCodes {
         RegImm = 0xb8,
         RMImm = 0xc7,
+    };
+
+    enum class PushPopCodes {
+        PushReg = 0x50,
+        PopReg = 0x58,
     };
 
     union OpContent {
@@ -171,6 +188,8 @@ public:
         OpContent() : number(0)
         {}
         OpContent(int p_number) : number(p_number)
+        {}
+        OpContent(Register p_reg) : number((int) p_reg)
         {}
         OpContent(std::string_view p_function_name) : symbol_name(p_function_name)
         {}
@@ -188,6 +207,8 @@ public:
             : type(p_type)
             , cont(p_cont)
         {}
+
+        static Operand Register(Register reg) { return Operand(Instruction::OpType::Register, OpContent((int) reg)); }
     };
 
     static const std::map<Op, std::vector<uint8_t>> op_opcode_map;
@@ -230,6 +251,9 @@ public:
     {}
 
     void add(Instruction i) { m_ins.push_back(std::move(i)); }
+    void add_string(int id, std::string_view sv) { m_strings.push_back({ id, sv }); }
+    void add_label(LabelInfo info) { m_labels.push_back(info); }
+
     std::vector<uint8_t> opcodes();
 
     const std::vector<RelaEntry> &rela_entries()
@@ -244,15 +268,16 @@ public:
         return m_labels;
     }
 
+    const std::vector<ElfString> &strings()
+    {
+        return m_strings;
+    }
+
 private:
     std::vector<Instruction> m_ins;
     std::vector<RelaEntry> m_rela_entries;
     std::vector<LabelInfo> m_labels;
+    std::vector<ElfString> m_strings;
 
     bool m_generated_opcodes = false;
-};
-
-struct ElfString {
-    int id;
-    std::string_view sv;
 };

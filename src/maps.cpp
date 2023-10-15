@@ -291,13 +291,13 @@ const std::map<value_func_id, var_type> vfunc_var_type_map {
 };
 
 const std::map<char, std::string_view> str_tokens {
-    std::make_pair('n', "\",0xa,\""),   /* Newline */
-    std::make_pair('t', "\",0x9,\""),   /* Tabstop */
+    std::make_pair('n', "\n"),   /* Newline */
+    std::make_pair('t', "\t"),   /* Tabstop */
     std::make_pair('\\', "\\"),         /* The character '\' */
-    std::make_pair('\"', "\",0x22,\""), /* The character '"' */
-    std::make_pair('\'', "\",0x27,\""), /* The character "'" */
-    std::make_pair('[', "\",0x5B,\""),  /* The character '[' */
-    std::make_pair(']', "\",0x5D,\""),  /* The character ']' */
+    std::make_pair('\"', "\""), /* The character '"' */
+    std::make_pair('\'', "\'"), /* The character "'" */
+    std::make_pair('[', "["),  /* The character '[' */
+    std::make_pair(']', "]"),  /* The character ']' */
 };
 
 const std::map<char, char> str_tokens_char {

@@ -22,10 +22,12 @@ const std::map<Instruction::Op, std::vector<uint8_t>> Instruction::op_opcode_map
     {Op::jge, { 0x0f, 0x8d }},
     {Op::sub, { 0x81 }},
     {Op::cmp, { 0x81 }},
+    {Op::add, { 0x81 }},
 };
 
 // modrm second field 0x81 instruction
 const std::map<Instruction::Op, uint8_t> Instruction::op_modrm_modifier_map = {
+    {Op::add, { 0 }},
     {Op::sub, { 5 }},
     {Op::cmp, { 7 }},
 };
@@ -70,6 +72,11 @@ std::vector<uint8_t> Instruction::opcode()
         res.insert(res.end(), bytes.begin(), bytes.end());
     };
 
+
+    // TODO:
+    // accessing 64-bit double constants is done via ModR/M byte
+    // referring to an SIB byte. Implement this.
+
     // Special case where Register is encoded in opcode
     if (m_op1.type == OpType::Register && (m_op2.type == OpType::Immediate || m_op2.type == OpType::String)) {
         if (m_op == Op::mov) {
@@ -86,9 +93,14 @@ std::vector<uint8_t> Instruction::opcode()
             }
 
             return res;
-        }
-
+        } 
     }
+
+    if ((m_op == Op::push || m_op == Op::pop) && (m_op1.type == OpType::Register)) {
+        res.push_back(((int) (m_op == Op::push ? PushPopCodes::PushReg : PushPopCodes::PopReg) + m_op1.cont.number));
+        return res;
+    }
+
 
     auto is_modrm = [](OpType o) {
         return o == OpType::Register || o == OpType::Memory;

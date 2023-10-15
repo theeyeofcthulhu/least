@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 
-set -e
+EXE=lcc
+BUILD_COMMAND=ninja
+CMAKE_OPTS=-GNinja
+COMPILE_COMMANDS=true
 
-if [[ $1 == "clean" ]]; then
-    rm -rf ./build
-fi
+set -xe
+
+[[ "$1" == "clean" ]] && rm -rf ./build
 
 mkdir -p build
 cd build
 
-cmake -GNinja ..
-ninja
+cmake $CMAKE_OPTS ..
+$BUILD_COMMAND
 
 cd ..
-cp -v build/lcc .
-cp -v build/compile_commands.json .
-cp -v build/libstdleast.a lib/
+[[ ! -f "./$EXE" ]] && ln -sv "build/$EXE" .
+[[ ! -f "lib/libstdleast.a" ]] && ln -sv "build/libstdleast.a" .
+[[ "$COMPILE_COMMANDS" = true ]] && [[ ! -f ./compile_commands.json ]] && ln -sv build/compile_commands.json .
+
+[[ "$1" == "r" ]] && "./$EXE"
