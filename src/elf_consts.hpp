@@ -1,5 +1,7 @@
 #pragma once
 
+namespace elf {
+
 #define SYSV_ABI_VERSION 0 // FIXME: important?
 
 #define EV_CURRENT 1
@@ -175,3 +177,5 @@ enum reloc64_type {
 #define ELF64_ST_MKBIND(i)	ELF32_ST_MKBIND(i)
 #define ELF64_ST_TYPE(i)	ELF32_ST_TYPE(i)
 #define ELF64_ST_INFO(b, i)	ELF32_ST_INFO(b, i)
+
+} // namespace elf

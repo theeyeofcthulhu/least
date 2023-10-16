@@ -102,12 +102,12 @@ int main(int argc, char** argv)
     // info(fmt::format("[INFO] Generating assembly to: {}\n", GREEN_ARG(asm_filename)));
 
     elf::X64Context asm_context(ast_root, c_info);
-    Instructions instructions = asm_context.gen_instructions();
+    elf::Instructions instructions = asm_context.gen_instructions();
 
     std::string object_filename = fn.extension(".o");
 
     info(fmt::format("[INFO] Generating object file\n"));
-    ElfGenerator elf_gen(object_filename, instructions);
+    elf::ElfGenerator elf_gen(object_filename, instructions);
     elf_gen.generate();
 
     // info(COLOR_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename)));

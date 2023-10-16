@@ -17,6 +17,8 @@
 
 #include "elf.hpp"
 
+namespace elf {
+
 using namespace std::string_literals;
 
 ElfGenerator::ElfGenerator(std::string_view fn, Instructions text)
@@ -234,3 +236,5 @@ void ElfGenerator::generate()
 
     m_out.close();
 }
+
+} // namespace elf

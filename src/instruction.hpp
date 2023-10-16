@@ -11,6 +11,8 @@
 
 #include "elf_consts.hpp"
 
+namespace elf {
+
 enum class Register {
     rax = 0b0000,
     rcx = 0b0001,
@@ -281,3 +283,5 @@ private:
 
     bool m_generated_opcodes = false;
 };
+
+} // namespace elf

@@ -5,6 +5,8 @@
 
 #include "instruction.hpp"
 
+namespace elf {
+
 typedef uint64_t e_addr;
 typedef uint64_t e_off;
 typedef uint16_t e_half;
@@ -96,5 +98,7 @@ private:
     static e_word strtab_offset(std::vector<char> tab, std::string_view name);
     void add_padding(int n, int a);
 };
+
+} // namespace elf
 
 #endif // ELF_H_

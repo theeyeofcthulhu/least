@@ -9,6 +9,8 @@
 
 #include "instruction.hpp"
 
+namespace elf {
+
 const std::map<Instruction::Op, std::vector<uint8_t>> Instruction::op_opcode_map = {
     {Op::mov, { 0xb8 }},
     {Op::syscall, { 0x0f, 0x05 }},
@@ -237,3 +239,5 @@ std::vector<uint8_t> Instructions::opcodes()
 
     return res;
 }
+
+} // namespace elf
