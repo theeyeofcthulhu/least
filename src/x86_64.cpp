@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <stack>
 
 #include "util.hpp"
@@ -7,6 +8,72 @@
 #include "x86_64.hpp"
 
 namespace elf {
+
+void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
+{
+    assert(ast::could_be_num(nd->get_type()));
+
+    switch(nd->get_type()) {
+    case ast::T_ARIT: {
+        fmt::print("{}\nTODO: T_ARIT\n", __PRETTY_FUNCTION__);
+        std::exit(1);
+        break;
+    }
+    case ast::T_VAR: {
+        auto var = AST_SAFE_CAST(ast::Var, nd);
+        if (m_c_info.known_vars[var->get_var_id()].type == V_INT) {
+            print_mov_if_req(Instruction::Operand(Instruction::OpType::Register, reg), operand_from_var_or_const(nd));
+        } else if (m_c_info.known_vars[var->get_var_id()].type == V_INT) {
+            fmt::print("{}\nTODO: Doubles\n", __PRETTY_FUNCTION__);
+            std::exit(1);
+        }
+        break;
+    }
+    case ast::T_CONST: {
+        print_mov_if_req(Instruction::Operand(Instruction::OpType::Register, reg), operand_from_var_or_const(nd));
+        break;
+    }
+    case ast::T_DOUBLE_CONST:
+        fmt::print("{}\nTODO: T_DOUBLE_CONST\n", __PRETTY_FUNCTION__);
+        std::exit(1);
+        break;
+    case ast::T_ACCESS:
+        fmt::print("{}\nTODO: T_ACCESS\n", __PRETTY_FUNCTION__);
+        std::exit(1);
+        break;
+    case ast::T_VFUNC:
+        fmt::print("{}\nTODO: T_VFUNC\n", __PRETTY_FUNCTION__);
+        std::exit(1);
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+}
+
+void X64Context::print_mov_if_req(Instruction::Operand o1, Instruction::Operand o2)
+{
+    if ((o1.type != o2.type) || (o2.cont != o2.cont))
+        m_instructions.add(Instruction(Instruction::Op::mov, o1, o2));
+}
+
+Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::Node> nd)
+{
+    if (nd->get_type() == ast::T_VAR) {
+        // TODO: UNTESTED!
+        auto var = AST_SAFE_CAST(ast::Var, nd);
+
+        m_c_info.error_on_undefined(var);
+        m_c_info.error_on_wrong_type(var, V_INT);
+
+        return Instruction::Operand(Instruction::OpType::Memory,
+                Instruction::OpContent(
+                    MemoryAccess(Register::rbp, -1 * m_c_info.known_vars[var->get_var_id()].stack_offset * WORD_SIZE)));
+    } else if (nd->get_type() == ast::T_CONST) {
+        auto const_ = AST_SAFE_CAST(ast::Const, nd);
+        return Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(const_->get_value()));
+    }
+}
 
 Instructions X64Context::gen_instructions()
 {
@@ -77,8 +144,10 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
 
         switch (t_func->get_func()) {
         case F_EXIT: {
-            fmt::print("TODO: F_EXIT\n");
-            std::exit(1);
+            number_in_register(t_func->args[0], Register::rdi);
+            m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+                                                                 Instruction::Operand(Instruction::OpType::Immediate, 60)));
+            m_instructions.add(Instruction(Instruction::Op::syscall));
             break;
         }
         case F_ARRAY:

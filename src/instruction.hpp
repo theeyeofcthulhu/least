@@ -199,6 +199,12 @@ public:
         {}
         OpContent(MemoryAccess p_memory) : memory(p_memory)
         {}
+
+        friend bool operator==(const OpContent& o1, const OpContent& o2)
+        {
+            fmt::print("TODO: {}\n", __PRETTY_FUNCTION__);
+            return false;
+        }
     };
 
     struct Operand {
