@@ -59,6 +59,8 @@ void X64Context::print_mov_if_req(Instruction::Operand o1, Instruction::Operand 
 
 Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::Node> nd)
 {
+    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST);
+
     if (nd->get_type() == ast::T_VAR) {
         // TODO: UNTESTED!
         auto var = AST_SAFE_CAST(ast::Var, nd);
