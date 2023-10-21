@@ -84,8 +84,10 @@ Instructions X64Context::gen_instructions()
     if (!m_c_info.known_vars.empty()) {
         m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rbp)),
                                                              Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp))));
+        m_instructions.make_top_64bit();
         m_instructions.add(Instruction(Instruction::Op::sub, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp)),
                                                              Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.get_stack_size() * WORD_SIZE))));
+        m_instructions.make_top_64bit();
     }
 
     gen_instructions_core(ast::to_base(m_root), m_root->get_body_id());

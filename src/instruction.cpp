@@ -89,6 +89,11 @@ std::vector<uint8_t> Instruction::opcode()
 
     std::vector<uint8_t> res;
 
+    // 64 Bit Operand Size Prefix
+    // might need some adjusting with later operations
+    if (m_64bit)
+        res.push_back(0x48);
+
     // Insert bytes of i into res in reverse order
     auto parse_imm32 = [&res](int i) {
          const std::vector<uint8_t> bytes = { (uint8_t) ((i & 0x000000FF)),
@@ -238,6 +243,12 @@ std::optional<LabelInfo> Instruction::label(int base)
 
     m_op1.cont.label.position = base;
     return std::make_optional(m_op1.cont.label);
+}
+
+void Instructions::make_top_64bit()
+{
+    assert(!m_ins.empty());
+    m_ins.back().set64bit(true);
 }
 
 std::vector<uint8_t> Instructions::opcodes()

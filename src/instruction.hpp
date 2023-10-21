@@ -237,6 +237,9 @@ public:
     std::vector<RelaEntry> rela_entries(int base);
     std::optional<LabelInfo> label(int base);
 
+    void set64bit(bool b) { m_64bit = b; }
+    bool is64bit() { return m_64bit; }
+
 private:
     Op m_op;
 
@@ -244,6 +247,8 @@ private:
     Operand m_op2;
 
     std::vector<RelaEntry> m_rela_entries;
+
+    bool m_64bit = false;
 
     bool m_generated_opcodes = false;
 };
@@ -281,6 +286,8 @@ public:
     {
         return m_strings;
     }
+
+    void make_top_64bit();
 
 private:
     std::vector<Instruction> m_ins;
