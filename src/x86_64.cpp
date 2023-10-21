@@ -1,11 +1,16 @@
 #include <algorithm>
 #include <cassert>
 #include <stack>
+#include <string_view>
 
+#include "ast.hpp"
+#include "macros.hpp"
 #include "util.hpp"
 #include "instruction.hpp"
 
 #include "x86_64.hpp"
+
+using namespace std::literals;
 
 namespace elf {
 
@@ -70,17 +75,26 @@ Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::
 
         return Instruction::Operand(Instruction::OpType::Memory,
                 Instruction::OpContent(
-                    MemoryAccess(Register::rbp, -1 * m_c_info.known_vars[var->get_var_id()].stack_offset * WORD_SIZE)));
-    } else if (nd->get_type() == ast::T_CONST) {
+                    MemoryAccess(Register::rbp, (int) (-1 * m_c_info.known_vars[var->get_var_id()].stack_offset * WORD_SIZE))));
+    } else {
         auto const_ = AST_SAFE_CAST(ast::Const, nd);
         return Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(const_->get_value()));
     }
 }
 
+void X64Context::call(std::string_view symbol)
+{
+    m_instructions.add(Instruction(Instruction::Op::call, Instruction::Operand(Instruction::OpType::SymbolName, symbol)));
+}
+
 Instructions X64Context::gen_instructions()
 {
     m_instructions.add(Instruction(Instruction::Op::label, Instruction::Operand(Instruction::OpType::LabelInfo, LabelInfo::infile("_start", STB_GLOBAL))));
-    /* Allocate space var variables on stack */
+    /** Allocate space for variables on stack
+      *
+      * Has to be in 64-bit mode, because the stack pointer can
+      * be a 64-bit number.
+      */
     if (!m_c_info.known_vars.empty()) {
         m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rbp)),
                                                              Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp))));
@@ -160,8 +174,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             break;
         }
         case F_INT: {
-            fmt::print("TODO: F_INT\n");
-            std::exit(1);
+            print_mov_if_req(operand_from_var_or_const(t_func->args[0]), operand_from_var_or_const(t_func->args[1]));
             break;
         }
         case F_DOUBLE: {
@@ -196,8 +209,31 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
                     break;
                 }
                 case ast::T_VAR: {
-                    fmt::print("TODO: PRINT T_VAR\n");
-                    std::exit(1);
+                    auto var = AST_SAFE_CAST(ast::Var, format);
+                    auto var_info = m_c_info.known_vars[var->get_var_id()];
+
+                    m_c_info.error_on_undefined(var);
+
+                    switch (var_info.type) {
+                        case V_DOUBLE: {
+                            fmt::print("TODO: PRINT T_VAR V_DOUBLE\n");
+                            std::exit(1);
+                            break;
+                        }
+                        case V_STR: {
+                            fmt::print("TODO: PRINT T_VAR V_STR\n");
+                            std::exit(1);
+                            break;
+                        }
+                        case V_INT: {
+                            number_in_register(format, Register::rdi);
+                            call("uprint"sv);
+                            break;
+                        }
+                        default:
+                            UNREACHABLE();
+                            break;
+                    }
                     break;
                 }
                 case ast::T_DOUBLE_CONST:

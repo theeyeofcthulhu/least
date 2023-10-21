@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdint>
 #include <sstream>
 #include <bit>
 #include <stddef.h>
@@ -8,6 +9,7 @@
 #include <fmt/core.h>
 
 #include "instruction.hpp"
+#include "macros.hpp"
 
 namespace elf {
 
