@@ -118,7 +118,7 @@ struct ModRM {
     {
     }
 
-    ModRM(Register address_reg, AddressingMode sz, int reg_op, int p_imm);
+    ModRM(Register address_reg, AddressingMode sz, uint8_t reg_op, int p_imm);
 
     ModRM()
     {

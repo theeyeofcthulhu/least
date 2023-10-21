@@ -40,7 +40,13 @@ const std::map<Instruction::Op, std::pair<uint8_t, uint8_t>> Instruction::op_rrm
     {Op::xor_, { 0x31, 0x33 }},
 };
 
-ModRM::ModRM(Register address_reg, AddressingMode sz, int reg_op, int p_imm) : address(address_reg), mode(sz), reg_op_field(reg_op), imm(p_imm)
+// const int address_size_override_prefix = 0x67;
+
+ModRM::ModRM(Register address_reg, AddressingMode sz, uint8_t reg_op, int p_imm) 
+    : address(address_reg)
+    , mode(sz)
+    , reg_op_field(reg_op)
+    , imm(p_imm)
 {
     // FIXME: rbp without addend doesn't exist, instead there is [rbp + disp32].
     // implement a natural interface for this
@@ -52,7 +58,26 @@ ModRM::ModRM(Register address_reg, AddressingMode sz, int reg_op, int p_imm) : a
 
 uint8_t ModRM::value() const
 {
-    return (uint8_t)mode << 6 | (uint8_t)reg_op_field << 3 | (uint8_t)address;
+    return (uint8_t)mode << 6 | reg_op_field << 3 | (uint8_t)address;
+}
+
+bool Instruction::OpContent::equal(OpType t, const OpContent& o1, const OpContent& o2)
+{
+    switch(t) {
+        case OpType::Register:
+        case OpType::Immediate:
+            return o1.number == o2.number;
+        case OpType::SymbolName:
+            return o1.symbol_name == o2.symbol_name;
+        case OpType::LabelInfo:
+            fmt::print("TODO: Compare label_info");
+            std::exit(1);
+        case OpType::Memory:
+            return o1.memory == o2.memory;
+        default:
+            UNREACHABLE();
+            break;
+    }
 }
 
 std::vector<uint8_t> Instruction::opcode()
@@ -109,7 +134,7 @@ std::vector<uint8_t> Instruction::opcode()
     };
 
     auto make_modrm = [](const Operand &o) {
-        ModRM modrm;
+        ModRM modrm((Register)0, (ModRM::AddressingMode)0, 0, 0);
         if (o.type == OpType::Register) {
             modrm.mode = ModRM::AddressingMode::reg;
             modrm.address = (Register) o.cont.number;
@@ -159,6 +184,7 @@ std::vector<uint8_t> Instruction::opcode()
             parse_modrm(modrm);
             parse_imm32(m_op2.cont.number);
         } else if (m_op == Op::mov) {
+            // res.push_back(address_size_override_prefix);
             res.push_back((int) MovOpCodes::RMImm);
 
             parse_modrm(modrm);
