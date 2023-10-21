@@ -130,6 +130,11 @@ struct ModRM {
 struct MemoryAccess {
     Register reg;
     int addend;
+
+    friend bool operator==(const MemoryAccess& lhs, const MemoryAccess &rhs)
+    {
+        return lhs.addend == rhs.addend && lhs.reg == rhs.reg;
+    }
 };
 
 class Instruction {
@@ -200,11 +205,7 @@ public:
         OpContent(MemoryAccess p_memory) : memory(p_memory)
         {}
 
-        friend bool operator==(const OpContent& o1, const OpContent& o2)
-        {
-            fmt::print("TODO: {}\n", __PRETTY_FUNCTION__);
-            return false;
-        }
+        static bool equal(OpType t, const OpContent& o1, const OpContent& o2);
     };
 
     struct Operand {

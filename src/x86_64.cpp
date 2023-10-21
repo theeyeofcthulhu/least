@@ -53,7 +53,7 @@ void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
 
 void X64Context::print_mov_if_req(Instruction::Operand o1, Instruction::Operand o2)
 {
-    if ((o1.type != o2.type) || (o2.cont != o2.cont))
+    if (!Instruction::OpContent::equal(o1.type, o1.cont, o2.cont))
         m_instructions.add(Instruction(Instruction::Op::mov, o1, o2));
 }
 
