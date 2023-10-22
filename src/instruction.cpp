@@ -43,6 +43,7 @@ const std::map<Instruction::Op, std::pair<uint8_t, uint8_t>> Instruction::op_rrm
 };
 
 // const int address_size_override_prefix = 0x67;
+const int extension_prefix = 0x41;
 
 ModRM::ModRM(Register address_reg, AddressingMode sz, uint8_t reg_op, int p_imm) 
     : address(address_reg)
@@ -86,6 +87,9 @@ std::vector<uint8_t> Instruction::opcode()
 {
     m_generated_opcodes = true;
 
+    if (m_op == Op::label)
+        return {};
+
     std::vector<uint8_t> res;
 
     // 64 Bit Operand Size Prefix
@@ -103,6 +107,11 @@ std::vector<uint8_t> Instruction::opcode()
         res.insert(res.end(), bytes.begin(), bytes.end());
     };
 
+    // FIXME: Is this universally applicable???
+    if (m_op1.type == OpType::Register && (Register)m_op1.cont.number >= Register::r8) {
+        res.push_back(extension_prefix);
+        m_op1.cont.number -= (int)Register::r8;
+    }
 
     // TODO:
     // accessing 64-bit double constants is done via ModR/M byte
@@ -111,6 +120,7 @@ std::vector<uint8_t> Instruction::opcode()
     // Special case where Register is encoded in opcode
     if (m_op1.type == OpType::Register && (m_op2.type == OpType::Immediate || m_op2.type == OpType::String)) {
         if (m_op == Op::mov) {
+
             // assert(m_op2.cont.number >= 0);
 
             // MOV future relocated string into register
@@ -233,13 +243,30 @@ std::vector<RelaEntry> Instruction::rela_entries(int base)
     return m_rela_entries; // TODO: do we need to return copy?
 }
 
+std::optional<LabelInfo> Instruction::label(int base)
+{
+    assert(m_generated_opcodes);
+
+    if (m_op != Op::label)
+        return std::nullopt;
+
+    m_op1.cont.label.position = base;
+    return std::make_optional(m_op1.cont.label);
+}
+
+
 void Instructions::make_top_64bit()
 {
     assert(!m_ins.empty());
     m_ins.back().set64bit(true);
 }
 
-void Instructions::call(std::string_view symbol)
+void Instructions::add_code_label(LabelInfo info)
+{
+    add(Instruction(Instruction::Op::label, Instruction::Operand(Instruction::OpType::LabelInfo, info)));
+}
+
+void Instructions::call(std::string symbol)
 {
     add(Instruction(Instruction::Op::call, Instruction::Operand(Instruction::OpType::SymbolName, symbol)));
 }
@@ -266,10 +293,20 @@ void Instructions::xor_(Instruction::Operand o1, Instruction::Operand o2)
 {
     add(Instruction(Instruction::Op::xor_, o1, o2));
 }
+void Instructions::cmp(Instruction::Operand o1, Instruction::Operand o2)
+{
+    add(Instruction(Instruction::Op::cmp, o1, o2));
+}
+
+void Instructions::jmp(Instruction::Operand o)
+{
+    add(Instruction(Instruction::Op::jmp, o));
+}
 
 std::vector<uint8_t> Instructions::opcodes()
 {
     std::vector<uint8_t> res;
+
     int address = 0;
 
     for (auto i : m_ins) {
@@ -277,8 +314,12 @@ std::vector<uint8_t> Instructions::opcodes()
         res.insert(res.end(), opcode.begin(), opcode.end());
 
         const auto entries = i.rela_entries(address);
+        const auto label = i.label(address);
 
         m_rela_entries.insert(m_rela_entries.end(), entries.begin(), entries.end());    // Get offset rela entries from i
+
+        if (label.has_value())
+            m_labels.push_back(*label);
                                                                                         // which were calculated in i.opcode()
         address += opcode.size();
     }

@@ -40,7 +40,7 @@ struct ElfString {
 struct RelaEntry {
     int offset;
     int strid;
-    std::string_view function_name;
+    std::string function_name;
     bool is_call;
 
     // Rela entry referring to a string .rodata
@@ -50,12 +50,12 @@ struct RelaEntry {
     }
 
     // Rela entry referring to a relative symbol
-    static RelaEntry call(int offset, std::string_view function_name)
+    static RelaEntry call(int offset, std::string function_name)
     {
         return RelaEntry { offset, 0, function_name, true };
     }
 
-    explicit RelaEntry(int p_offset, int p_strid, std::string_view p_function_name, bool m_is_call)
+    explicit RelaEntry(int p_offset, int p_strid, std::string p_function_name, bool m_is_call)
         : offset(p_offset)
         , strid(p_strid)
         , function_name(p_function_name)
@@ -67,7 +67,7 @@ struct RelaEntry {
 };
 
 struct LabelInfo {
-    std::string_view name;
+    std::string name;
     unsigned char visiblity;
     int position;
     bool is_sh_undef;
@@ -140,6 +140,7 @@ struct MemoryAccess {
 class Instruction {
 public:
     enum class Op {
+        label,
         mov,
         syscall,
         call,
@@ -185,9 +186,9 @@ public:
         PopReg = 0x58,
     };
 
-    union OpContent {
+    struct OpContent {
         int number;
-        std::string_view symbol_name;
+        std::string symbol_name {};
         LabelInfo label;
         MemoryAccess memory;
 
@@ -197,7 +198,7 @@ public:
         {}
         OpContent(Register p_reg) : number((int) p_reg)
         {}
-        OpContent(std::string_view p_function_name) : symbol_name(p_function_name)
+        OpContent(std::string p_function_name) : symbol_name(p_function_name)
         {}
         OpContent(LabelInfo p_label) : label(p_label)
         {}
@@ -239,6 +240,7 @@ public:
 
     std::vector<uint8_t> opcode();
     std::vector<RelaEntry> rela_entries(int base);
+    std::optional<LabelInfo> label(int base);
 
     void set64bit(bool b) { m_64bit = b; }
     bool is64bit() { return m_64bit; }
@@ -273,7 +275,9 @@ public:
 
     // Abstractions for adding instructions
 
-    void call(std::string_view symbol);
+    void add_code_label(LabelInfo info);
+
+    void call(std::string symbol);
     void syscall();
 
     void mov(Instruction::Operand o1, Instruction::Operand o2);
@@ -281,6 +285,9 @@ public:
     void sub(Instruction::Operand o1, Instruction::Operand o2);
     void add(Instruction::Operand o1, Instruction::Operand o2);
     void xor_(Instruction::Operand o1, Instruction::Operand o2);
+    void cmp(Instruction::Operand o1, Instruction::Operand o2);
+
+    void jmp(Instruction::Operand o);
 
     std::vector<uint8_t> opcodes();
 
