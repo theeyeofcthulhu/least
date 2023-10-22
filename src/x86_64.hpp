@@ -24,7 +24,6 @@ private:
     void number_in_register(std::shared_ptr<ast::Node> nd, Register reg);
     void print_mov_if_req(Instruction::Operand o1, Instruction::Operand o2);
     Instruction::Operand operand_from_var_or_const(std::shared_ptr<ast::Node> nd);
-    void call(std::string_view symbol);
 
     void gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id, int real_end_id);
 

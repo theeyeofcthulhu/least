@@ -239,6 +239,34 @@ void Instructions::make_top_64bit()
     m_ins.back().set64bit(true);
 }
 
+void Instructions::call(std::string_view symbol)
+{
+    add(Instruction(Instruction::Op::call, Instruction::Operand(Instruction::OpType::SymbolName, symbol)));
+}
+
+void Instructions::syscall()
+{
+    add(Instruction(Instruction::Op::syscall));
+}
+
+void Instructions::mov(Instruction::Operand o1, Instruction::Operand o2)
+{
+    add(Instruction(Instruction::Op::mov, o1, o2));
+}
+
+void Instructions::sub(Instruction::Operand o1, Instruction::Operand o2)
+{
+    add(Instruction(Instruction::Op::add, o1, o2));
+}
+void Instructions::add(Instruction::Operand o1, Instruction::Operand o2)
+{
+    add(Instruction(Instruction::Op::sub, o1, o2));
+}
+void Instructions::xor_(Instruction::Operand o1, Instruction::Operand o2)
+{
+    add(Instruction(Instruction::Op::xor_, o1, o2));
+}
+
 std::vector<uint8_t> Instructions::opcodes()
 {
     std::vector<uint8_t> res;

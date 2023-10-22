@@ -266,6 +266,17 @@ public:
     void add_string(int id, std::string_view sv) { m_strings.push_back({ id, sv }); }
     void add_label(LabelInfo info) { m_labels.push_back(info); }
 
+    // Abstractions for adding instructions
+
+    void call(std::string_view symbol);
+    void syscall();
+
+    void mov(Instruction::Operand o1, Instruction::Operand o2);
+
+    void sub(Instruction::Operand o1, Instruction::Operand o2);
+    void add(Instruction::Operand o1, Instruction::Operand o2);
+    void xor_(Instruction::Operand o1, Instruction::Operand o2);
+
     std::vector<uint8_t> opcodes();
 
     const std::vector<RelaEntry> &rela_entries()

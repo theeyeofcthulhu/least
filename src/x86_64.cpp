@@ -60,7 +60,7 @@ void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
 void X64Context::print_mov_if_req(Instruction::Operand o1, Instruction::Operand o2)
 {
     if (!Instruction::OpContent::equal(o1.type, o1.cont, o2.cont))
-        m_instructions.add(Instruction(Instruction::Op::mov, o1, o2));
+        m_instructions.mov(o1, o2);
 }
 
 Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::Node> nd)
@@ -83,11 +83,6 @@ Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::
     }
 }
 
-void X64Context::call(std::string_view symbol)
-{
-    m_instructions.add(Instruction(Instruction::Op::call, Instruction::Operand(Instruction::OpType::SymbolName, symbol)));
-}
-
 Instructions X64Context::gen_instructions()
 {
     m_instructions.add_label(LabelInfo::infile("_start", STB_GLOBAL));
@@ -97,21 +92,21 @@ Instructions X64Context::gen_instructions()
       * be a 64-bit number.
       */
     if (!m_c_info.known_vars.empty()) {
-        m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rbp)),
-                                                             Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp))));
+        m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rbp)),
+                                                             Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp)));
         m_instructions.make_top_64bit();
-        m_instructions.add(Instruction(Instruction::Op::sub, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp)),
-                                                             Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.get_stack_size() * WORD_SIZE))));
+        m_instructions.sub(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsp)),
+                                                             Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.get_stack_size() * WORD_SIZE)));
         m_instructions.make_top_64bit();
     }
 
     gen_instructions_core(ast::to_base(m_root), m_root->get_body_id(), m_root->get_body_id());
 
-    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
-                                                         Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(60))));
-    m_instructions.add(Instruction(Instruction::Op::xor_, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
-                                                          Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi))));
-    m_instructions.add(Instruction(Instruction::Op::syscall));
+    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+                        Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(60)));
+    m_instructions.xor_(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
+                         Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)));
+    m_instructions.syscall();
 
     for (size_t i = 0; i < m_c_info.known_strings.size(); i++) {
         m_instructions.add_string(i, m_c_info.known_strings[i]);
@@ -164,9 +159,9 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
         switch (t_func->get_func()) {
         case F_EXIT: {
             number_in_register(t_func->args[0], Register::rdi);
-            m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
-                                                                 Instruction::Operand(Instruction::OpType::Immediate, 60)));
-            m_instructions.add(Instruction(Instruction::Op::syscall));
+            m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+                                Instruction::Operand(Instruction::OpType::Immediate, 60));
+            m_instructions.syscall();
             break;
         }
         case F_ARRAY:
@@ -197,15 +192,15 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
                         str->get_str_id()); **/
                     std::shared_ptr<ast::Str> str = AST_SAFE_CAST(ast::Str, format);
 
-                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
-                                                                         Instruction::Operand(Instruction::OpType::Immediate, 1)));
-                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
-                                                                         Instruction::Operand(Instruction::OpType::Immediate, 1)));
-                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsi)),
-                                                                         Instruction::Operand(Instruction::OpType::String, Instruction::OpContent(str->get_str_id()))));
-                    m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdx)),
-                                                                         Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.known_strings[str->get_str_id()].length()))));
-                    m_instructions.add(Instruction(Instruction::Op::syscall));
+                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+                                        Instruction::Operand(Instruction::OpType::Immediate, 1));
+                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
+                                        Instruction::Operand(Instruction::OpType::Immediate, 1));
+                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsi)),
+                                        Instruction::Operand(Instruction::OpType::String, Instruction::OpContent(str->get_str_id())));
+                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdx)),
+                                        Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.known_strings[str->get_str_id()].length())));
+                    m_instructions.syscall();
 
                     break;
                 }
@@ -228,7 +223,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
                         }
                         case V_INT: {
                             number_in_register(format, Register::rdi);
-                            call("uprint"sv);
+                            m_instructions.call("uprint"sv);
                             break;
                         }
                         default:
