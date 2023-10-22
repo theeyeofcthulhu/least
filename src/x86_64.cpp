@@ -104,7 +104,7 @@ Instructions X64Context::gen_instructions()
         m_instructions.make_top_64bit();
     }
 
-    gen_instructions_core(ast::to_base(m_root), m_root->get_body_id());
+    gen_instructions_core(ast::to_base(m_root), m_root->get_body_id(), m_root->get_body_id());
 
     m_instructions.add(Instruction(Instruction::Op::mov, Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
                                                          Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(60))));
@@ -132,7 +132,7 @@ Instructions X64Context::gen_instructions()
     return m_instructions;
 }
 
-void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id)
+void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id, int real_end_id)
 {
     static std::stack<int> while_ends {};
 
@@ -141,7 +141,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
     case ast::T_BODY: {
         std::shared_ptr<ast::Body> body = AST_SAFE_CAST(ast::Body, root);
         for (const auto& child : body->children) {
-            gen_instructions_core(child, body->get_body_id());
+            gen_instructions_core(child, body->get_body_id(), real_end_id);
         }
         break;
     }

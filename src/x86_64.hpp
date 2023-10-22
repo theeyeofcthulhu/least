@@ -26,7 +26,7 @@ private:
     Instruction::Operand operand_from_var_or_const(std::shared_ptr<ast::Node> nd);
     void call(std::string_view symbol);
 
-    void gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id);
+    void gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id, int real_end_id);
 
     std::shared_ptr<ast::Body> m_root;
     CompileInfo& m_c_info;
