@@ -211,6 +211,11 @@ public:
         OpType type;
         OpContent cont;
 
+        Operand()
+            : type(OpType::None)
+            , cont(Instruction::OpContent())
+        {}
+
         Operand(OpType p_type, OpContent p_cont)
             : type(p_type)
             , cont(p_cont)
