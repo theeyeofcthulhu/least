@@ -142,7 +142,6 @@ public:
     enum class Op {
         mov,
         syscall,
-        label,
         call,
         jmp,
         je,
@@ -235,7 +234,6 @@ public:
 
     std::vector<uint8_t> opcode();
     std::vector<RelaEntry> rela_entries(int base);
-    std::optional<LabelInfo> label(int base);
 
     void set64bit(bool b) { m_64bit = b; }
     bool is64bit() { return m_64bit; }

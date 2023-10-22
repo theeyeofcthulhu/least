@@ -86,9 +86,6 @@ std::vector<uint8_t> Instruction::opcode()
 {
     m_generated_opcodes = true;
 
-    if (m_op == Op::label)
-        return {};
-
     std::vector<uint8_t> res;
 
     // 64 Bit Operand Size Prefix
@@ -236,17 +233,6 @@ std::vector<RelaEntry> Instruction::rela_entries(int base)
     return m_rela_entries; // TODO: do we need to return copy?
 }
 
-std::optional<LabelInfo> Instruction::label(int base)
-{
-    assert(m_generated_opcodes);
-
-    if (m_op != Op::label)
-        return std::nullopt;
-
-    m_op1.cont.label.position = base;
-    return std::make_optional(m_op1.cont.label);
-}
-
 void Instructions::make_top_64bit()
 {
     assert(!m_ins.empty());
@@ -263,14 +249,9 @@ std::vector<uint8_t> Instructions::opcodes()
         res.insert(res.end(), opcode.begin(), opcode.end());
 
         const auto entries = i.rela_entries(address);
-        const auto label = i.label(address);
 
         m_rela_entries.insert(m_rela_entries.end(), entries.begin(), entries.end());    // Get offset rela entries from i
                                                                                         // which were calculated in i.opcode()
-
-        if (label.has_value())
-            m_labels.push_back(*label);
-
         address += opcode.size();
     }
 

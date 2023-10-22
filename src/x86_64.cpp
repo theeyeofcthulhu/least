@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "ast.hpp"
+#include "elf_consts.hpp"
 #include "macros.hpp"
 #include "util.hpp"
 #include "instruction.hpp"
@@ -89,7 +90,7 @@ void X64Context::call(std::string_view symbol)
 
 Instructions X64Context::gen_instructions()
 {
-    m_instructions.add(Instruction(Instruction::Op::label, Instruction::Operand(Instruction::OpType::LabelInfo, LabelInfo::infile("_start", STB_GLOBAL))));
+    m_instructions.add_label(LabelInfo::infile("_start", STB_GLOBAL));
     /** Allocate space for variables on stack
       *
       * Has to be in 64-bit mode, because the stack pointer can

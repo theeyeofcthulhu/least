@@ -2,6 +2,7 @@
 #define ELF_H_
 
 #include <string_view>
+#include <fstream>
 
 #include "instruction.hpp"
 
