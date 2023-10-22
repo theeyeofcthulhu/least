@@ -10,7 +10,7 @@ shopt -s extglob
 
 [[ ! -d "fmt-9.1.0" ]] && wget -q --output-document "fmt-9.1.0.zip" "https://github.com/fmtlib/fmt/releases/download/9.1.0/fmt-9.1.0.zip" && unzip -q "fmt-9.1.0.zip" && rm "fmt-9.1.0.zip"
 
-[[ "$1" == "clean" ]] && rm -rf ./build && rm tests/!(*.txt|*.least)
+[[ "$1" == "clean" ]] && rm -rf ./build && rm -f tests/!(*.txt|*.least)
 
 mkdir -p build
 cd build
