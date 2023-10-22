@@ -21,6 +21,6 @@ $BUILD_COMMAND
 cd ..
 ln -sfv "build/$EXE" .
 ln -sfv "../build/libstdleast.a" "lib/libstdleast.a"
-[[ "$COMPILE_COMMANDS" = true ]] && [[ ! -f ./compile_commands.json ]] && ln -sv build/compile_commands.json .
+[[ "$COMPILE_COMMANDS" = true ]] && ln -sfv build/compile_commands.json .
 
 [[ "$1" == "r" ]] && "./$EXE"
