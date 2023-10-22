@@ -172,16 +172,28 @@ void ElfGenerator::generate()
         return ELF64_ST_BIND(s.st_info) == STB_GLOBAL;
     }) - sym_tab.begin();
 
+    auto sym_tab_index = [&sym_tab, &str_tab](auto name)
+    {
+        return std::find_if(sym_tab.begin(), sym_tab.end(), [&](const auto &s) {
+            return s.st_name == strtab_offset(str_tab, name);
+        }) - sym_tab.begin();
+    };
+
+    auto sym_tab_section_index = [&sym_tab](auto index)
+    {
+        return std::find_if(sym_tab.begin(), sym_tab.end(), [&](const auto &s) {
+            return ELF64_ST_TYPE(s.st_info) == STT_SECTION && s.st_shndx == index;
+        }) - sym_tab.begin();
+    };
+
     std::vector<e64_rela> rela;
-    for (const auto entry : rela_entries) {
+    for (const auto& entry : rela_entries) {
         // TODO: unhardcode symtab value for .rodata (3)
         if (entry.is_call) {
             // Use symtab index of symbol
-            rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(std::find_if(sym_tab.begin(), sym_tab.end(), [&](const auto &s) {
-                return s.st_name == strtab_offset(str_tab, entry.function_name);
-            }) - sym_tab.begin(), R_X86_64_PC32), -4 });
+            rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(sym_tab_index(entry.function_name), R_X86_64_PC32), -4 });
         } else {
-            rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(3, R_X86_64_32), rodata_offsets[entry.strid] });
+            rela.push_back({ (e_addr)entry.offset, ELF64_R_INFO(sym_tab_section_index(2), R_X86_64_32), rodata_offsets[entry.strid] });
         }
     }
 
