@@ -24,3 +24,5 @@ ln -sfv "../build/libstdleast.a" "lib/libstdleast.a"
 [[ "$COMPILE_COMMANDS" = true ]] && ln -sfv build/compile_commands.json .
 
 [[ "$1" == "r" ]] && "./$EXE"
+
+exit 0
