@@ -21,8 +21,9 @@ namespace elf {
 
 using namespace std::string_literals;
 
-ElfGenerator::ElfGenerator(std::string_view fn, Instructions text)
-    : m_fn(fn)
+ElfGenerator::ElfGenerator(std::string_view source_fn, std::string_view fn, Instructions text)
+    : m_source_fn(source_fn)
+    , m_fn(fn)
     , m_text(std::move(text))
     , m_rodata(m_text.strings())
 {
@@ -129,9 +130,8 @@ void ElfGenerator::generate()
     std::vector<char> str_tab {};
     str_tab.push_back('\0');
 
-    // TODO
-    const std::string file = "elf.cpp\0"s;
-    str_tab.insert(str_tab.end(), file.begin(), file.end());
+    str_tab.insert(str_tab.end(), m_source_fn.begin(), m_source_fn.end());
+    str_tab.push_back('\0');
 
     for (size_t i = 0; i < m_rodata.size(); i++) {
         const std::string str = fmt::format("str{}", i);
@@ -146,7 +146,7 @@ void ElfGenerator::generate()
     // TODO: unhardcode here
 
     std::vector<e64_sym> sym_tab {};
-    sym_tab.push_back({ strtab_offset(str_tab, "elf.cpp"), ELF64_ST_INFO(STB_LOCAL, STT_FILE), 0, SHN_ABS, 0, 0 });
+    sym_tab.push_back({ strtab_offset(str_tab, m_source_fn), ELF64_ST_INFO(STB_LOCAL, STT_FILE), 0, SHN_ABS, 0, 0 });
     // TODO: unhardcode section indeces
     // .text and .rodata
     sym_tab.push_back({ 0, ELF64_ST_INFO(STB_LOCAL, STT_SECTION), 0, 1, 0, 0 });

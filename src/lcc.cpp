@@ -107,7 +107,7 @@ int main(int argc, char** argv)
     std::string object_filename = fn.extension(".o");
 
     info(fmt::format("[INFO] Generating object file\n"));
-    elf::ElfGenerator elf_gen(object_filename, instructions);
+    elf::ElfGenerator elf_gen(fn.base(), object_filename, instructions);
     elf_gen.generate();
 
     // info(COLOR_CMD("nasm -g -felf64 -o {} {}", GREEN_ARG(object_filename), RED_ARG(asm_filename)));

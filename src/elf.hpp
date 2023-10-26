@@ -74,11 +74,12 @@ struct e64_rela {
 
 class ElfGenerator {
 public:
-    ElfGenerator(std::string_view fn, Instructions text);
+    ElfGenerator(std::string_view source_fn, std::string_view fn, Instructions text);
 
     void generate();
 
 private:
+    const std::string_view m_source_fn;
     const std::string_view m_fn;
 
     Instructions m_text;
