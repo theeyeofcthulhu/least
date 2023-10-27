@@ -13,6 +13,8 @@
 
 namespace elf {
 
+#define REGISTERS 16
+
 enum class Register {
     rax = 0b0000,
     rcx = 0b0001,
@@ -283,9 +285,12 @@ public:
     void mov(Instruction::Operand o1, Instruction::Operand o2);
 
     void sub(Instruction::Operand o1, Instruction::Operand o2);
-    void add(Instruction::Operand o1, Instruction::Operand o2);
+    void add_(Instruction::Operand o1, Instruction::Operand o2);
     void xor_(Instruction::Operand o1, Instruction::Operand o2);
     void cmp(Instruction::Operand o1, Instruction::Operand o2);
+
+    void push(Register r);
+    void pop(Register r);
 
     void jmp(Instruction::Operand o);
 

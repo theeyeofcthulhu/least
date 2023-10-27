@@ -22,14 +22,13 @@ void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
 
     switch(nd->get_type()) {
     case ast::T_ARIT: {
-        fmt::print("{}\nTODO: T_ARIT\n", __PRETTY_FUNCTION__);
-        std::exit(1);
+        arithmetic_tree_to_x86_64(nd, reg);
         break;
     }
     case ast::T_VAR: {
         auto var = AST_SAFE_CAST(ast::Var, nd);
         if (m_c_info.known_vars[var->get_var_id()].type == V_INT) {
-            print_mov_if_req(Instruction::Operand(Instruction::OpType::Register, reg), operand_from_var_or_const(nd));
+            print_mov_if_req(Instruction::Operand(Instruction::OpType::Register, reg), operand_from_number(nd));
         } else if (m_c_info.known_vars[var->get_var_id()].type == V_INT) {
             fmt::print("{}\nTODO: Doubles\n", __PRETTY_FUNCTION__);
             std::exit(1);
@@ -37,7 +36,7 @@ void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
         break;
     }
     case ast::T_CONST: {
-        print_mov_if_req(Instruction::Operand(Instruction::OpType::Register, reg), operand_from_var_or_const(nd));
+        print_mov_if_req(Instruction::Operand(Instruction::OpType::Register, reg), operand_from_number(nd));
         break;
     }
     case ast::T_DOUBLE_CONST:
@@ -64,12 +63,11 @@ void X64Context::print_mov_if_req(Instruction::Operand o1, Instruction::Operand 
         m_instructions.mov(o1, o2);
 }
 
-Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::Node> nd)
+Instruction::Operand X64Context::operand_from_number(std::shared_ptr<ast::Node> nd)
 {
-    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST);
+    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_ARIT);
 
     if (nd->get_type() == ast::T_VAR) {
-        // TODO: UNTESTED!
         auto var = AST_SAFE_CAST(ast::Var, nd);
 
         m_c_info.error_on_undefined(var);
@@ -78,11 +76,158 @@ Instruction::Operand X64Context::operand_from_var_or_const(std::shared_ptr<ast::
         return Instruction::Operand(Instruction::OpType::Memory,
                 Instruction::OpContent(
                     MemoryAccess(Register::rbp, (int) (-1 * m_c_info.known_vars[var->get_var_id()].stack_offset * WORD_SIZE))));
+    } else if (nd->get_type() == ast::T_ARIT) {
+        number_in_register(nd, Register::r8);
+        return Instruction::Operand::Register(Register::r8);
     } else {
         auto const_ = AST_SAFE_CAST(ast::Const, nd);
         return Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(const_->get_value()));
     }
 }
+
+void X64Context::arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> nd, Register reg)
+{
+     /* If we are only a number: mov us into the target and leave */
+    if (nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST) {
+        print_mov_if_req(Instruction::Operand::Register(reg), operand_from_number(nd));
+        return;
+    }
+
+    assert(nd->get_type() == ast::T_ARIT);
+
+    std::shared_ptr<ast::Arit> arit = AST_SAFE_CAST(ast::Arit, nd);
+
+    bool rcx_can_be_immediate = !ast::has_precedence(arit->get_arit()); /* Only 'add' and 'sub' accept immediate values as
+                                                                           the second operand */
+    Instruction::Operand second_value = Instruction::Operand::Register(Register::rcx);
+
+    assert(ast::could_be_num(arit->left->get_type()) && ast::could_be_num(arit->right->get_type()));
+
+    bool value_in_rax = false;
+
+    /* If our children are also calculations: recurse */
+    if (arit->left->get_type() == ast::T_ARIT) {
+        arithmetic_tree_to_x86_64(arit->left, Register::rax);
+        value_in_rax = true;
+    }
+    if (arit->right->get_type() == ast::T_ARIT) {
+        /* Preserve rax */
+        if (value_in_rax)
+            m_instructions.push(Register::rax);
+        arithmetic_tree_to_x86_64(arit->right, Register::rcx);
+        if (value_in_rax)
+            m_instructions.pop(Register::rax);
+    }
+
+    /* If our children are numbers: mov them into the target
+     * Only check for this the second time around because the numbers
+     * could get overwritten if we moved before doing another calculation */
+    if (arit->left->get_type() == ast::T_CONST || arit->left->get_type() == ast::T_VAR || arit->left->get_type() == ast::T_VFUNC || arit->left->get_type() == ast::T_ACCESS) {
+        number_in_register(arit->left, Register::rax);
+
+        value_in_rax = true;
+    }
+
+    switch (arit->right->get_type()) {
+    case ast::T_CONST: {
+        if (rcx_can_be_immediate) {
+            second_value = operand_from_number(arit->right);
+            break;
+        }
+        __attribute__((fallthrough)); /* If rcx can't be immediate: do the
+                                         same as you would for var */
+    }
+    case ast::T_VAR: {
+        m_instructions.mov(Instruction::Operand::Register(Register::rcx), operand_from_number(arit->right));
+        break;
+    }
+    case ast::T_ACCESS: {
+        number_in_register(arit->left, Register::rcx);
+        break;
+    }
+    case ast::T_VFUNC: {
+        if (value_in_rax)
+            m_instructions.push(Register::rax);
+        fmt::print("{}\nTODO VFUNC\n", __PRETTY_FUNCTION__);
+        if (value_in_rax)
+            m_instructions.pop(Register::rax);
+        break;
+    }
+    default:
+        break;
+    }
+
+    /* NOTE: Switch to i- div, mul once signed numbers
+     * are supported */
+
+    /* Execute the calculation */
+    switch (arit->get_arit()) {
+    case ADD:
+        m_instructions.add_(Instruction::Operand::Register(Register::rax), second_value);
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
+        break;
+    case SUB:
+        m_instructions.sub(Instruction::Operand::Register(Register::rax), second_value);
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
+        break;
+    case DIV:
+        m_instructions.xor_(Instruction::Operand::Register(Register::rdx), Instruction::Operand::Register(Register::rdx));
+
+        fmt::print("TODO div(second_value)\n");
+        std::exit(1);
+
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
+        break;
+    case MOD:
+        m_instructions.xor_(Instruction::Operand::Register(Register::rdx), Instruction::Operand::Register(Register::rdx));
+
+        fmt::print("TODO div(second_value)\n");
+        std::exit(1);
+
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rdx));
+        break;
+    case MUL:
+        m_instructions.xor_(Instruction::Operand::Register(Register::rdx), Instruction::Operand::Register(Register::rdx));
+
+        fmt::print("TODO mul(second_value)\n");
+        std::exit(1);
+
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+
+}
+
+/**
+Might need this at some point
+Register X64Context::assign_unused_register()
+{
+    for (size_t i = 0; i < m_regs.size(); i++) {
+        if (!m_regs[i])
+            return (Register)i;
+    }
+
+    assert(false && "All registers used");
+    return (Register)0;
+}
+
+Register X64Context::use_reg(Register r)
+{
+    assert(!m_regs[(int)r]);
+    m_regs[(int)r] = true;
+
+    return r;
+}
+
+void X64Context::free_reg(Register r)
+{
+    assert(m_regs[(int)r]);
+    m_regs[(int)r] = false;
+}
+*/
 
 Instructions X64Context::gen_instructions()
 {
@@ -196,7 +341,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             break;
         }
         case F_INT: {
-            print_mov_if_req(operand_from_var_or_const(t_func->args[0]), operand_from_var_or_const(t_func->args[1]));
+            print_mov_if_req(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
             break;
         }
         case F_DOUBLE: {
@@ -341,9 +486,9 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
 
         /* Cannot use immediate value as first operand to 'cmp' */
         if (cmp->left->get_type() == ast::T_VAR) {
-            ops[0] = operand_from_var_or_const(cmp->left);
+            ops[0] = operand_from_number(cmp->left);
         } else if (cmp->left->get_type() == ast::T_CONST) {
-            m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::r8)), operand_from_var_or_const(cmp->left));
+            m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::r8)), operand_from_number(cmp->left));
             ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::r8);
         } else {
             fmt::print("T_CMP TODO ARITHMETIC\n");
@@ -354,7 +499,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
 
         if (cmp->right) {
             if (cmp->right->get_type() == ast::T_CONST) {
-                ops[1] = operand_from_var_or_const(cmp->right);
+                ops[1] = operand_from_number(cmp->right);
             } else {
                 fmt::print("T_CMP TODO ARITHMETIC\n");
                 std::exit(1);

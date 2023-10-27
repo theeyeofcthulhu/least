@@ -33,7 +33,13 @@ private:
 
     void number_in_register(std::shared_ptr<ast::Node> nd, Register reg);
     void print_mov_if_req(Instruction::Operand o1, Instruction::Operand o2);
-    Instruction::Operand operand_from_var_or_const(std::shared_ptr<ast::Node> nd);
+    Instruction::Operand operand_from_number(std::shared_ptr<ast::Node> nd);
+    void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> nd, Register reg);
+
+    // TODO: is this something we need??
+    // Register assign_unused_register();
+    // Register use_reg(Register r);
+    // void free_reg(Register r);
 
     void gen_instructions_core(std::shared_ptr<ast::Node> root, int body_id, int real_end_id, bool cmp_log_or=false, int cond_entry=-1);
 
@@ -49,6 +55,8 @@ private:
     std::shared_ptr<ast::Body> m_root;
     CompileInfo& m_c_info;
     Instructions m_instructions;
+
+    // std::array<bool, REGISTERS> m_regs = { false };
 };
 
 }

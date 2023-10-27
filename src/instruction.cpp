@@ -40,10 +40,13 @@ const std::map<Instruction::Op, uint8_t> Instruction::op_modrm_modifier_map = {
 const std::map<Instruction::Op, std::pair<uint8_t, uint8_t>> Instruction::op_rrm_rmr_map = {
     {Op::mov, { 0x8b, 0x89 }},
     {Op::xor_, { 0x31, 0x33 }},
+    {Op::add, { 0x03, 0x01 }},
+    {Op::sub, { 0x2b, 0x29 }},
 };
 
 // const int address_size_override_prefix = 0x67;
 const int extension_prefix = 0x41;
+const int rex_r = 0x44;
 
 ModRM::ModRM(Register address_reg, AddressingMode sz, uint8_t reg_op, int p_imm) 
     : address(address_reg)
@@ -112,6 +115,11 @@ std::vector<uint8_t> Instruction::opcode()
         res.push_back(extension_prefix);
         m_op1.cont.number -= (int)Register::r8;
     }
+    // Extend ModRM to 64-bit registers
+    if (m_op2.type == OpType::Register && (Register)m_op2.cont.number >= Register::r8) {
+        res.push_back(rex_r);
+        m_op2.cont.number -= (int)Register::r8;
+    }
 
     // TODO:
     // accessing 64-bit double constants is done via ModR/M byte
@@ -141,7 +149,6 @@ std::vector<uint8_t> Instruction::opcode()
         res.push_back(((int) (m_op == Op::push ? PushPopCodes::PushReg : PushPopCodes::PopReg) + m_op1.cont.number));
         return res;
     }
-
 
     auto is_modrm = [](OpType o) {
         return o == OpType::Register || o == OpType::Memory;
@@ -190,7 +197,7 @@ std::vector<uint8_t> Instruction::opcode()
     if (m_op1.type == OpType::None && m_op2.type == OpType::None) {
         res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
     } else if (is_modrm(m_op1.type) && m_op2.type == OpType::Immediate) {
-        if (m_op == Op::sub || m_op == Op::cmp) {
+        if (m_op == Op::sub || m_op == Op::add || m_op == Op::cmp) {
             res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
 
             modrm.reg_op_field = op_modrm_modifier_map.at(m_op); // Turns opcode 0x81 into specific instruction
@@ -283,11 +290,11 @@ void Instructions::mov(Instruction::Operand o1, Instruction::Operand o2)
 
 void Instructions::sub(Instruction::Operand o1, Instruction::Operand o2)
 {
-    add(Instruction(Instruction::Op::add, o1, o2));
-}
-void Instructions::add(Instruction::Operand o1, Instruction::Operand o2)
-{
     add(Instruction(Instruction::Op::sub, o1, o2));
+}
+void Instructions::add_(Instruction::Operand o1, Instruction::Operand o2)
+{
+    add(Instruction(Instruction::Op::add, o1, o2));
 }
 void Instructions::xor_(Instruction::Operand o1, Instruction::Operand o2)
 {
@@ -296,6 +303,16 @@ void Instructions::xor_(Instruction::Operand o1, Instruction::Operand o2)
 void Instructions::cmp(Instruction::Operand o1, Instruction::Operand o2)
 {
     add(Instruction(Instruction::Op::cmp, o1, o2));
+}
+
+void Instructions::push(Register r)
+{
+    add(Instruction(Instruction::Op::push, Instruction::Operand::Register(r)));
+}
+
+void Instructions::pop(Register r)
+{
+    add(Instruction(Instruction::Op::pop, Instruction::Operand::Register(r)));
 }
 
 void Instructions::jmp(Instruction::Operand o)
