@@ -1,2 +1,8 @@
 int a ; 3 + (3 - 1) ;
 print "a: [a]\n" ;
+
+int b ; 5 % 3 ;
+int c ; 5 / 3 ;
+int d ; 5 * 3 ;
+
+print "5 % 3 = [b]; 5 / 3 = [c]; 5 * 3 = [d]\n" ;

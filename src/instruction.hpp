@@ -155,8 +155,8 @@ public:
         jge,
         add,
         sub,
-        div,
-        mul,
+        idiv,
+        imul,
         cmp,
         xor_,
         jb,
@@ -288,6 +288,9 @@ public:
     void add_(Instruction::Operand o1, Instruction::Operand o2);
     void xor_(Instruction::Operand o1, Instruction::Operand o2);
     void cmp(Instruction::Operand o1, Instruction::Operand o2);
+
+    void imul(Instruction::Operand o);
+    void idiv(Instruction::Operand o);
 
     void push(Register r);
     void pop(Register r);

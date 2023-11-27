@@ -172,25 +172,19 @@ void X64Context::arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> nd, Regist
         break;
     case DIV:
         m_instructions.xor_(Instruction::Operand::Register(Register::rdx), Instruction::Operand::Register(Register::rdx));
-
-        fmt::print("TODO div(second_value)\n");
-        std::exit(1);
+        m_instructions.idiv(second_value);
 
         print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
         break;
     case MOD:
         m_instructions.xor_(Instruction::Operand::Register(Register::rdx), Instruction::Operand::Register(Register::rdx));
-
-        fmt::print("TODO div(second_value)\n");
-        std::exit(1);
+        m_instructions.idiv(second_value);
 
         print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rdx));
         break;
     case MUL:
         m_instructions.xor_(Instruction::Operand::Register(Register::rdx), Instruction::Operand::Register(Register::rdx));
-
-        fmt::print("TODO mul(second_value)\n");
-        std::exit(1);
+        m_instructions.imul(second_value);
 
         print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
         break;

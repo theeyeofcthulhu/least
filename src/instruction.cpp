@@ -27,6 +27,8 @@ const std::map<Instruction::Op, std::vector<uint8_t>> Instruction::op_opcode_map
     {Op::sub, { 0x81 }},
     {Op::cmp, { 0x81 }},
     {Op::add, { 0x81 }},
+    {Op::imul, { 0xf7 }},
+    {Op::idiv, { 0xf7 }},
 };
 
 // modrm second field 0x81 instruction
@@ -34,6 +36,8 @@ const std::map<Instruction::Op, uint8_t> Instruction::op_modrm_modifier_map = {
     {Op::add, { 0 }},
     {Op::sub, { 5 }},
     {Op::cmp, { 7 }},
+    {Op::imul, { 5 }},
+    {Op::idiv, { 7 }},
 };
 
 // register|modr/m and modr/m|register opcodes
@@ -196,6 +200,16 @@ std::vector<uint8_t> Instruction::opcode()
 
     if (m_op1.type == OpType::None && m_op2.type == OpType::None) {
         res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
+    } else if (is_modrm(m_op1.type) && m_op2.type == OpType::None) {
+        if (m_op == Op::imul || m_op == Op::idiv) {
+            res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
+
+            modrm.reg_op_field = op_modrm_modifier_map.at(m_op);
+
+            parse_modrm(modrm);
+        } else {
+            assert(false);
+        }
     } else if (is_modrm(m_op1.type) && m_op2.type == OpType::Immediate) {
         if (m_op == Op::sub || m_op == Op::add || m_op == Op::cmp) {
             res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
@@ -210,6 +224,8 @@ std::vector<uint8_t> Instruction::opcode()
 
             parse_modrm(modrm);
             parse_imm32(m_op2.cont.number);
+        } else {
+            assert(false);
         }
     } else if (is_modrm(m_op1.type) && m_op2.type == OpType::Register) {
         res.push_back((int) op_rrm_rmr_map.at(m_op).second);
@@ -303,6 +319,15 @@ void Instructions::xor_(Instruction::Operand o1, Instruction::Operand o2)
 void Instructions::cmp(Instruction::Operand o1, Instruction::Operand o2)
 {
     add(Instruction(Instruction::Op::cmp, o1, o2));
+}
+
+void Instructions::imul(Instruction::Operand o)
+{
+    add(Instruction(Instruction::Op::imul, o));
+}
+void Instructions::idiv(Instruction::Operand o)
+{
+    add(Instruction(Instruction::Op::idiv, o));
 }
 
 void Instructions::push(Register r)
