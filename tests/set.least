@@ -16,6 +16,10 @@ print "[x]\n" ;
 int div ; 1000 ;
 int dive ; 20 ;
 
+int a ;
+set a ; 5 ;
+print "Declared a as empty, set it to [a]" ;
+
 print "Dividing [div] by [dive]" ;
 set div ; div / dive ;
 print " to get: [div]\n" ;

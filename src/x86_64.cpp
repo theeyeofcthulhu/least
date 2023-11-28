@@ -334,7 +334,8 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             /* check_correct_function_call defines the variable */
             break;
         }
-        case F_INT: {
+        case F_INT:
+        case F_SET: {
             print_mov_if_req(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
             break;
         }
@@ -409,11 +410,6 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
                     break;
                 }
             }
-            break;
-        }
-        case F_SET: {
-            fmt::print("TODO: F_SET\n");
-            std::exit(1);
             break;
         }
         // TODO: make this function obsolete by overloading F_SET
