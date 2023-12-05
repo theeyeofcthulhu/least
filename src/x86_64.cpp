@@ -315,8 +315,21 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
         std::exit(1);
     }
     case ast::T_WHILE: {
-        fmt::print("TODO: T_WHILE");
-        std::exit(1);
+        std::shared_ptr<ast::While> t_while = AST_SAFE_CAST(ast::While, root);
+
+        while_ends.push(t_while->body->get_body_id());
+
+        m_instructions.add_code_label(LabelInfo::infile(fmt::format(".entry{}", t_while->body->get_body_id()), STB_LOCAL));
+
+        gen_instructions_core(t_while->condition, t_while->body->get_body_id(), real_end_id);
+        gen_instructions_core(t_while->body, t_while->body->get_body_id(), real_end_id);
+
+        m_instructions.jmp(Instruction::Operand(Instruction::OpType::SymbolName, 
+                            Instruction::OpContent(fmt::format(".entry{}", t_while->body->get_body_id()))));
+        m_instructions.add_code_label(LabelInfo::infile(fmt::format(".end{}", t_while->body->get_body_id()), STB_LOCAL));
+
+        while_ends.pop();
+        break;
     }
     case ast::T_FUNC: {
         std::shared_ptr<ast::Func> t_func = AST_SAFE_CAST(ast::Func, root);

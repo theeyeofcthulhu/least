@@ -3,5 +3,5 @@ print "beginning\n" ;
 while i < 100
     print "[i]\n" ;
 
-    add i ; 1 ;
+    set i ; i + 1 ;
 end
