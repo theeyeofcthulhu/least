@@ -334,7 +334,21 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             /* check_correct_function_call defines the variable */
             break;
         }
-        case F_INT:
+        case F_INT: {
+            switch (t_func->overload_id) {
+            // int a ; 1 ;
+            case 0: {
+                print_mov_if_req(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+                break;
+            }
+            // int a ;
+            case 1:
+                break;
+            default:
+                assert(false);
+            }
+            break;
+        }
         case F_SET: {
             print_mov_if_req(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
             break;

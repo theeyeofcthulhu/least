@@ -220,6 +220,7 @@ private:
 class Func : public Node {
 public:
     std::vector<std::shared_ptr<Node>> args;
+    int overload_id = -1;
 
     ts_class get_type() const override { return m_type; };
     func_id get_func() const { return m_func; };

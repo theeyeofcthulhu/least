@@ -31,10 +31,16 @@ const std::map<func_id, FunctionSpec> func_spec_map = {
     std::make_pair<func_id, FunctionSpec>(F_BREAK, { "break", 0, {}, {}, {} }),
     std::make_pair<func_id, FunctionSpec>(F_CONT, { "continue", 0, {}, {}, {} }),
     std::make_pair<func_id, FunctionSpec>(F_PUTCHAR, { "putchar", 1, { ast::T_INT_GENERAL }, {}, {} }),
-    std::make_pair<func_id, FunctionSpec>(F_INT, { "int", 2, { ast::T_VAR, ast::T_INT_GENERAL }, { V_INT }, { { 0, V_INT } } }),
     std::make_pair<func_id, FunctionSpec>(F_DOUBLE, { "double", 2, { ast::T_VAR, ast::T_DOUBLE_GENERAL }, { V_DOUBLE }, { { 0, V_DOUBLE } } }),
     std::make_pair<func_id, FunctionSpec>(F_ARRAY, { "array", 2, { ast::T_VAR, ast::T_CONST }, { V_ARR }, { { 0, V_ARR } } }),
     std::make_pair<func_id, FunctionSpec>(F_STR, { "str", 1, { ast::T_VAR }, { V_STR }, { { 0, V_STR } } }),
+};
+
+const std::map<func_id, std::vector<FunctionSpec>> overloaded_func_spec_map = {
+    std::make_pair<func_id, std::vector<FunctionSpec>>(F_INT, { 
+                { "int", 2, { ast::T_VAR, ast::T_INT_GENERAL }, { V_INT }, { { 0, V_INT } } },
+                { "int", 1, { ast::T_VAR }, { V_INT }, { { 0, V_INT } } },
+            }),
 };
 
 static inline bool is_single_number(std::shared_ptr<ast::Node> nd)
@@ -52,6 +58,62 @@ static inline bool is_int(std::shared_ptr<ast::Node> nd)
 static inline bool is_double(std::shared_ptr<ast::Node> nd)
 {
     return nd->get_type() == ast::T_DOUBLE_CONST || nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_VFUNC || nd->get_type() == ast::T_ARIT;
+}
+
+size_t get_correct_overload(const std::vector<FunctionSpec>& specs,
+        const std::vector<std::shared_ptr<ast::Node>>& args)
+{
+    for (size_t s = 0; s < specs.size(); s++) {
+        const auto& spec = specs[s];
+        
+        if (spec.exp_arg_len != args.size())
+            continue;
+
+        bool found = true;
+        for (size_t i = 0; i < args.size(); i++) {
+            const auto& arg = args[i];
+            auto type = spec.types[i];
+
+            // TODO: check vars?
+            switch(type) {
+            case ast::T_INT_GENERAL: {
+                if (!is_int(arg)) {
+                    found = false;
+                }
+                break;
+            }
+            case ast::T_DOUBLE_GENERAL: {
+                if (!is_double(arg)) {
+                    found = false;
+                }
+                break;
+            }
+            case ast::T_IN_MEMORY: {
+                if (!(arg->get_type() == ast::T_VAR || arg->get_type() == ast::T_ACCESS)) {
+                    found = false;
+                }
+                break;
+            }
+            default: {
+                if (arg->get_type() != spec.types[i]) {
+                    found = false;
+                }
+                break;
+            }
+            }
+
+            if (!found)
+                break;
+        }
+
+        if (found) {
+            return s;
+        }
+    }
+
+    // check_correct_function_call will throw errors
+    // TODO: better errors here?
+    return 0;
 }
 
 /* Give information about how a correct function call looks like and check for
@@ -211,7 +273,15 @@ void semantic_analysis(std::shared_ptr<ast::Node> root, CompileInfo& c_info)
     case ast::T_FUNC: {
         std::shared_ptr<ast::Func> t_func = AST_SAFE_CAST(ast::Func, root);
 
-        check_correct_function_call(func_spec_map.at(t_func->get_func()), t_func->args, c_info);
+        if (func_spec_map.contains(t_func->get_func())) {
+            check_correct_function_call(func_spec_map.at(t_func->get_func()), t_func->args, c_info);
+        } else {
+            const auto& specs = overloaded_func_spec_map.at(t_func->get_func());
+            size_t spec_index = get_correct_overload(specs, t_func->args);
+            t_func->overload_id = spec_index;
+            check_correct_function_call(specs[spec_index], t_func->args, c_info);
+        }
+
         for (const auto& arg : t_func->args) {
             semantic_analysis(arg, c_info);
         }

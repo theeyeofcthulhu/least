@@ -1,0 +1,8 @@
+int a ;
+print "a declared\n" ;
+
+set a ; 3 ;
+print "a set to [a]\n" ;
+
+int b ; 5 ;
+print "b declared and set to [b]\n" ;
