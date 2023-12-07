@@ -311,8 +311,10 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
 
     }
     case ast::T_ELSE: {
-        fmt::print("TODO: T_ELSE");
-        std::exit(1);
+        std::shared_ptr<ast::Else> t_else = AST_SAFE_CAST(ast::Else, root);
+        gen_instructions_core(t_else->body, t_else->body->get_body_id(), real_end_id);
+        m_instructions.add_code_label(LabelInfo::infile(fmt::format(".end{}", t_else->body->get_body_id()), STB_LOCAL));
+        break;
     }
     case ast::T_WHILE: {
         std::shared_ptr<ast::While> t_while = AST_SAFE_CAST(ast::While, root);
@@ -445,10 +447,12 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             std::exit(1);
             break;
         }
-        case F_ADD:
+        case F_ADD: {
+            m_instructions.add_(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+            break;
+        }
         case F_SUB: {
-            fmt::print("TODO: F_ADD, F_SUB\n");
-            std::exit(1);
+            m_instructions.sub(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
             break;
         }
         case F_READ: {
@@ -508,8 +512,8 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::r8)), operand_from_number(cmp->left));
             ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::r8);
         } else {
-            fmt::print("T_CMP TODO ARITHMETIC\n");
-            std::exit(1);
+            arithmetic_tree_to_x86_64(cmp->left, Register::r8);
+            ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::r8);
             // arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
             // regs[0] = "r8";
         }
@@ -518,10 +522,8 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             if (cmp->right->get_type() == ast::T_CONST) {
                 ops[1] = operand_from_number(cmp->right);
             } else {
-                fmt::print("T_CMP TODO ARITHMETIC\n");
-                std::exit(1);
-                // arithmetic_tree_to_x86_64(cmp->right, "r9", out, c_info);
-                // regs[1] = "r9";
+                arithmetic_tree_to_x86_64(cmp->right, Register::r9);
+                ops[1] = Instruction::Operand(Instruction::OpType::Register, Register::r9);
             }
 
             op = cmp->get_cmp();
