@@ -448,11 +448,21 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             break;
         }
         case F_ADD: {
-            m_instructions.add_(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+            if (t_func->args[1]->get_type() == ast::T_CONST) {
+                m_instructions.add_(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+            } else {
+                number_in_register(t_func->args[1], Register::rax);
+                m_instructions.add_(operand_from_number(t_func->args[0]), Instruction::Operand::Register(Register::rax));
+            }
             break;
         }
         case F_SUB: {
-            m_instructions.sub(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+            if (t_func->args[1]->get_type() == ast::T_CONST) {
+                m_instructions.sub(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+            } else {
+                number_in_register(t_func->args[1], Register::rax);
+                m_instructions.sub(operand_from_number(t_func->args[0]), Instruction::Operand::Register(Register::rax));
+            }
             break;
         }
         case F_READ: {
