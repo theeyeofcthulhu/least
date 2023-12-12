@@ -96,6 +96,54 @@ struct LabelInfo {
     {}
 };
 
+struct MemoryAccess {
+    Register reg;
+    int addend;
+
+    friend bool operator==(const MemoryAccess& lhs, const MemoryAccess &rhs)
+    {
+        return lhs.addend == rhs.addend && lhs.reg == rhs.reg;
+    }
+};
+
+struct ScaledMemoryAccess {
+    enum class Scale {
+        By1,
+        By2,
+        By4,
+        By8,
+    };
+
+    Register base;
+    Register scaled;
+    Scale scale;
+    int addend;
+
+    ScaledMemoryAccess(Register p_base, Register p_scaled, Scale p_scale, int p_addend)
+        : base(p_base)
+        , scaled(p_scaled)
+        , scale(p_scale)
+        , addend(p_addend)
+    {}
+
+    ScaledMemoryAccess(int p_addend) : ScaledMemoryAccess(Register::rbp,
+                                                          Register::rax,
+                                                          Scale::By8,
+                                                          p_addend)
+    {}
+
+    ScaledMemoryAccess() : ScaledMemoryAccess(0)
+    {}
+
+    friend bool operator==(const ScaledMemoryAccess& lhs, const ScaledMemoryAccess &rhs)
+    {
+        return lhs.base == rhs.base 
+            && lhs.scaled == rhs.scaled
+            && lhs.scale == rhs.scale
+            && lhs.addend == rhs.addend;
+    }
+};
+
 // TODO: r8-r15 with REX
 // TODO: SIB byte
 // TODO: oddities of ModRM byte
@@ -112,6 +160,9 @@ struct ModRM {
     uint8_t reg_op_field;
     int imm;
 
+    bool has_sib = false;
+    uint8_t sib = 0;
+
     ModRM(Register address_reg, AddressingMode sz) : ModRM(address_reg, sz, 0, 0)
     {
     }
@@ -126,17 +177,8 @@ struct ModRM {
     {
     }
 
+    void make_sib(ScaledMemoryAccess scaled);
     uint8_t value() const;
-};
-
-struct MemoryAccess {
-    Register reg;
-    int addend;
-
-    friend bool operator==(const MemoryAccess& lhs, const MemoryAccess &rhs)
-    {
-        return lhs.addend == rhs.addend && lhs.reg == rhs.reg;
-    }
 };
 
 class Instruction {
@@ -176,6 +218,7 @@ public:
         SymbolName,
         LabelInfo,
         Memory,
+        Scaled,
     };
 
     enum class MovOpCodes {
@@ -193,6 +236,7 @@ public:
         std::string symbol_name {};
         LabelInfo label;
         MemoryAccess memory;
+        ScaledMemoryAccess scaled;
 
         OpContent() : number(0)
         {}
@@ -205,6 +249,8 @@ public:
         OpContent(LabelInfo p_label) : label(p_label)
         {}
         OpContent(MemoryAccess p_memory) : memory(p_memory)
+        {}
+        OpContent(ScaledMemoryAccess p_scaled) : scaled(p_scaled)
         {}
 
         static bool equal(OpType t, const OpContent& o1, const OpContent& o2);

@@ -48,9 +48,48 @@ const std::map<Instruction::Op, std::pair<uint8_t, uint8_t>> Instruction::op_rrm
     {Op::sub, { 0x2b, 0x29 }},
 };
 
-// const int address_size_override_prefix = 0x67;
-const int extension_prefix = 0x41;
-const int rex_r = 0x44;
+struct REX {
+    bool b = false;
+    bool x = false;
+    bool r = false;
+    bool w = false;
+
+    uint8_t get()
+    {
+        if (w && r && x && b)
+            return 0x4f;
+        else if (w && r && x)
+            return 0x4e;
+        else if (w && r && b)
+            return 0x4d;
+        else if (w && x && b)
+            return 0x4b;
+        else if (r && x && b)
+            return 0x47;
+        else if (w && r)
+            return 0x4c;
+        else if (w && x)
+            return 0x4a;
+        else if (w && b)
+            return 0x49;
+        else if (r && x)
+            return 0x46;
+        else if (r && b)
+            return 0x45;
+        else if (x && b)
+            return 0x43;
+        else if (w)
+            return 0x48;
+        else if (r)
+            return 0x44;
+        else if (x)
+            return 0x42;
+        else if (b)
+            return 0x41;
+        else
+            return 0x0;
+    }
+};
 
 ModRM::ModRM(Register address_reg, AddressingMode sz, uint8_t reg_op, int p_imm) 
     : address(address_reg)
@@ -71,6 +110,12 @@ uint8_t ModRM::value() const
     return (uint8_t)mode << 6 | reg_op_field << 3 | (uint8_t)address;
 }
 
+void ModRM::make_sib(ScaledMemoryAccess scaled)
+{
+    has_sib = true;
+    sib = (uint8_t)scaled.scale << 6 | (uint8_t)scaled.scaled << 3 | (uint8_t)scaled.base;
+}
+
 bool Instruction::OpContent::equal(OpType t, const OpContent& o1, const OpContent& o2)
 {
     switch(t) {
@@ -84,6 +129,8 @@ bool Instruction::OpContent::equal(OpType t, const OpContent& o1, const OpConten
             std::exit(1);
         case OpType::Memory:
             return o1.memory == o2.memory;
+        case OpType::Scaled:
+            return o1.scaled == o2.scaled;
         default:
             UNREACHABLE();
             break;
@@ -114,16 +161,31 @@ std::vector<uint8_t> Instruction::opcode()
         res.insert(res.end(), bytes.begin(), bytes.end());
     };
 
-    // FIXME: Is this universally applicable???
+    /*
+    FIXME: REX
+    REX rex;
+
     if (m_op1.type == OpType::Register && (Register)m_op1.cont.number >= Register::r8) {
-        res.push_back(extension_prefix);
+        rex.b = true;
         m_op1.cont.number -= (int)Register::r8;
     }
     // Extend ModRM to 64-bit registers
     if (m_op2.type == OpType::Register && (Register)m_op2.cont.number >= Register::r8) {
-        res.push_back(rex_r);
+        rex.b = true;
         m_op2.cont.number -= (int)Register::r8;
     }
+
+    if (m_op1.type == OpType::Scaled || m_op2.type == OpType::Scaled) {
+        auto& op = m_op1.type == OpType::Scaled ? m_op1 : m_op2;
+        if (op.cont.scaled.scaled >= Register::r8) {
+            rex.x = true;
+            op.cont.scaled.scaled = (Register)((int)op.cont.scaled.scaled - (int)Register::r8);
+        }
+    }
+
+    if (auto rex_byte = rex.get(); rex_byte != 0) {
+        res.push_back(rex_byte);
+    }*/
 
     // TODO:
     // accessing 64-bit double constants is done via ModR/M byte
@@ -155,7 +217,7 @@ std::vector<uint8_t> Instruction::opcode()
     }
 
     auto is_modrm = [](OpType o) {
-        return o == OpType::Register || o == OpType::Memory;
+        return o == OpType::Register || o == OpType::Memory || o == OpType::Scaled;
     };
 
     auto make_modrm = [](const Operand &o) {
@@ -170,6 +232,14 @@ std::vector<uint8_t> Instruction::opcode()
                 modrm.mode = ModRM::AddressingMode::disp32;
             modrm.address = o.cont.memory.reg;
             modrm.imm = o.cont.memory.addend;
+        } else if (o.type == OpType::Scaled) {
+            modrm.make_sib(o.cont.scaled);
+            if (o.cont.scaled.addend >= -(255/2) && o.cont.scaled.addend <= (255/2))
+                modrm.mode = ModRM::AddressingMode::disp8;
+            else
+                modrm.mode = ModRM::AddressingMode::disp32;
+            modrm.address = (Register)0b100; // sib
+            modrm.imm = o.cont.scaled.addend;
         }
 
         return modrm;
@@ -177,6 +247,8 @@ std::vector<uint8_t> Instruction::opcode()
 
     auto parse_modrm = [&res, parse_imm32](ModRM m) {
         res.push_back(m.value());
+        if (m.has_sib)
+            res.push_back(m.sib);
 
         if (m.mode == ModRM::AddressingMode::disp8 || m.mode == ModRM::AddressingMode::disp32) {
             if (m.mode == ModRM::AddressingMode::disp8) {
@@ -192,7 +264,7 @@ std::vector<uint8_t> Instruction::opcode()
     // will be the ModR/M byte, can safely be made.
 
     ModRM modrm;
-    if (is_modrm(m_op1.type) && m_op2.type != OpType::Memory) {
+    if (is_modrm(m_op1.type) && (m_op2.type != OpType::Memory && m_op2.type != OpType::Scaled)) {
         modrm = make_modrm(m_op1);
     } else if (is_modrm(m_op2.type)) {
         modrm = make_modrm(m_op2);
@@ -249,6 +321,7 @@ std::vector<uint8_t> Instruction::opcode()
         res.insert(res.end(), op_opcode_map.at(m_op).begin(), op_opcode_map.at(m_op).end());
         parse_imm32(0);
     } else {
+        fmt::print("m_op1.type: {}\nm_op2.type: {}\n", (int)m_op1.type, (int)m_op2.type);
         assert(false && "Unrecognized combination");
     }
 

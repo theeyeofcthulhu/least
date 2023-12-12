@@ -43,10 +43,16 @@ void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
         fmt::print("{}\nTODO: T_DOUBLE_CONST\n", __PRETTY_FUNCTION__);
         std::exit(1);
         break;
-    case ast::T_ACCESS:
-        fmt::print("{}\nTODO: T_ACCESS\n", __PRETTY_FUNCTION__);
-        std::exit(1);
+    case ast::T_ACCESS: {
+        auto access = AST_SAFE_CAST(ast::Access, nd);
+
+        // pass 'reg' as tmp register because we will overwrite it anyway
+        // TODO: how to determine free registers?
+        auto access_op = operand_from_number(access, reg);
+
+        m_instructions.mov(Instruction::Operand::Register(reg), access_op);
         break;
+    }
     case ast::T_VFUNC:
         fmt::print("{}\nTODO: T_VFUNC\n", __PRETTY_FUNCTION__);
         std::exit(1);
@@ -63,9 +69,22 @@ void X64Context::print_mov_if_req(Instruction::Operand o1, Instruction::Operand 
         m_instructions.mov(o1, o2);
 }
 
-Instruction::Operand X64Context::operand_from_number(std::shared_ptr<ast::Node> nd)
+void X64Context::mov_memory(Instruction::Operand o1, Instruction::Operand o2) {
+    auto is_mem = [](Instruction::OpType ot) {
+        return ot == Instruction::OpType::Memory || ot == Instruction::OpType::Scaled;
+    };
+
+    if (!is_mem(o1.type) || !is_mem(o2.type)) {
+        print_mov_if_req(o1, o2);
+    } else {
+        m_instructions.mov(Instruction::Operand::Register(Register::rsi), o2);
+        print_mov_if_req(o1, Instruction::Operand::Register(Register::rsi));
+    }
+}
+
+Instruction::Operand X64Context::operand_from_number(std::shared_ptr<ast::Node> nd, Register tmp)
 {
-    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_ARIT);
+    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_ACCESS);
 
     if (nd->get_type() == ast::T_VAR) {
         auto var = AST_SAFE_CAST(ast::Var, nd);
@@ -77,8 +96,17 @@ Instruction::Operand X64Context::operand_from_number(std::shared_ptr<ast::Node> 
                 Instruction::OpContent(
                     MemoryAccess(Register::rbp, (int) (-1 * m_c_info.known_vars[var->get_var_id()].stack_offset * WORD_SIZE))));
     } else if (nd->get_type() == ast::T_ARIT) {
-        number_in_register(nd, Register::r8);
-        return Instruction::Operand::Register(Register::r8);
+        number_in_register(nd, tmp);
+        return Instruction::Operand::Register(tmp);
+    } else if (nd->get_type() == ast::T_ACCESS) {
+        auto access = AST_SAFE_CAST(ast::Access, nd);
+
+        // store index in tmp
+        number_in_register(access->index, tmp);
+        return Instruction::Operand(Instruction::OpType::Scaled,
+                Instruction::OpContent(
+                    ScaledMemoryAccess(Register::rbp, tmp, ScaledMemoryAccess::Scale::By8, (-1) * m_c_info.known_vars[access->get_array_id()].stack_offset * WORD_SIZE)
+                    ));
     } else {
         auto const_ = AST_SAFE_CAST(ast::Const, nd);
         return Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(const_->get_value()));
@@ -360,7 +388,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             break;
         }
         case F_SET: {
-            print_mov_if_req(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
+            mov_memory(operand_from_number(t_func->args[0]), operand_from_number(t_func->args[1]));
             break;
         }
         case F_DOUBLE: {
@@ -411,12 +439,16 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
                     }
                     break;
                 }
-                case ast::T_DOUBLE_CONST:
-                case ast::T_CONST:
                 case ast::T_ACCESS: {
-                    fmt::print("TODO: PRINT T_DOUBLE_CONST, T_CONST, T_ACCESS\n");
-                    std::exit(1);
+                    auto access = AST_SAFE_CAST(ast::Access, format);
+                    number_in_register(format, Register::rdi);
+                    m_instructions.call("uprint");
                     break;
+                }
+                case ast::T_DOUBLE_CONST:
+                case ast::T_CONST: {
+                    fmt::print("TODO: PRINT T_DOUBLE_CONST, T_CONST\n");
+                    std::exit(1);
                 }
                 default:
                     m_c_info.err.error("Unexpected format token in string");
@@ -503,11 +535,11 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
         if (cmp->left->get_type() == ast::T_VAR) {
             ops[0] = operand_from_number(cmp->left);
         } else if (cmp->left->get_type() == ast::T_CONST) {
-            m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::r8)), operand_from_number(cmp->left));
-            ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::r8);
+            m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)), operand_from_number(cmp->left));
+            ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::rdi);
         } else {
-            arithmetic_tree_to_x86_64(cmp->left, Register::r8);
-            ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::r8);
+            arithmetic_tree_to_x86_64(cmp->left, Register::rdi);
+            ops[0] = Instruction::Operand(Instruction::OpType::Register, Register::rdi);
             // arithmetic_tree_to_x86_64(cmp->left, "r8", out, c_info);
             // regs[0] = "r8";
         }
@@ -516,8 +548,8 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             if (cmp->right->get_type() == ast::T_CONST) {
                 ops[1] = operand_from_number(cmp->right);
             } else {
-                arithmetic_tree_to_x86_64(cmp->right, Register::r9);
-                ops[1] = Instruction::Operand(Instruction::OpType::Register, Register::r9);
+                arithmetic_tree_to_x86_64(cmp->right, Register::rsi);
+                ops[1] = Instruction::Operand(Instruction::OpType::Register, Register::rsi);
             }
 
             op = cmp->get_cmp();
