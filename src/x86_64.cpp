@@ -242,11 +242,8 @@ Instructions X64Context::gen_instructions()
 
     gen_instructions_core(ast::to_base(m_root), m_root->get_body_id(), m_root->get_body_id());
 
-    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
-                        Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(60)));
-    m_instructions.xor_(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
-                         Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)));
-    m_instructions.syscall();
+    // exit(0);
+    m_instructions.syscall1(60, Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(0)));
 
     for (size_t i = 0; i < m_c_info.known_strings.size(); i++) {
         m_instructions.add_string(i, m_c_info.known_strings[i]);
@@ -339,9 +336,7 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
         switch (t_func->get_func()) {
         case F_EXIT: {
             number_in_register(t_func->args[0], Register::rdi);
-            m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
-                                Instruction::Operand(Instruction::OpType::Immediate, 60));
-            m_instructions.syscall();
+            m_instructions.syscall0(60);
             break;
         }
         case F_ARRAY:
@@ -379,23 +374,12 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
             for (const auto& format : ls->format) {
                 switch (format->get_type()) {
                 case ast::T_STR: {
-                    /** fmt::print(out, "mov rax, 1\n"
-                                    "mov rdi, 1\n"
-                                    "mov rsi, str{0}\n"
-                                    "mov rdx, str{0}Len\n"
-                                    "syscall\n",
-                        str->get_str_id()); **/
                     std::shared_ptr<ast::Str> str = AST_SAFE_CAST(ast::Str, format);
 
-                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
-                                        Instruction::Operand(Instruction::OpType::Immediate, 1));
-                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)),
-                                        Instruction::Operand(Instruction::OpType::Immediate, 1));
-                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsi)),
-                                        Instruction::Operand(Instruction::OpType::String, Instruction::OpContent(str->get_str_id())));
-                    m_instructions.mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdx)),
-                                        Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.known_strings[str->get_str_id()].length())));
-                    m_instructions.syscall();
+                    m_instructions.syscall3(1, 
+                            Instruction::Operand(Instruction::OpType::Immediate, 1), 
+                            Instruction::Operand(Instruction::OpType::String, Instruction::OpContent(str->get_str_id())),
+                            Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(m_c_info.known_strings[str->get_str_id()].length())));
 
                     break;
                 }

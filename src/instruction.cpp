@@ -189,7 +189,7 @@ std::vector<uint8_t> Instruction::opcode()
 
     // Memory access has precedence over register when it comes to constructing ModR/M byte.
     // As you cannot move from memory to memory, the assumption that if op2 is memory, it
-    // will be the ModR/M byte can safely be made.
+    // will be the ModR/M byte, can safely be made.
 
     ModRM modrm;
     if (is_modrm(m_op1.type) && m_op2.type != OpType::Memory) {
@@ -292,6 +292,28 @@ void Instructions::add_code_label(LabelInfo info)
 void Instructions::call(std::string symbol)
 {
     add(Instruction(Instruction::Op::call, Instruction::Operand(Instruction::OpType::SymbolName, symbol)));
+}
+
+void Instructions::syscall3(int syscall_id, Instruction::Operand o1, Instruction::Operand o2, Instruction::Operand o3)
+{
+    mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdx)), o3);
+    syscall2(syscall_id, o1, o2);
+}
+void Instructions::syscall2(int syscall_id, Instruction::Operand o1, Instruction::Operand o2)
+{
+    mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rsi)), o2);
+    syscall1(syscall_id, o1);
+}
+void Instructions::syscall1(int syscall_id, Instruction::Operand o1)
+{
+    mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rdi)), o1);
+    syscall0(syscall_id);
+}
+void Instructions::syscall0(int syscall_id)
+{
+    mov(Instruction::Operand(Instruction::OpType::Register, Instruction::OpContent(Register::rax)),
+        Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(syscall_id)));
+    syscall();
 }
 
 void Instructions::syscall()

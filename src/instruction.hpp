@@ -280,6 +280,12 @@ public:
     void add_code_label(LabelInfo info);
 
     void call(std::string symbol);
+
+
+    void syscall3(int syscall_id, Instruction::Operand o1, Instruction::Operand o2, Instruction::Operand o3);
+    void syscall2(int syscall_id, Instruction::Operand o1, Instruction::Operand o2);
+    void syscall1(int syscall_id, Instruction::Operand o1);
+    void syscall0(int syscall_id);
     void syscall();
 
     void mov(Instruction::Operand o1, Instruction::Operand o2);
