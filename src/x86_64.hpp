@@ -32,9 +32,10 @@ private:
     };
 
     void number_in_register(std::shared_ptr<ast::Node> nd, Register reg);
+    void vfunc_in_register(std::shared_ptr<ast::VFunc> nd, Register reg);
     void print_mov_if_req(Instruction::Operand o1, Instruction::Operand o2);
     void mov_memory(Instruction::Operand o1, Instruction::Operand o2);
-    Instruction::Operand operand_from_number(std::shared_ptr<ast::Node> nd, Register tmp=Register::r8);
+    Instruction::Operand operand_from_number(std::shared_ptr<ast::Node> nd, Register tmp=Register::rsi);
     void arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> nd, Register reg);
 
     // TODO: is this something we need??

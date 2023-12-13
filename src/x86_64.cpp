@@ -54,9 +54,29 @@ void X64Context::number_in_register(std::shared_ptr<ast::Node> nd, Register reg)
         break;
     }
     case ast::T_VFUNC:
-        fmt::print("{}\nTODO: T_VFUNC\n", __PRETTY_FUNCTION__);
-        std::exit(1);
+        vfunc_in_register(AST_SAFE_CAST(ast::VFunc, nd), reg);
         break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+}
+
+void X64Context::vfunc_in_register(std::shared_ptr<ast::VFunc> nd, Register reg)
+{
+    auto vfunc = nd->get_value_func();
+
+    switch (vfunc) {
+    case VF_TIME: {
+        m_instructions.syscall1(201, Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(0)));
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
+        break;
+    }
+    case VF_GETUID: {
+        m_instructions.syscall0(102);
+        print_mov_if_req(Instruction::Operand::Register(reg), Instruction::Operand::Register(Register::rax));
+        break;
+    }
     default:
         UNREACHABLE();
         break;
@@ -84,7 +104,7 @@ void X64Context::mov_memory(Instruction::Operand o1, Instruction::Operand o2) {
 
 Instruction::Operand X64Context::operand_from_number(std::shared_ptr<ast::Node> nd, Register tmp)
 {
-    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_ACCESS);
+    assert(nd->get_type() == ast::T_VAR || nd->get_type() == ast::T_CONST || nd->get_type() == ast::T_ARIT || nd->get_type() == ast::T_ACCESS || nd->get_type() == ast::T_VFUNC);
 
     if (nd->get_type() == ast::T_VAR) {
         auto var = AST_SAFE_CAST(ast::Var, nd);
@@ -107,6 +127,12 @@ Instruction::Operand X64Context::operand_from_number(std::shared_ptr<ast::Node> 
                 Instruction::OpContent(
                     ScaledMemoryAccess(Register::rbp, tmp, ScaledMemoryAccess::Scale::By8, (-1) * m_c_info.known_vars[access->get_array_id()].stack_offset * WORD_SIZE)
                     ));
+    } else if (nd->get_type() == ast::T_VFUNC) {
+        auto vfunc = AST_SAFE_CAST(ast::VFunc, nd);
+
+        // Goes in rax anyway
+        number_in_register(vfunc, Register::rax);
+        return Instruction::Operand::Register(Register::rax);
     } else {
         auto const_ = AST_SAFE_CAST(ast::Const, nd);
         return Instruction::Operand(Instruction::OpType::Immediate, Instruction::OpContent(const_->get_value()));
@@ -176,7 +202,7 @@ void X64Context::arithmetic_tree_to_x86_64(std::shared_ptr<ast::Node> nd, Regist
     case ast::T_VFUNC: {
         if (value_in_rax)
             m_instructions.push(Register::rax);
-        fmt::print("{}\nTODO VFUNC\n", __PRETTY_FUNCTION__);
+        number_in_register(arit->right, Register::rcx);
         if (value_in_rax)
             m_instructions.pop(Register::rax);
         break;

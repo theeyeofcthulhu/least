@@ -7,5 +7,6 @@ int b ; -> time * 2 ;
 print "Doubled time in Unix-Seconds: [b]\n" ;
 
 set b ; -> time * 4 ;
+set b ; 4 * -> time ;
 
 print "Quadrupled time in Unix-Seconds: [b]\n" ;
