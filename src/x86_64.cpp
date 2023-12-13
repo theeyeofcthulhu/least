@@ -439,15 +439,14 @@ void X64Context::gen_instructions_core(std::shared_ptr<ast::Node> root, int body
                     }
                     break;
                 }
+                case ast::T_CONST:
                 case ast::T_ACCESS: {
-                    auto access = AST_SAFE_CAST(ast::Access, format);
                     number_in_register(format, Register::rdi);
                     m_instructions.call("uprint");
                     break;
                 }
-                case ast::T_DOUBLE_CONST:
-                case ast::T_CONST: {
-                    fmt::print("TODO: PRINT T_DOUBLE_CONST, T_CONST\n");
+                case ast::T_DOUBLE_CONST: {
+                    fmt::print("TODO: PRINT T_DOUBLE_CONST\n");
                     std::exit(1);
                 }
                 default:
